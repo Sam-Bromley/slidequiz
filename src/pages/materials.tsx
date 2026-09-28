@@ -11,11 +11,12 @@ import { Menu } from "@/components/ui/menu";
 import { toast } from "@/components/ui/toast";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
-import { actions } from "@/store/actions";
+import { actions, folderOrder } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { Folder } from "@/types/models";
 
 const MATERIAL_MIME = "application/x-slidequiz-material";
+const FOLDER_MIME = "application/x-slidequiz-folder";
 
 export const FOLDER_COLOURS: { key: string; label: string; hex: string }[] = [
   { key: "red", label: "Red", hex: "#ef4444" },
@@ -85,6 +86,8 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
 
 function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; count: number; onDropMaterial: (id: string) => void; otherWidths: number[] }) {
   const [over, setOver] = useState(false);
+  const [dropAt, setDropAt] = useState<"before" | "after" | null>(null);
+  const [dragging, setDragging] = useState(false);
   // Each folder has its own width; drag its right edge to change it.
   const { width, start: onResizeStart } = useResizableWidth(f.width, otherWidths, (w) => actions.setFolderWidth(f.id, w));
   const [colouring, setColouring] = useState(false);
@@ -93,21 +96,40 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
   const [deleting, setDeleting] = useState(false);
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(FOLDER_MIME, f.id);
+        e.dataTransfer.effectAllowed = "move";
+        setDragging(true);
+      }}
+      onDragEnd={() => setDragging(false)}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(MATERIAL_MIME)) {
           e.preventDefault();
           setOver(true);
+        } else if (e.dataTransfer.types.includes(FOLDER_MIME) && !dragging) {
+          // Dragging another folder: show where it will land (above or below this one).
+          e.preventDefault();
+          const r = e.currentTarget.getBoundingClientRect();
+          setDropAt(e.clientY < r.top + r.height / 2 ? "before" : "after");
         }
       }}
-      onDragLeave={() => setOver(false)}
+      onDragLeave={() => {
+        setOver(false);
+        setDropAt(null);
+      }}
       onDrop={(e: DragEvent) => {
         setOver(false);
-        const id = e.dataTransfer.getData(MATERIAL_MIME);
-        if (id) onDropMaterial(id);
+        const mid = e.dataTransfer.getData(MATERIAL_MIME);
+        if (mid) onDropMaterial(mid);
+        const fid = e.dataTransfer.getData(FOLDER_MIME);
+        if (fid && fid !== f.id) actions.reorderFolder(fid, f.id, dropAt === "after");
+        setDropAt(null);
       }}
       style={{ width: `min(100%, ${width}px)` }}
-      className={cn("group relative flex items-center gap-3 rounded-xl border bg-card px-3.5 py-3 transition-colors hover:border-foreground/20", over && "border-foreground/50 bg-accent")}
+      className={cn("group relative flex items-center gap-3 rounded-xl border bg-card px-3.5 py-3 transition-colors hover:border-foreground/20", over && "border-foreground/50 bg-accent", dragging && "opacity-40")}
     >
+      {dropAt && <span className={cn("pointer-events-none absolute inset-x-2 h-0.5 rounded-full bg-foreground", dropAt === "before" ? "-top-[5px]" : "-bottom-[5px]")} aria-hidden />}
       <FolderIcon className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
       <Link to={`/materials?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
         <span className="block truncate text-[14px] font-medium" title={f.name}>{f.name}</span>
@@ -169,7 +191,7 @@ export function MaterialsPage() {
   const current = trail[trail.length - 1];
 
   const searching = q.trim().length > 0;
-  const folders = searching ? [] : data.folders.filter((f) => (f.parentId ?? null) === folderId).sort((a, b) => a.name.localeCompare(b.name));
+  const folders = searching ? [] : data.folders.filter((f) => (f.parentId ?? null) === folderId).sort(folderOrder);
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     const out = data.materials.filter((m) => (t ? `${m.title} ${m.subject} ${m.topics.map((x) => x.name).join(" ")} ${m.files.map((f) => f.name).join(" ")}`.toLowerCase().includes(t) : (m.folderId ?? null) === folderId));

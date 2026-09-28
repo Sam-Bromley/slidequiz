@@ -31,6 +31,10 @@ function addXp(s: AppData, n: number): AppData {
   return { ...s, user: { ...s.user, xp: Math.max(0, s.user.xp + n) } };
 }
 
+/** Folders keep the order the student dragged them into; new ones go at the end. */
+export const folderOrder = (a: { order?: number; createdAt: string }, b: { order?: number; createdAt: string }) =>
+  (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.createdAt.localeCompare(b.createdAt);
+
 export const actions = {
   /* ------------------------------------------------------------ materials */
   addMaterials(materials: Material[]) {
@@ -108,6 +112,19 @@ export const actions = {
   },
   renameFolder(id: ID, name: string) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, name: name.trim() || f.name } : f)) }));
+  },
+  /** Move a folder before or after another folder with the same parent. */
+  reorderFolder(id: ID, targetId: ID, after: boolean) {
+    setState((s) => {
+      const moving = s.folders.find((f) => f.id === id);
+      const target = s.folders.find((f) => f.id === targetId);
+      if (!moving || !target || id === targetId || (moving.parentId ?? null) !== (target.parentId ?? null)) return s;
+      const siblings = s.folders.filter((f) => (f.parentId ?? null) === (moving.parentId ?? null)).sort(folderOrder).filter((f) => f.id !== id);
+      const at = siblings.findIndex((f) => f.id === targetId) + (after ? 1 : 0);
+      siblings.splice(at, 0, moving);
+      const pos = new Map(siblings.map((f, i) => [f.id, i]));
+      return { ...s, folders: s.folders.map((f) => (pos.has(f.id) ? { ...f, order: pos.get(f.id) } : f)) };
+    });
   },
   setFolderWidth(id: ID, width: number) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, width } : f)) }));

@@ -142,6 +142,8 @@ export interface Folder {
   color?: string;
   /** Width in My Materials, in pixels (drag the right edge to change). */
   width?: number;
+  /** Position among its sibling folders (drag to reorder). */
+  order?: number;
 }
 
 export type BackgroundScene = "none" | "sunset" | "forest" | "ocean" | "aurora" | "dunes" | "peaks" | "snow" | "hills" | "lake" | "canyon";

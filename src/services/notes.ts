@@ -74,7 +74,7 @@ const CITATIONS = [
 ];
 export const stripCitations = (t: string) => CITATIONS.reduce((x, re) => x.replace(re, ""), t);
 
-const FILLER_START = /^(it is (important|worth|useful) (to note|noting|remembering) that|it should be noted that|note that|remember that|in other words,?|basically,?|essentially,?|simply put,?|put simply,?|as (we|you) (can )?see,?|importantly,?|interestingly,?|of course,?)\s+/i;
+const FILLER_START = /^(it is (important|worth|useful) (to note|noting|remembering) that|it should be noted that|note that|remember that|in other words,?|basically,?|essentially,?|simply put,?|put simply,?|as (we|you) (can )?see,?|importantly,?|interestingly,?|of course,?|in summary,?|to summari[sz]e,?|overall,?|so,|firstly,?|secondly,?|finally,?|in addition,?|additionally,?|furthermore,?|moreover,?|also,)\s+/i;
 const WORDY: [RegExp, string][] = [
   [/\bin order to\b/gi, "to"],
   [/\bdue to the fact that\b/gi, "because"],
@@ -93,6 +93,7 @@ const WORDY: [RegExp, string][] = [
   [/\bare defined as\b/gi, "are"],
   [/\bit is (clear|evident) that\b/gi, ""],
   [/\bvery\s+/gi, ""],
+  [/^there (?:are|is) /i, ""],
 ];
 
 /** Same meaning, fewer words. Nothing factual is removed. */
@@ -103,14 +104,54 @@ export function concise(line: string) {
   return t ? t[0].toUpperCase() + t.slice(1) : t;
 }
 
+/** Lines that frame the lecture rather than teach: prompts, activities, signposting. */
+const NOT_CONTENT =
+  /^(discuss|think about|consider (this|the following|how|why|what)|activity|task\b|exercise\b|question\s*\d*:|quiz|poll|try (this|it)|have a go|work (in|with)|with a partner|in (pairs|groups)|let'?s|we (will|'ll|are going to) (now |next )?(look|cover|explore|discuss|see|start|move|begin)|next,? we|now we|as (mentioned|discussed|we saw|you know)|recall (that|from)|remember (from|last)|last (week|time|lecture)|in the (next|previous) (lecture|session|week)|any questions|click (here|the link)|watch (this|the video)|video:|see (the )?(video|below|above|slide))/i;
+
+const NUMBER_WORDS: Record<string, string> = { one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12" };
+
+/**
+ * Note style: a definition becomes "Term – meaning", small numbers become digits,
+ * and the closing full stop goes, so each bullet reads at a glance.
+ */
+function noteLine(t: string, defs: ReturnType<typeof extractDefinitions>, sub: boolean): NoteLine {
+  let text = t.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b(?=\s+(?:out of|of|types?|kinds?|stages?|steps?|parts?|main|key|major|different|[a-z]+s\b))/gi, (w) => NUMBER_WORDS[w.toLowerCase()] ?? w);
+  text = text.replace(/(?<![.\d])\.$/, "");
+  const line: NoteLine = { kind: "bullet", text, depth: sub ? 1 : 0 };
+  const lead = text.match(LEAD);
+  if (lead && wordCount(lead[1]) <= 5 && !/[.!?]/.test(lead[1])) {
+    line.term = lead[1].trim();
+    line.text = lead[2].trim();
+    line.sep = ": ";
+    return line;
+  }
+  // "The stroma is the fluid…" → "Stroma – fluid…"
+  const lower = text.toLowerCase();
+  const d = defs.find((x) => [x.term, "the " + x.term, "a " + x.term, "an " + x.term].some((p) => lower.startsWith(p.toLowerCase() + " ")));
+  const m = text.match(/^(?:the |a |an )?(.{2,50}?)\s+(?:is|are)\s+(?:(?:defined as|known as|called)\s+)?(?:the |a |an )?(.+)$/i);
+  if (m && (d || (wordCount(m[1]) <= 4 && !/^(it|this|that|these|those|they|there|he|she|we|you|which|what|one|each|both|such|all|some|most|many)\b/i.test(m[1]) && /^(the |a |an )/i.test(text.slice(text.search(/\s(is|are)\s/i) + 4))))) {
+    const term = m[1].trim();
+    line.term = term[0].toUpperCase() + term.slice(1);
+    line.text = m[2].trim();
+    line.sep = " – ";
+    return line;
+  }
+  if (d) {
+    const idx = lower.indexOf(d.term.toLowerCase());
+    line.term = text.slice(0, idx + d.term.length);
+    line.text = text.slice(idx + d.term.length).trim();
+    line.sep = " ";
+  }
+  return line;
+}
+
 export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
   const { body } = splitBody(page.text);
   const raw = body
     .split(/\n+/)
     .map(clean)
     .filter(Boolean)
-    .filter((l) => !ADMIN_LINE.test(l) && !ADMIN_WHOLE.test(l) && !same(l, page.title))
-    .map(concise);
+    .filter((l) => !ADMIN_LINE.test(l) && !ADMIN_WHOLE.test(l) && !NOT_CONTENT.test(l) && !same(l, page.title));
   // Word sections start with "(Parent heading)" for context; the section heading already shows it.
   if (raw[0] && /^\(.*\)$/.test(raw[0])) raw.shift();
   const table = tableRows(raw);
@@ -124,23 +165,13 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
       underSub = true;
       continue;
     }
-    const long = l.length > 170 || splitSentences(l).length > 1;
-    const line: NoteLine = { kind: long ? "para" : "bullet", text: l, depth: underSub && !long ? 1 : 0 };
-    const lead = l.match(LEAD);
-    if (lead && wordCount(lead[1]) <= 5 && !/[.!?]/.test(lead[1])) {
-      line.term = lead[1].trim();
-      line.text = lead[2].trim();
-      line.sep = ": ";
-    } else {
-      const d = defs.find((x) => l.toLowerCase().startsWith(x.term.toLowerCase()) || l.toLowerCase().startsWith("the " + x.term.toLowerCase()) || l.toLowerCase().startsWith("a " + x.term.toLowerCase()) || l.toLowerCase().startsWith("an " + x.term.toLowerCase()));
-      if (d) {
-        const idx = l.toLowerCase().indexOf(d.term.toLowerCase());
-        line.term = l.slice(0, idx + d.term.length);
-        line.text = l.slice(idx + d.term.length).trim();
-        line.sep = " ";
-      }
+    // One point per bullet: long lines are split into their sentences.
+    for (const sentence of splitSentences(l).length > 1 ? splitSentences(l) : [l]) {
+      const t = concise(sentence);
+      // Rhetorical questions and prompts aren't things to learn.
+      if (!t || /\?$/.test(t) || NOT_CONTENT.test(t)) continue;
+      lines.push(noteLine(t, defs, underSub));
     }
-    lines.push(line);
   }
   return {
     page,

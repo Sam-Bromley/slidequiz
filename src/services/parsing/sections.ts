@@ -11,14 +11,17 @@ interface PageLike {
 }
 
 const SKIP_TITLE =
-  /^(thank\s*you|thanks|any\s+questions\??|questions\??|q\s*&\s*a|references|bibliography|further reading|reading list|recommended reading|resources|contents|table of contents|agenda|outline|housekeeping|welcome|introductions?|about (me|us|the (module|course|lecturer))|meet the team|(session|lecture|module|course|lesson|today'?s) (overview|plan|outline|objectives|aims|outcomes|structure|information|info)|(learning|lesson|session|lecture) (objectives|outcomes|aims|goals)|objectives|aims( and objectives)?|intended learning outcomes|assessment( information| details| criteria)?|deadlines?|timetable|office hours|contact( details)?|module (information|handbook|details)|course (information|details)|what we('ll| will) cover|in this (lecture|session)|recap)\b/i;
+  /^(thank\s*you|thanks|any\s+questions\??|questions\??|q\s*&\s*a|references|bibliography|further reading|reading list|recommended reading|resources|contents|table of contents|agenda|outline|housekeeping|welcome( to [^:]*)?$|introductions$|about (me|us|the (module|course|lecturer))|meet the team|(session|lecture|module|course|lesson|today'?s) (overview|plan|outline|objectives|aims|outcomes|structure|information|info)|(learning|lesson|session|lecture) (objectives|outcomes|aims|goals)|objectives|aims( and objectives)?|intended learning outcomes|assessment( information| details| criteria)?|deadlines?|timetable|office hours|contact( details)?|module (information|handbook|details)|course (information|details)|what we('ll| will) cover|in this (lecture|session)|recap|last (week|lecture|time|session)|previously|where we left off|starter|plenary|warm[\s-]?up|break|discussion( questions?)?|group (activity|work|task)|activity|task \d*|exercise \d*|quiz|poll|questions to (consider|think about)|think about( this)?|key questions)\b/i;
+
+/** Titles that are only framing when they are the whole title ("Introduction" yes, "Introduction to enzymes" no). */
+const SKIP_EXACT = /^(introduction|intro|overview|background|today|this week|plan|the plan|summary of today|lecture summary|next (week|time|lecture|session)|coming up|homework|independent study|self[\s-]study)[\s.:!?]*$/i;
 
 const OBJECTIVE_VERB = /^(describe|explain|evaluate|outline|discuss|compare|state|identify|define|understand|know|be able|analyse|analyze|list|recall|apply|recognise|recognize|demonstrate|summarise|summarize|appreciate)\b/i;
 
 /** Pages students usually don't want questions from (title slides, references, "Any questions?"). */
 export function isLikelyIrrelevant(p: PageLike, idx: number): boolean {
   const t = p.title.trim();
-  if (SKIP_TITLE.test(t)) return true;
+  if (SKIP_TITLE.test(t) || SKIP_EXACT.test(t)) return true;
   const body = p.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
   if (idx === 0 && wordCount(body) < 14 && !/:/.test(body)) return true; // title slide
   // Learning outcomes with an unusual title: "By the end of this lecture you will…" or mostly "Describe…/Explain…" lines.
