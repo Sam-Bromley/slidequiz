@@ -1,0 +1,30 @@
+import type { SourceFileType } from "@/types/models";
+
+export interface ParsedPage {
+  title: string;
+  text: string;
+  imageDataUrl?: string;
+  needsText?: boolean;
+}
+
+export interface ParsedDocument {
+  fileType: SourceFileType;
+  title: string;
+  unit: "slides" | "pages" | "sections";
+  pages: ParsedPage[];
+  warnings: string[];
+}
+
+export type ProgressFn = (fraction: number, label?: string) => void;
+
+/** Every format parser implements this. Swap any of them for a server-side parser later. */
+export interface DocumentParser {
+  type: SourceFileType;
+  parse(file: File, onProgress: ProgressFn): Promise<ParsedDocument>;
+}
+
+export class ParseError extends Error {
+  constructor(message: string, public readonly userMessage: string) {
+    super(message);
+  }
+}

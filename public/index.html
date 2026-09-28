@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>SlideQuiz</title>
+    <meta name="description" content="Turn your lectures, notes and documents into questions, flashcards, summaries and personalised study sessions." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <script>
+      // Apply the saved theme before first paint to avoid a flash.
+      (function () {
+        var t = "light", auto = false, times = "21:00-06:00";
+        try {
+          t = localStorage.getItem("slidequiz:appearance") || "light";
+          if (localStorage.getItem("slidequiz:v7") !== "1") t = t === "warm" ? "warm" : "light";
+          auto = localStorage.getItem("slidequiz:nightauto") === "1";
+          times = localStorage.getItem("slidequiz:nighttimes") || times;
+        } catch (e) {}
+        var m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(times) || [0, 21, 0, 6, 0];
+        var d = new Date(), now = d.getHours() * 60 + d.getMinutes(), a = m[1] * 60 + +m[2], b = m[3] * 60 + +m[4];
+        if (auto && a !== b && (a < b ? now >= a && now < b : now >= a || now < b)) t = "warm";
+        var light = t === "light";
+        var c = document.documentElement.classList;
+        c.toggle("dark", !light);
+        c.toggle("warm", t === "warm");
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>SlideQuiz needs JavaScript enabled.</noscript>
+    <script type="module" src="assets/app.js"></script>
+    <!-- Cloudflare Web Analytics -->
+    <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "3d409bb66a33402c8c96a0ad9e1ed039"}'></script>
+    <!-- End Cloudflare Web Analytics -->
+  </body>
+</html>
