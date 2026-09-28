@@ -1,5 +1,5 @@
-import { ChevronRight, Folder as FolderIcon, FolderPlus, Layers, MoreHorizontal, Pencil, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useState, type DragEvent } from "react";
+import { Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
+import { useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { MaterialCard } from "@/components/materials/material-card";
 import { Button, buttonClass } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -15,6 +15,43 @@ import { useData } from "@/store/store";
 import type { Folder } from "@/types/models";
 
 const MATERIAL_MIME = "application/x-slidequiz-material";
+
+export const FOLDER_COLOURS: { key: string; label: string; hex: string }[] = [
+  { key: "red", label: "Red", hex: "#ef4444" },
+  { key: "orange", label: "Orange", hex: "#f97316" },
+  { key: "yellow", label: "Yellow", hex: "#eab308" },
+  { key: "green", label: "Green", hex: "#22c55e" },
+  { key: "teal", label: "Teal", hex: "#14b8a6" },
+  { key: "blue", label: "Blue", hex: "#3b82f6" },
+  { key: "purple", label: "Purple", hex: "#8b5cf6" },
+  { key: "pink", label: "Pink", hex: "#ec4899" },
+];
+const colourOf = (key?: string) => FOLDER_COLOURS.find((c) => c.key === key)?.hex;
+
+const MIN_W = 200;
+const MAX_W = 760;
+export const DEFAULT_FOLDER_W = 300;
+
+function ColourDialog({ f, onClose }: { f: Folder; onClose: () => void }) {
+  const pick = (key?: string) => {
+    actions.setFolderColor(f.id, key);
+    onClose();
+  };
+  return (
+    <Dialog open onClose={onClose} title={`Colour for “${f.name}”`} size="sm">
+      <div className="grid grid-cols-5 gap-2.5" role="radiogroup" aria-label="Folder colour">
+        <button type="button" role="radio" aria-checked={!f.color} onClick={() => pick(undefined)} className={cn("grid aspect-square place-items-center rounded-full border-2 text-muted-foreground focus-ring", !f.color ? "border-foreground" : "border-border")} title="No colour">
+          {!f.color ? <Check className="size-4" /> : <span className="h-0.5 w-5 rotate-45 rounded bg-muted-foreground/60" />}
+        </button>
+        {FOLDER_COLOURS.map((c) => (
+          <button key={c.key} type="button" role="radio" aria-checked={f.color === c.key} aria-label={c.label} title={c.label} onClick={() => pick(c.key)} className={cn("grid aspect-square place-items-center rounded-full border-2 transition-transform hover:scale-105 focus-ring", f.color === c.key ? "border-foreground" : "border-transparent")} style={{ background: c.hex }}>
+            {f.color === c.key && <Check className="size-4 text-white" strokeWidth={3} />}
+          </button>
+        ))}
+      </div>
+    </Dialog>
+  );
+}
 
 function NameDialog({ title, initial, confirm, onSave, onClose }: { title: string; initial: string; confirm: string; onSave: (name: string) => void; onClose: () => void }) {
   const [name, setName] = useState(initial);
@@ -46,8 +83,10 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
   );
 }
 
-function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; onDropMaterial: (id: string) => void }) {
+function FolderTile({ f, count, onDropMaterial, onResizeStart }: { f: Folder; count: number; onDropMaterial: (id: string) => void; onResizeStart: (e: ReactPointerEvent) => void }) {
   const [over, setOver] = useState(false);
+  const [colouring, setColouring] = useState(false);
+  const hex = colourOf(f.color);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   return (
@@ -66,9 +105,9 @@ function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; on
       }}
       className={cn("group relative flex items-center gap-3 rounded-xl border bg-card px-3.5 py-3 transition-colors hover:border-foreground/20", over && "border-foreground/50 bg-accent")}
     >
-      <FolderIcon className="size-5 shrink-0 text-muted-foreground" />
+      <FolderIcon className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
       <Link to={`/materials?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
-        <span className="block truncate text-[14px] font-medium">{f.name}</span>
+        <span className="block truncate text-[14px] font-medium" title={f.name}>{f.name}</span>
         <span className="block text-[12px] text-muted-foreground">{count ? plural(count, "item") : "Empty"}</span>
       </Link>
       <div className="relative z-10">
@@ -76,6 +115,7 @@ function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; on
           label={`${f.name} actions`}
           items={[
             { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
+            { label: "Colour", icon: Palette, onSelect: () => setColouring(true) },
             { label: "Delete folder", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
           ]}
           trigger={(p) => (
@@ -85,6 +125,18 @@ function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; on
           )}
         />
       </div>
+      {/* Drag the right edge to make folders wider. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Drag to resize folders"
+        title="Drag to resize"
+        onPointerDown={onResizeStart}
+        className="absolute -right-1.5 inset-y-2 z-20 hidden w-3 cursor-ew-resize touch-none items-center justify-center sm:flex"
+      >
+        <span className="h-6 w-1 rounded-full bg-foreground/0 transition-colors group-hover:bg-foreground/15 hover:!bg-foreground/40" />
+      </div>
+      {colouring && <ColourDialog f={f} onClose={() => setColouring(false)} />}
       {renaming && <NameDialog title="Rename folder" initial={f.name} confirm="Save" onSave={(n) => actions.renameFolder(f.id, n)} onClose={() => setRenaming(false)} />}
       <ConfirmDialog
         open={deleting}
@@ -99,6 +151,31 @@ function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; on
 }
 
 export function MaterialsPage() {
+  const saved = useData().settings.folderWidth ?? DEFAULT_FOLDER_W;
+  const [live, setLive] = useState<number | null>(null);
+  const width = live ?? saved;
+  const drag = useRef<{ x: number; w: number } | null>(null);
+  const startResize = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    drag.current = { x: e.clientX, w: width };
+    document.body.style.cursor = "ew-resize";
+    let last = width;
+    const move = (ev: PointerEvent) => {
+      if (!drag.current) return;
+      last = Math.round(Math.min(MAX_W, Math.max(MIN_W, drag.current.w + ev.clientX - drag.current.x)));
+      setLive(last);
+    };
+    const up = () => {
+      drag.current = null;
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      actions.updateSettings({ folderWidth: last });
+      setLive(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const data = useData();
   const { query } = useLocation();
   const folderId = data.folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
@@ -213,9 +290,9 @@ export function MaterialsPage() {
 
       {folders.length > 0 && (
         <section aria-label="Folders" className="mb-6">
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-col gap-2" style={{ width: `min(100%, ${width}px)` }}>
             {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} />
+              <FolderTile key={f.id} f={f} count={countIn(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} onResizeStart={startResize} />
             ))}
           </div>
         </section>

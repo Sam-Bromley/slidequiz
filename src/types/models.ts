@@ -52,8 +52,8 @@ export interface Settings {
   dailyGoalMinutes: number;
   /** Answer options shown per multiple-choice question (3 to 6). */
   mcqOptions?: number;
-  /** Show slide speaker notes in the notes view (off by default). */
-  showSpeakerNotes?: boolean;
+  /** Width of folder rows in My Materials, in pixels (drag the right edge to change). */
+  folderWidth?: number;
 }
 
 export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text";
@@ -136,6 +136,8 @@ export interface Folder {
   name: string;
   parentId: ID | null;
   createdAt: ISODate;
+  /** Colour key from FOLDER_COLOURS (none = plain). */
+  color?: string;
 }
 
 export type BackgroundScene = "none" | "sunset" | "forest" | "ocean" | "aurora" | "dunes" | "peaks" | "snow" | "hills" | "lake" | "canyon";
