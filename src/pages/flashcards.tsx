@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Layers, MoreHorizontal, Pencil, Plus, RotateCcw, Shuffle, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Layers, List, MoreHorizontal, Pencil, Plus, Shuffle, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -72,7 +72,6 @@ function CreateDialog({ onClose }: { onClose: () => void }) {
       open
       onClose={onClose}
       title="Create flashcards"
-      description="Select what to make them from."
       size="lg"
       footer={
         <>
@@ -225,8 +224,6 @@ export function FlashcardsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {decks.map((d) => {
             const cards = data.flashcards.filter((c) => c.deckId === d.id);
-            const known = cards.filter((c) => c.known).length;
-            const pct = cards.length ? Math.round((known / cards.length) * 100) : 0;
             return (
               <Link key={d.id} to={`/flashcards/${d.id}`} className="group rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20 focus-ring">
                 <div className="flex items-start gap-3">
@@ -236,15 +233,6 @@ export function FlashcardsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-semibold">{d.name}</p>
                     <p className="text-[12.5px] text-muted-foreground">{plural(cards.length, "card")}</p>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <div className="mb-1.5 flex justify-between text-[12.5px] text-muted-foreground">
-                    <span>{known} known</span>
-                    <span className="tabular-nums">{pct}%</span>
-                  </div>
-                  <div className="h-1 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               </Link>
@@ -295,6 +283,7 @@ export function DeckPage({ id }: { id: string }) {
   const [flipped, setFlipped] = useState(false);
   const [adding, setAdding] = useState(() => /add=1/.test(location.hash));
   const [editing, setEditing] = useState<ID | null>(null);
+  const [listing, setListing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -311,11 +300,6 @@ export function DeckPage({ id }: { id: string }) {
   const go = (d: number) => {
     setFlipped(false);
     setI((x) => (studyOrder.length ? (x + d + studyOrder.length) % studyOrder.length : 0));
-  };
-  const mark = (known: boolean) => {
-    if (!card) return;
-    actions.updateCard(card.id, { known });
-    go(1);
   };
 
   useEffect(() => {
@@ -341,20 +325,17 @@ export function DeckPage({ id }: { id: string }) {
       </div>
     );
 
-  const known = cards.filter((c) => c.known).length;
-
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
         back={{ to: "/flashcards", label: "Flashcards" }}
         title={deck.name}
-        description={`${plural(cards.length, "card")} · ${known} known`}
+        description={plural(cards.length, "card")}
         actions={
           <Menu
             label="Flashcard actions"
             items={[
               { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
-              { label: "Start again", icon: RotateCcw, onSelect: () => cards.forEach((c) => actions.updateCard(c.id, { known: false })) },
               { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
             ]}
             trigger={(p) => (
@@ -377,7 +358,6 @@ export function DeckPage({ id }: { id: string }) {
             <div className={cn("relative min-h-[260px] w-full transition-transform duration-500 [transform-style:preserve-3d] sm:min-h-[300px]", flipped && "[transform:rotateY(180deg)]")}>
               <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden]">
                 <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Front</span>
-                {card.known && <span className="absolute right-5 top-4 inline-flex items-center gap-1 text-[12px] text-success"><Check className="size-3.5" /> Known</span>}
                 <p className="whitespace-pre-line text-[20px] font-semibold leading-snug sm:text-[22px]">{card.front}</p>
                 <span className="absolute bottom-4 text-[12px] text-muted-foreground">Click to flip</span>
               </div>
@@ -387,27 +367,18 @@ export function DeckPage({ id }: { id: string }) {
               </div>
             </div>
           </button>
-          <div className="mt-5 flex items-center justify-between gap-2">
-            <Button variant="ghost" size="icon" onClick={() => go(-1)} aria-label="Previous card">
+          <div className="mt-5 flex items-center justify-center gap-3">
+            <Button variant="outline" size="icon" className="rounded-full" onClick={() => go(-1)} aria-label="Previous card">
               <ArrowLeft />
             </Button>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button variant="outline" onClick={() => mark(false)}>
-                <X /> Still learning
-              </Button>
-              <Button onClick={() => mark(true)}>
-                <Check /> Got it
-              </Button>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => go(1)} aria-label="Next card">
+            <span className="min-w-16 text-center text-[13px] tabular-nums text-muted-foreground">
+              {pos + 1} of {studyOrder.length}
+            </span>
+            <Button variant="outline" size="icon" className="rounded-full" onClick={() => go(1)} aria-label="Next card">
               <ArrowRight />
             </Button>
           </div>
           <div className="mt-3 flex items-center justify-center gap-3 text-[12.5px] text-muted-foreground">
-            <span className="tabular-nums">
-              {pos + 1} of {studyOrder.length}
-            </span>
-            <span aria-hidden>·</span>
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-foreground focus-ring rounded"
@@ -429,15 +400,22 @@ export function DeckPage({ id }: { id: string }) {
       )}
 
       <section className="mt-12" aria-labelledby="cards-h">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 id="cards-h" className="text-[16px] font-semibold">
+        <div className="mb-3 flex items-center justify-end">
+          <h2 id="cards-h" className="sr-only">
             Cards
           </h2>
-          {!adding && (
-            <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
-              <Plus /> Add a card
-            </Button>
-          )}
+          <div className="flex gap-1">
+            {cards.length > 0 && (
+              <Button variant="ghost" size="sm" aria-expanded={listing} onClick={() => setListing((l) => !l)}>
+                <List /> {listing ? "Hide cards" : `See all cards (${cards.length})`}
+              </Button>
+            )}
+            {!adding && (
+              <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+                <Plus /> Add a card
+              </Button>
+            )}
+          </div>
         </div>
         {adding && (
           <div className="mb-4 rounded-xl border bg-card p-3">
@@ -449,7 +427,8 @@ export function DeckPage({ id }: { id: string }) {
             </div>
           </div>
         )}
-        <ul className="divide-y rounded-xl border bg-card">
+        {(listing || !cards.length) && (
+        <ul className="animate-fade-in divide-y rounded-xl border bg-card">
           {cards.map((c) => (
             <li key={c.id} className="group px-4 py-3">
               {editing === c.id ? (
@@ -466,7 +445,6 @@ export function DeckPage({ id }: { id: string }) {
                     <p className="text-[14px] font-medium">{c.front}</p>
                     <p className="text-[14px] text-foreground/80">{c.back}</p>
                   </div>
-                  {c.known && <Check className="mt-0.5 size-4 shrink-0 text-success" aria-label="Known" />}
                   <div className="flex shrink-0 gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                     <Button variant="ghost" size="icon-sm" aria-label="Edit card" onClick={() => setEditing(c.id)}>
                       <Pencil />
@@ -481,6 +459,7 @@ export function DeckPage({ id }: { id: string }) {
           ))}
           {!cards.length && <li className="px-4 py-6 text-center text-[13.5px] text-muted-foreground">Cards you add will appear here.</li>}
         </ul>
+        )}
       </section>
 
       {renaming && <NameDialog title="Rename" initial={deck.name} confirm="Save" onSave={(n) => actions.renameDeck(deck.id, n)} onClose={() => setRenaming(false)} />}
