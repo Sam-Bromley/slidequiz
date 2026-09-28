@@ -83,7 +83,9 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
   );
 }
 
-function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; onDropMaterial: (id: string) => void }) {
+const SNAP = 16;
+
+function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; count: number; onDropMaterial: (id: string) => void; otherWidths: number[] }) {
   const [over, setOver] = useState(false);
   // Each folder has its own width; drag its right edge to change it.
   const [live, setLive] = useState<number | null>(null);
@@ -98,6 +100,9 @@ function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; on
     const move = (ev: PointerEvent) => {
       if (!drag.current) return;
       last = Math.round(Math.min(MAX_W, Math.max(MIN_W, drag.current.w + ev.clientX - drag.current.x)));
+      // Snap to another folder's width when close, so folders can line up evenly.
+      const near = otherWidths.reduce<number | null>((best, w) => (Math.abs(w - last) <= SNAP && (best === null || Math.abs(w - last) < Math.abs(best - last)) ? w : best), null);
+      if (near !== null) last = near;
       setLive(last);
     };
     const up = () => {
@@ -293,7 +298,7 @@ export function MaterialsPage() {
         <section aria-label="Folders" className="mb-6">
           <div className="flex flex-col items-start gap-2">
             {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} />
+              <FolderTile key={f.id} f={f} count={countIn(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} otherWidths={folders.filter((o) => o.id !== f.id).map((o) => o.width ?? DEFAULT_FOLDER_W)} />
             ))}
           </div>
         </section>

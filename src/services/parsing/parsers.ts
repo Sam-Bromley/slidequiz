@@ -65,6 +65,37 @@ async function imageFromBytes(key: string, bytes: Blob, name: string): Promise<P
   }
 }
 
+/** Web links on a slide: relationship id → URL. */
+async function externalLinks(zip: import("jszip"), relsPath: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const f = zip.file(relsPath);
+  if (!f) return map;
+  const doc = xml(await f.async("string"));
+  for (const r of all(doc, "Relationship")) if (r.getAttribute("TargetMode") === "External" && /^(https?:|mailto:|www\.)/i.test(r.getAttribute("Target") ?? "")) map.set(r.getAttribute("Id") ?? "", r.getAttribute("Target") ?? "");
+  return map;
+}
+
+/** Paragraph text, with any hyperlinked words followed by their address so the notes can link them. */
+function paraWithLinks(p: Element, links: Map<string, string>) {
+  let out = "";
+  let pending: string | null = null;
+  const flush = () => {
+    if (pending && !out.includes(pending)) out += ` (${pending})`;
+    pending = null;
+  };
+  for (const r of Array.from(p.getElementsByTagNameNS("*", "r"))) {
+    const t = all(r, "t").map((x) => x.textContent ?? "").join("");
+    const link = all(r, "hlinkClick")[0];
+    const id = link ? link.getAttribute("r:id") ?? link.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") ?? "" : "";
+    const url = id ? links.get(id) ?? null : null;
+    if (url !== pending) flush();
+    out += t;
+    pending = url;
+  }
+  flush();
+  return out || all(p, "t").map((x) => x.textContent ?? "").join("");
+}
+
 /** Map of relationship id → zip path, for a part's .rels file. */
 async function relTargets(zip: import("jszip"), relsPath: string, baseDir: string): Promise<Map<string, string>> {
   const map = new Map<string, string>();
@@ -132,13 +163,14 @@ export const pptxParser: DocumentParser = {
     }
     for (let i = 0; i < ordered.length; i++) {
       const doc = xml(await zip.file(ordered[i])!.async("string"));
+      const links = await externalLinks(zip, ordered[i].replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels"));
       let title = "";
       const body: string[] = [];
       for (const sp of all(doc, "sp")) {
         const ph = all(sp, "ph")[0];
         const phType = ph?.getAttribute("type") ?? "";
         const paras = all(sp, "p")
-          .map((p) => all(p, "t").map((t) => t.textContent ?? "").join(""))
+          .map((p) => paraWithLinks(p, links))
           .map((s) => s.trim())
           .filter(Boolean);
         if (!paras.length) continue;

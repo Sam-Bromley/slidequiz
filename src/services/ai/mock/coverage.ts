@@ -10,6 +10,7 @@ import { contentWords, extractDefinitions, keywordSet, splitSentences, stripTrai
 import type { ID } from "@/types/models";
 import type { GroundingPage, GroundingTopic, QuestionDraft } from "../types";
 import { buildKnowledge, refOf } from "./knowledge";
+import { concise } from "@/services/notes";
 
 const MAX_WRONG = 7;
 const BLANK = "_____";
@@ -58,8 +59,12 @@ interface Term {
   countable: boolean;
 }
 
+const URLS = /(?:https?:\/\/|www\.)\S+/gi;
+/** Common verbs and adjectives that make poor answer options. */
+const NOT_NOUN = /^(cause|causes|caused|speed|speeds|keep|keeps|make|makes|take|takes|give|gives|show|shows|help|helps|need|needs|form|forms|lead|leads|allow|allows|become|becomes|remain|remains|produce|produces|contain|contains|include|includes|increase|increases|decrease|decreases|occur|occurs|happen|happens|read|more|less|high|higher|lower|same|such|each|other|both|many|much|most|some|very|also|than|then|when|where|which|while|about|after|before|again|alive|able|large|small|big|good|great|main|major|minor|long|short|full|free|true|false|whole|real|like|just|only|even|well)$/;
+
 function termPool(pages: GroundingPage[], conceptTerms: string[], keyTerms: string[]): Term[] {
-  const all = pages.map((p) => p.title + ".\n" + p.text).join("\n");
+  const all = pages.map((p) => p.title + ".\n" + p.text).join("\n").replace(URLS, " ");
   const out: Term[] = [];
   const seen = new Set<string>();
   const properForm = (t: string) => {
@@ -71,7 +76,7 @@ function termPool(pages: GroundingPage[], conceptTerms: string[], keyTerms: stri
   const add = (t: string, concept: boolean, fallback = false) => {
     const text = t.trim();
     const key = text.toLowerCase();
-    if (seen.has(key) || text.length < 3 || GENERIC.has(key)) return;
+    if (seen.has(key) || text.length < 3 || GENERIC.has(key) || /^(https?|www|com|org|net|html?|uk)$/i.test(key)) return;
     if (!concept && text.split(/\s+/).length === 1 && /^[a-z]/i.test(text) && /(ed|ing|ly|ous|ive|al|ful|less|able)$/i.test(text)) return;
     if (!contentWords(text).length) return;
     seen.add(key);
@@ -110,8 +115,15 @@ function termPool(pages: GroundingPage[], conceptTerms: string[], keyTerms: stri
   const NOUN_CTX = /\b(?:[Tt]he|[Aa]n?|of|and|or|in|on|at|from|with|by|for|every|each|different|some|many|these|those|their|its|two|three|several)[ \t]+(?=([a-z]{5,})\b)/g;
   for (const m of all.matchAll(NOUN_CTX)) {
     const lw = m[1];
-    if (GENERIC.has(lw) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|ate|est)$/.test(lw) || /^(every|these|those|their|several|three|different)$/.test(lw) || !contentWords(lw).length || alwaysPaired(lw)) continue;
+    if (GENERIC.has(lw) || NOT_NOUN.test(lw) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|ate|est)$/.test(lw) || /^(every|these|those|their|several|three|different)$/.test(lw) || !contentWords(lw).length || alwaysPaired(lw)) continue;
     vocab.set(lw, (vocab.get(lw) ?? 0) + 1);
+  }
+  // Short materials don't give many nouns that way, so widen to any meaningful word (not common verbs).
+  if (vocab.size < 16) {
+    for (const w of all.match(/\b[a-z]{4,}\b/g) ?? []) {
+      if (GENERIC.has(w) || NOT_NOUN.test(w) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|est)$/.test(w) || !contentWords(w).length || alwaysPaired(w)) continue;
+      vocab.set(w, (vocab.get(w) ?? 0) + 1);
+    }
   }
   const fallbackStart = out.length;
   [...vocab.keys()].forEach((w) => add(w, false, true));
@@ -189,7 +201,7 @@ function blankOut(sentence: string, target: string) {
 /** Lines that aren't facts: headings, table rows, references, links. */
 function skipLine(s: string) {
   const wc = wordCount(s);
-  if (wc < 5 || wc > 60) return true;
+  if (wc < 4 || wc > 60) return true;
   if (/\?$/.test(s)) return true;
   if ((s.match(/: /g) ?? []).length >= 2 || s.includes(" | ")) return true;
   if (/https?:\/\/|www\./i.test(s)) return true;
@@ -202,7 +214,10 @@ function skipLine(s: string) {
 /** The fact-bearing sentences of a page, without speaker notes (those are for the presenter). */
 export function factSentences(page: Pick<GroundingPage, "text">) {
   const body = page.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
-  return splitSentences(body);
+  // Same tidy wording as the notes ("are able to" → "can", no "It is important to note that").
+  // Lines with web links are pointers to reading, not facts to test.
+  const lines = body.split(/\n+/).filter((l) => !/(?:https?:\/\/|www\.)\S+/i.test(l));
+  return splitSentences(lines.join("\n")).map(concise);
 }
 
 export function buildCoverageMcqs(pages: GroundingPage[], topics: GroundingTopic[], subject: string): QuestionDraft[] {

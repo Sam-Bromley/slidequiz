@@ -81,7 +81,7 @@ export function SettingsPage() {
       </Section>
 
       <Section title="Practice" description="How multiple-choice questions are shown.">
-        <Row label="Answer options" hint="The right letter changes every time" htmlFor="set-opts">
+        <Row label="Answer options" htmlFor="set-opts">
           <Select id="set-opts" value={s.mcqOptions ?? 5} onChange={(e) => set({ mcqOptions: Number(e.target.value) })} className="sm:w-48">
             {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} options (A to {"ABCDEF"[n - 1]})</option>)}
           </Select>

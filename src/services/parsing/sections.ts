@@ -10,7 +10,10 @@ interface PageLike {
   text: string;
 }
 
-const SKIP_TITLE = /^(thank\s*you|thanks|any\s+questions\??|questions\??|q\s*&\s*a|references|bibliography|further reading|reading list|contents|table of contents|agenda|outline|housekeeping)\b/i;
+const SKIP_TITLE =
+  /^(thank\s*you|thanks|any\s+questions\??|questions\??|q\s*&\s*a|references|bibliography|further reading|reading list|recommended reading|resources|contents|table of contents|agenda|outline|housekeeping|welcome|introductions?|about (me|us|the (module|course|lecturer))|meet the team|(session|lecture|module|course|lesson|today'?s) (overview|plan|outline|objectives|aims|outcomes|structure|information|info)|(learning|lesson|session|lecture) (objectives|outcomes|aims|goals)|objectives|aims( and objectives)?|intended learning outcomes|assessment( information| details| criteria)?|deadlines?|timetable|office hours|contact( details)?|module (information|handbook|details)|course (information|details)|what we('ll| will) cover|in this (lecture|session)|recap)\b/i;
+
+const OBJECTIVE_VERB = /^(describe|explain|evaluate|outline|discuss|compare|state|identify|define|understand|know|be able|analyse|analyze|list|recall|apply|recognise|recognize|demonstrate|summarise|summarize|appreciate)\b/i;
 
 /** Pages students usually don't want questions from (title slides, references, "Any questions?"). */
 export function isLikelyIrrelevant(p: PageLike, idx: number): boolean {
@@ -18,6 +21,11 @@ export function isLikelyIrrelevant(p: PageLike, idx: number): boolean {
   if (SKIP_TITLE.test(t)) return true;
   const body = p.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
   if (idx === 0 && wordCount(body) < 14 && !/:/.test(body)) return true; // title slide
+  // Learning outcomes with an unusual title: "By the end of this lecture you will…" or mostly "Describe…/Explain…" lines.
+  if (/\b(by the end of (this|the|today)|you will be able to|you should be able to|students will be able to)\b/i.test(body.slice(0, 200))) return true;
+  const lines = body.split(/\n+/).map((l) => l.replace(/^[\s•\-–*▪◦·]+/, "").trim()).filter(Boolean);
+  const verbs = lines.filter((l) => OBJECTIVE_VERB.test(l)).length;
+  if (lines.length >= 2 && verbs / lines.length >= 0.6) return true;
   return false;
 }
 

@@ -1,4 +1,4 @@
-import { BookOpen, MessageCircle } from "lucide-react";
+import { BookOpen, Image as ImageIcon, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
@@ -7,19 +7,40 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { buildNotes, type NoteLine, type NoteSlide } from "@/services/notes";
+import { actions } from "@/store/actions";
+import { useData } from "@/store/store";
 import type { Material, PageImage } from "@/types/models";
+
+const URL_RE = /((?:https?:\/\/|www\.)[^\s)]+[^\s).,;:!?'"])/g;
+
+/** Plain text with any web addresses turned into links that open in a new tab. */
+function linkify(text: string): ReactNode {
+  const parts = text.split(URL_RE);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    if (i % 2 === 0) return part;
+    const href = part.startsWith("www.") ? `https://${part}` : part;
+    let shown = part.replace(/^https?:\/\//, "").replace(/^www\./, "");
+    if (shown.length > 42) shown = shown.slice(0, 41) + "…";
+    return (
+      <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="break-words font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground">
+        {shown}
+      </a>
+    );
+  });
+}
 
 function Line({ l }: { l: NoteLine }) {
   const body: ReactNode = l.term ? (
     <>
       <strong className="font-semibold text-foreground">{l.term}</strong>
       {l.sep ?? ": "}
-      {l.text}
+      {linkify(l.text)}
     </>
   ) : (
-    l.text
+    linkify(l.text)
   );
-  if (l.kind === "sub") return <p className="mt-3 font-semibold text-foreground">{l.text}</p>;
+  if (l.kind === "sub") return <p className="mt-3 font-semibold text-foreground">{linkify(l.text)}</p>;
   if (l.kind === "para") return <p className="text-foreground/90">{body}</p>;
   return (
     <p className={cn("relative pl-5 text-foreground/90", l.depth === 1 && "ml-5")}>
@@ -37,9 +58,9 @@ function Figure({ img, label, open, className }: { img: PageImage; label: string
   );
 }
 
-function SlideBlock({ s, openImage }: { s: NoteSlide; openImage: (img: PageImage, label: string) => void }) {
+function SlideBlock({ s, showImages, openImage }: { s: NoteSlide; showImages: boolean; openImage: (img: PageImage, label: string) => void }) {
   const hasText = s.lines.length > 0 || !!s.table;
-  const imgs = s.images;
+  const imgs = showImages ? s.images : [];
   // One picture sits beside the text like a textbook figure; wide ones or several go underneath.
   const beside = hasText && imgs.length === 1 && imgs[0].width / imgs[0].height < 1.9;
   const text = (
@@ -59,7 +80,7 @@ function SlideBlock({ s, openImage }: { s: NoteSlide; openImage: (img: PageImage
             </thead>
             <tbody className="divide-y">
               {s.table.slice(1).map((r, i) => (
-                <tr key={i}>{r.map((c, j) => <td key={j} className="px-3 py-2 align-top text-foreground/90">{c}</td>)}</tr>
+                <tr key={i}>{r.map((c, j) => <td key={j} className="px-3 py-2 align-top text-foreground/90">{linkify(c)}</td>)}</tr>
               ))}
             </tbody>
           </table>
@@ -96,7 +117,10 @@ function SlideBlock({ s, openImage }: { s: NoteSlide; openImage: (img: PageImage
 
 /** The material as organised notes. */
 export function NotesView({ material }: { material: Material }) {
+  const data = useData();
   const sections = useMemo(() => buildNotes(material), [material]);
+  const showImages = !!data.settings.notesImages;
+  const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
   const [asking, setAsking] = useState(false);
   const [big, setBig] = useState<{ img: PageImage; label: string } | null>(null);
 
@@ -138,13 +162,24 @@ export function NotesView({ material }: { material: Material }) {
           <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setAsking(true)}>
             <MessageCircle /> Ask about these notes
           </Button>
+          {hasImages && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={showImages}
+              className={cn("rounded-full bg-transparent hover:bg-foreground/5 hover:text-foreground", showImages ? "text-foreground" : "text-muted-foreground")}
+              onClick={() => actions.updateSettings({ notesImages: !showImages })}
+            >
+              <ImageIcon /> {showImages ? "Hide images" : "Include images"}
+            </Button>
+          )}
         </div>
 
         {sections.map((sec, si) => (
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
             {sec.slides.map((s) => (
-              <SlideBlock key={s.page.id} s={s} openImage={(img, label) => setBig({ img, label })} />
+              <SlideBlock key={s.page.id} s={s} showImages={showImages} openImage={(img, label) => setBig({ img, label })} />
             ))}
           </section>
         ))}

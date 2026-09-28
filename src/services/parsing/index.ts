@@ -86,6 +86,13 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
   const groups = detectTopics(doc.pages);
   const topics: Topic[] = groups.map((g) => ({ id: uid("top"), name: g.name, pageIds: g.pageIdxs.map((i) => pages[i].id) }));
   topics.forEach((t) => t.pageIds.forEach((pid) => (pages.find((p) => p.id === pid)!.topicId = t.id)));
+  // A topic shouldn't be named after a slide that's left out (e.g. "Today", "Learning outcomes").
+  for (const t of topics) {
+    const own = t.pageIds.map((id) => pages.find((p) => p.id === id)!);
+    const fromLeftOut = own.some((p) => !p.included && p.title.trim().toLowerCase() === t.name.trim().toLowerCase());
+    const first = own.find((p) => p.included && p.text.trim());
+    if (fromLeftOut && first) t.name = first.title.replace(/\?$/, "");
+  }
   return {
     id: materialId,
     title: doc.title,
