@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Layers, List, MoreHorizontal, Pencil, Plus, Repeat, Shuffle, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Layers, List, MoreHorizontal, Pencil, Plus, Shuffle, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -11,20 +11,10 @@ import { toast } from "@/components/ui/toast";
 import { Link, navigate } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { cardsFor } from "@/services/flashcards";
-import { isDue, nextIntervalLabel, reviewQueue } from "@/services/study/srs";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
-import type { Deck, Flashcard, FlashcardRating, ID } from "@/types/models";
+import type { Deck, Flashcard, ID } from "@/types/models";
 
-const dueCount = (cards: Flashcard[]) => cards.filter((c) => isDue(c)).length;
-
-/** "in 3 days", "tomorrow", "later today" for the next card to come back. */
-function nextDueLabel(cards: Flashcard[]) {
-  const next = Math.min(...cards.map((c) => new Date(c.srs.due).getTime()));
-  if (!isFinite(next)) return "";
-  const days = Math.round((new Date(next).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
-  return days <= 0 ? "later today" : days === 1 ? "tomorrow" : `in ${days} days`;
-}
 
 /* ---------------------------------------------------------------- create from materials */
 
@@ -330,24 +320,6 @@ export function DeckPage({ id }: { id: string }) {
   const [listing, setListing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  /** Review session: cards still to go (a card marked "Again" goes to the back). */
-  const [queue, setQueue] = useState<ID[] | null>(null);
-  const [reviewed, setReviewed] = useState(0);
-  const due = dueCount(cards);
-  const reviewCard = queue?.length ? cards.find((c) => c.id === queue[0]) : undefined;
-
-  const startReview = () => {
-    setQueue(reviewQueue(cards, 50).filter((c) => isDue(c)).map((c) => c.id));
-    setReviewed(0);
-    setFlipped(false);
-  };
-  const rate = (r: FlashcardRating) => {
-    if (!reviewCard) return;
-    actions.rateCard(reviewCard.id, r);
-    setFlipped(false);
-    setReviewed((n) => n + 1);
-    setQueue((q) => (q ? (r === "hard" ? [...q.slice(1), q[0]] : q.slice(1)) : q));
-  };
 
   // Keep the study order in step with added/removed cards.
   const ids = cards.map((c) => c.id).join(",");
@@ -370,11 +342,6 @@ export function DeckPage({ id }: { id: string }) {
       if (e.key === " ") {
         e.preventDefault();
         setFlipped((f) => !f);
-      } else if (queue) {
-        if (flipped && e.key === "1") rate("hard");
-        else if (flipped && e.key === "2") rate("good");
-        else if (flipped && e.key === "3") rate("easy");
-        else if (e.key === "Escape") setQueue(null);
       } else if (e.key === "ArrowRight") go(1);
       else if (e.key === "ArrowLeft") go(-1);
     };
@@ -415,46 +382,7 @@ export function DeckPage({ id }: { id: string }) {
         }
       />
 
-      {queue ? (
-        <section aria-label="Review">
-          {reviewCard ? (
-            <>
-              <div className="mb-3 flex items-center justify-between text-[12.5px] text-muted-foreground">
-                <span className="tabular-nums">{queue.length} left</span>
-                <button type="button" className="rounded hover:text-foreground focus-ring" onClick={() => setQueue(null)}>
-                  Stop reviewing
-                </button>
-              </div>
-              <FlipCard card={reviewCard} flipped={flipped} onFlip={() => setFlipped((f) => !f)} />
-              <div className="mt-5 flex min-h-[52px] items-center justify-center gap-2">
-                {flipped ? (
-                  ([["hard", "Again"], ["good", "Good"], ["easy", "Easy"]] as const).map(([r, label]) => (
-                    <Button key={r} variant="outline" className="h-auto min-w-24 flex-col gap-0 rounded-xl py-2" onClick={() => rate(r)}>
-                      <span>{label}</span>
-                      <span className="text-[11.5px] font-normal text-muted-foreground">{nextIntervalLabel(reviewCard.srs, r)}</span>
-                    </Button>
-                  ))
-                ) : (
-                  <Button variant="outline" className="rounded-full" onClick={() => setFlipped(true)}>
-                    Show answer
-                  </Button>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="rounded-2xl border bg-card py-14 text-center">
-              <Check className="mx-auto size-6 text-success" />
-              <p className="mt-3 font-medium">All caught up</p>
-              <p className="mt-1 text-[14px] text-muted-foreground">
-                {plural(reviewed, "card")} reviewed. {cards.length ? `Next review ${nextDueLabel(cards)}.` : ""}
-              </p>
-              <Button variant="outline" className="mt-5 rounded-full" onClick={() => setQueue(null)}>
-                Back to all cards
-              </Button>
-            </div>
-          )}
-        </section>
-      ) : (card ? (
+      {card ? (
         <section aria-label="Study">
           <FlipCard card={card} flipped={flipped} onFlip={() => setFlipped((f) => !f)} />
           <div className="mt-5 flex items-center justify-center gap-3">
@@ -469,11 +397,6 @@ export function DeckPage({ id }: { id: string }) {
             </Button>
           </div>
           <div className="mt-3 flex items-center justify-center gap-4 text-[12.5px] text-muted-foreground">
-            {due > 0 && (
-              <button type="button" className="inline-flex items-center gap-1 rounded font-medium text-foreground hover:underline underline-offset-2 focus-ring" onClick={startReview}>
-                <Repeat className="size-3.5" /> Review
-              </button>
-            )}
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-foreground focus-ring rounded"
@@ -492,7 +415,7 @@ export function DeckPage({ id }: { id: string }) {
           <p className="font-medium">No cards yet</p>
           <p className="mt-1 text-[14px] text-muted-foreground">Add your first card below.</p>
         </div>
-      ))}
+      )}
 
       <section className="mt-12" aria-labelledby="cards-h">
         <div className="mb-3 flex items-center justify-end">

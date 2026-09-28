@@ -58,7 +58,7 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
     uploadedAt: nowISO(),
     pageCount: doc.pages.length,
   };
-  // One stored file per distinct picture; a logo on most slides is marked "repeated" and left out by default.
+  // One stored file per distinct picture. Every picture starts included; the notes only show them once "Include images" is on.
   const keyId = new Map<string, string>();
   const keyCount = new Map<string, number>();
   doc.pages.forEach((p) => new Set((p.images ?? []).map((x) => x.key)).forEach((k) => keyCount.set(k, (keyCount.get(k) ?? 0) + 1)));
@@ -72,8 +72,7 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
         pendingImages.set(id, img.blob);
       }
       const repeated = (keyCount.get(img.key) ?? 0) >= 3 && (keyCount.get(img.key) ?? 0) >= n * 0.5;
-      const small = img.width < 100 || img.height < 100;
-      return { id, width: img.width, height: img.height, included: !repeated && !small && img.useful !== false, repeated: repeated || undefined };
+      return { id, width: img.width, height: img.height, included: true, repeated: repeated || undefined };
     });
   const pages: Page[] = doc.pages.map((p, i) => ({
     id: uid("pg"),
@@ -83,7 +82,7 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
     title: p.title || `${LABEL[doc.unit]} ${i + 1}`,
     text: p.text,
     topicId: null,
-    included: !(p.needsText && !p.imageDataUrl && !p.images?.length),
+    included: true,
     imageDataUrl: p.imageDataUrl,
     needsText: p.needsText,
     images: p.images?.length ? imagesFor(p) : undefined,
