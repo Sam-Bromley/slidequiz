@@ -2,7 +2,7 @@ import type { Material, Page, PageImage, SourceFile, SourceFileType, Topic } fro
 import { pendingImages } from "@/services/storage/images";
 import { nowISO, uid } from "@/lib/utils";
 import { docxParser, imageParser, parsePlainText, pdfParser, pptxParser, txtParser } from "./parsers";
-import { detectTopics, isLikelyIrrelevant } from "./sections";
+import { detectTopics } from "./sections";
 import { ParseError, type DocumentParser, type ParsedDocument, type ProgressFn } from "./types";
 import { validateFile } from "./validate";
 
@@ -83,7 +83,7 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
     title: p.title || `${LABEL[doc.unit]} ${i + 1}`,
     text: p.text,
     topicId: null,
-    included: !isLikelyIrrelevant(p, i) && !(p.needsText && !p.imageDataUrl && !p.images?.length),
+    included: !(p.needsText && !p.imageDataUrl && !p.images?.length),
     imageDataUrl: p.imageDataUrl,
     needsText: p.needsText,
     images: p.images?.length ? imagesFor(p) : undefined,

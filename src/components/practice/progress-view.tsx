@@ -27,7 +27,7 @@ export function ProgressView({ material, onPractise }: { material: Material; onP
         <div>
           <p className="text-[44px] font-semibold leading-none tabular-nums">{all.pct}%</p>
           <p className="mt-2 text-[14px] text-muted-foreground">
-            {all.covered} of {all.total} questions covered{all.review ? ` · ${all.review} to review` : ""}
+            {all.covered} of {all.total} questions covered
           </p>
         </div>
         <Button onClick={() => onPractise(null)}>Practise</Button>
@@ -46,7 +46,6 @@ export function ProgressView({ material, onPractise }: { material: Material; onP
             <div className="mt-2 flex items-center justify-between text-[12.5px] text-muted-foreground">
               <span>
                 {r.covered} of {r.total} covered
-                {r.review > 0 && <> · {r.review} to review</>}
                 {r.answered < r.total && <> · {r.total - r.answered} not tried yet</>}
               </span>
               <button type="button" onClick={() => onPractise(r.topicId)} className="font-medium text-foreground underline-offset-2 hover:underline focus-ring">

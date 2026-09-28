@@ -196,7 +196,7 @@ function NameDialog({ title, initial = "", confirm, onSave, onClose }: { title: 
 /* ---------------------------------------------------------------- decks list */
 
 /** One deck in the list. Drag its right edge to make it wider (it snaps to other decks' widths). */
-function DeckTile({ d, count, due, otherWidths }: { d: Deck; count: number; due: number; otherWidths: number[] }) {
+function DeckTile({ d, count, otherWidths }: { d: Deck; count: number; otherWidths: number[] }) {
   const { width, start } = useResizableWidth(d.width, otherWidths, (w) => actions.setDeckWidth(d.id, w));
   return (
     <div className="group relative rounded-xl border bg-card transition-colors hover:border-foreground/20" style={{ width: `min(100%, ${width}px)` }}>
@@ -208,7 +208,6 @@ function DeckTile({ d, count, due, otherWidths }: { d: Deck; count: number; due:
           </span>
           <span className="block text-[12px] text-muted-foreground">
             {plural(count, "card")}
-            {due > 0 && <span className="text-foreground/80"> · {due} to review</span>}
           </span>
         </span>
       </Link>
@@ -257,7 +256,7 @@ export function FlashcardsPage() {
       ) : (
         <div className="flex flex-col items-start gap-2">
           {decks.map((d) => (
-            <DeckTile key={d.id} d={d} count={data.flashcards.filter((c) => c.deckId === d.id).length} due={dueCount(data.flashcards.filter((c) => c.deckId === d.id))} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
+            <DeckTile key={d.id} d={d} count={data.flashcards.filter((c) => c.deckId === d.id).length} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
           ))}
         </div>
       )}
@@ -398,7 +397,7 @@ export function DeckPage({ id }: { id: string }) {
       <PageHeader
         back={{ to: "/flashcards", label: "Flashcards" }}
         title={deck.name}
-        description={plural(cards.length, "card") + (due ? ` · ${due} to review` : "")}
+        description={plural(cards.length, "card")}
         compactActions
         actions={
           <Menu
@@ -472,7 +471,7 @@ export function DeckPage({ id }: { id: string }) {
           <div className="mt-3 flex items-center justify-center gap-4 text-[12.5px] text-muted-foreground">
             {due > 0 && (
               <button type="button" className="inline-flex items-center gap-1 rounded font-medium text-foreground hover:underline underline-offset-2 focus-ring" onClick={startReview}>
-                <Repeat className="size-3.5" /> Review {due} due
+                <Repeat className="size-3.5" /> Review
               </button>
             )}
             <button

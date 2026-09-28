@@ -3,7 +3,6 @@
  * with key terms picked out, sub-points nested and tables laid out. Speaker notes are left out.
  */
 import { extractDefinitions, keywordSet, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
-import { isLikelyIrrelevant } from "@/services/parsing/sections";
 import type { ID, Material, Page, PageImage } from "@/types/models";
 
 export interface NoteLine {
@@ -60,11 +59,6 @@ function tableRows(lines: string[]): { rows: string[][]; start: number; end: num
   return best;
 }
 
-/** Lines that are about the lecture rather than the subject. */
-const ADMIN_LINE =
-  /^(learning (objectives|outcomes|aims)|by the end of|in this (lecture|session|lesson|module)|today we will|this (lecture|session|module) (will|covers)|recommended reading|further reading|reading:|see (chapter|page|pp?\.)|remember to|don'?t forget|deadline|submit|hand in|assessment|coursework|exam (date|is)|module (code|leader|convenor|lead|handbook)|course (code|leader)|lecturer|tutor|instructor|office hours|contact|email|room\b|seminar|tutorial|workshop|lab (session|group)|attendance|moodle|blackboard|canvas|teams|zoom|slides (are|will be)|recording|week \d+|semester|term \d|credits?\b|marks? (available|breakdown)|weighting|source:|sources:|adapted from|image (credit|source|from)|photo (credit|by)|credit:|©|copyright|retrieved from|doi:|all rights reserved)/i;
-/** Whole lines that are only admin detail (module code, names, emails). */
-const ADMIN_WHOLE = /^([A-Z]{2,5}\s?\d{3,5}[A-Z]?\b.{0,40}|(dr|prof|professor|mr|mrs|ms)\.? [A-Z][a-z]+( [A-Z][a-z]+)?|[\w.+-]+@[\w-]+\.[\w.]+|\d{1,2}(st|nd|rd|th)? (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{2,4}|(lecture|week|session|topic|unit) \d+)$/i;
 
 /** In-text references like (Smith et al., 2019), (Jones & Lee 2020; Brown, 2018) or [3]. */
 const CITATIONS = [
@@ -104,9 +98,6 @@ export function concise(line: string) {
   return t ? t[0].toUpperCase() + t.slice(1) : t;
 }
 
-/** Lines that frame the lecture rather than teach: prompts, activities, signposting. */
-const NOT_CONTENT =
-  /^(discuss|think about|consider (this|the following|how|why|what)|activity|task\b|exercise\b|question\s*\d*:|quiz|poll|try (this|it)|have a go|work (in|with)|with a partner|in (pairs|groups)|let'?s|we (will|'ll|are going to) (now |next )?(look|cover|explore|discuss|see|start|move|begin)|next,? we|now we|as (mentioned|discussed|we saw|you know)|recall (that|from)|remember (from|last)|last (week|time|lecture)|in the (next|previous) (lecture|session|week)|any questions|click (here|the link)|watch (this|the video)|video:|see (the )?(video|below|above|slide))/i;
 
 const NUMBER_WORDS: Record<string, string> = { one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12" };
 
@@ -151,7 +142,7 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
     .split(/\n+/)
     .map(clean)
     .filter(Boolean)
-    .filter((l) => !ADMIN_LINE.test(l) && !ADMIN_WHOLE.test(l) && !NOT_CONTENT.test(l) && !same(l, page.title));
+    .filter((l) => !same(l, page.title));
   // Word sections start with "(Parent heading)" for context; the section heading already shows it.
   if (raw[0] && /^\(.*\)$/.test(raw[0])) raw.shift();
   const table = tableRows(raw);
@@ -168,8 +159,7 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
     // One point per bullet: long lines are split into their sentences.
     for (const sentence of splitSentences(l).length > 1 ? splitSentences(l) : [l]) {
       const t = concise(sentence);
-      // Rhetorical questions and prompts aren't things to learn.
-      if (!t || /\?$/.test(t) || NOT_CONTENT.test(t)) continue;
+      if (!t) continue;
       lines.push(noteLine(t, defs, underSub));
     }
   }
@@ -185,8 +175,7 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
 
 /** The whole material as notes. Only included slides (and their included pictures) appear. */
 export function buildNotes(m: Material): NoteSection[] {
-  // Only subject content: title, objectives, agenda, admin and reading-list slides are left out.
-  const pages = m.pages.filter((p, i) => p.included && !isLikelyIrrelevant(p, i) && (p.text.trim() || p.images?.some((x) => x.included) || p.imageDataUrl));
+  const pages = m.pages.filter((p) => p.included && (p.text.trim() || p.images?.some((x) => x.included) || p.imageDataUrl));
   const seen: Set<string>[] = [];
   const sections: NoteSection[] = [];
   const byTopic = new Map<string, NoteSection>();

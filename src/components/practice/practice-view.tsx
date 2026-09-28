@@ -205,7 +205,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
         <div className="mb-1.5 flex items-center justify-between text-[12.5px] text-muted-foreground">
           <span>
             {prog.covered} of {prog.total} covered
-            {prog.review > 0 && <> · {prog.review} to review</>}
           </span>
           <span className="tabular-nums">{prog.pct}%</span>
         </div>
