@@ -134,8 +134,8 @@ export function NotesView({ material }: { material: Material }) {
       </nav>
 
       <div className="min-w-0 max-w-[780px]">
-        <div className="sticky top-14 z-10 -mx-1 mb-2 flex flex-wrap items-center gap-2 bg-background px-1 py-2">
-          <Button variant="outline" size="sm" className="rounded-full" onClick={() => setAsking(true)}>
+        <div className="-ml-2.5 mb-2 flex flex-wrap items-center gap-2 py-1">
+          <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setAsking(true)}>
             <MessageCircle /> Ask about these notes
           </Button>
         </div>
