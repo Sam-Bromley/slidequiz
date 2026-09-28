@@ -1,4 +1,4 @@
-import { BookOpen, Image as ImageIcon, MessageCircle } from "lucide-react";
+import { BookOpen, Download, Image as ImageIcon, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
@@ -6,7 +6,8 @@ import { ChatPanel } from "@/components/tutor/chat-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { buildNotes, type NoteLine, type NoteSlide } from "@/services/notes";
+import { buildNotes, notesExportDoc, type NoteLine, type NoteSlide } from "@/services/notes";
+import { ExportDialog } from "@/components/export/export-dialog";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { Material, PageImage } from "@/types/models";
@@ -122,6 +123,7 @@ export function NotesView({ material }: { material: Material }) {
   const showImages = !!data.settings.notesImages;
   const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
   const [asking, setAsking] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [big, setBig] = useState<{ img: PageImage; label: string } | null>(null);
 
   useEffect(() => {
@@ -162,6 +164,9 @@ export function NotesView({ material }: { material: Material }) {
           <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setAsking(true)}>
             <MessageCircle /> Ask about these notes
           </Button>
+          <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setExporting(true)}>
+            <Download /> Export
+          </Button>
           {hasImages && (
             <Button
               variant="ghost"
@@ -196,6 +201,7 @@ export function NotesView({ material }: { material: Material }) {
           document.body,
         )}
 
+      {exporting && <ExportDialog open onClose={() => setExporting(false)} title={material.title} notes={notesExportDoc(material)} />}
       {big && (
         <Dialog open onClose={() => setBig(null)} title={`Image from ${big.label}`} size="xl">
           <StoredImage id={big.img.id} alt={`Image from ${big.label}`} className="max-h-[70vh] w-full rounded-lg bg-white object-contain" />

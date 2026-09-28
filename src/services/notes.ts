@@ -258,3 +258,18 @@ function giveSubheadings(sec: NoteSection) {
     prev = h;
   });
 }
+
+/** The notes as a document for export (PDF, Word, text, Markdown, web page). */
+export function notesExportDoc(m: Material): import("@/services/export").ExportDoc {
+  const blocks: import("@/services/export").ExportDoc["blocks"] = [];
+  for (const sec of buildNotes(m)) {
+    blocks.push({ kind: "h2", text: sec.title });
+    for (const s of sec.slides) {
+      if (s.title) blocks.push({ kind: "p", text: s.title.toUpperCase() });
+      const items = s.lines.map((l) => (l.term ? `${l.term}${l.sep ?? ": "}${l.text}` : l.text));
+      if (s.table) items.push(...s.table.map((r) => r.join(" | ")));
+      if (items.length) blocks.push({ kind: "list", items });
+    }
+  }
+  return { title: `${m.title} notes`, subtitle: m.subject, blocks };
+}

@@ -7,7 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
-import { download, plural } from "@/lib/utils";
+import { download } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
 import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
@@ -56,7 +56,7 @@ export function SettingsPage() {
     <div className="max-w-4xl">
       <PageHeader title="Settings" description="Changes save automatically." />
 
-      <Section title="Appearance" description="Also available from the palette button in the top right.">
+      <Section title="Appearance">
         <Row label="Theme" htmlFor="set-theme">
           <Select id="set-theme" value={THEMES.some((t) => t.value === s.theme) ? s.theme : "light"} onChange={(e) => actions.updateSettings({ theme: e.target.value as ThemeName })} className="sm:w-48">
             {THEMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -67,25 +67,24 @@ export function SettingsPage() {
             {SCENE_ORDER.map((sc) => <option key={sc} value={sc}>{sceneLabel(sc)}</option>)}
           </Select>
         </Row>
-        <Row label="Quote of the day" hint="Shown above the box on Home" htmlFor="set-quote">
+        <Row label="Quote of the day" htmlFor="set-quote">
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>
-        <Row label="Automatic night light" hint="Switch to warm, low-blue colours at set times" htmlFor="set-night">
-          <Switch id="set-night" checked={!!s.nightLightAuto} onChange={(v) => set({ nightLightAuto: v })} label="Automatic night light" />
+        <Row label="Night light" htmlFor="set-night">
+          <Switch id="set-night" checked={!!s.nightLightAuto} onChange={(v) => set({ nightLightAuto: v })} label="Night light" />
         </Row>
         {s.nightLightAuto && (
-          <Row label="Night light hours" hint="Can run past midnight">
+          <Row label="Night light times">
             <div className="flex items-center gap-2 text-[14px]">
-              <Input type="time" aria-label="Night light starts" value={s.nightStart ?? DEFAULT_NIGHT.start} onChange={(e) => e.target.value && set({ nightStart: e.target.value })} className="w-[120px]" />
+              <Input type="time" onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()} aria-label="Night light starts" value={s.nightStart ?? DEFAULT_NIGHT.start} onChange={(e) => e.target.value && set({ nightStart: e.target.value })} className="w-[120px] cursor-pointer" />
               <span className="text-muted-foreground">to</span>
-              <Input type="time" aria-label="Night light ends" value={s.nightEnd ?? DEFAULT_NIGHT.end} onChange={(e) => e.target.value && set({ nightEnd: e.target.value })} className="w-[120px]" />
+              <Input type="time" onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()} aria-label="Night light ends" value={s.nightEnd ?? DEFAULT_NIGHT.end} onChange={(e) => e.target.value && set({ nightEnd: e.target.value })} className="w-[120px] cursor-pointer" />
             </div>
           </Row>
         )}
-        <p className="text-[12.5px] text-muted-foreground">Night light uses warm amber tones with very little blue light, which is easier on your eyes late at night. For the full effect, also turn on your device's night mode.</p>
       </Section>
 
-      <Section title="Practice" description="How multiple-choice questions are shown.">
+      <Section title="Practice">
         <Row label="Answer options" htmlFor="set-opts">
           <Select id="set-opts" value={s.mcqOptions ?? 5} onChange={(e) => set({ mcqOptions: Number(e.target.value) })} className="sm:w-48">
             {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} options (A to {"ABCDEF"[n - 1]})</option>)}
@@ -115,23 +114,23 @@ export function SettingsPage() {
         )}
       </Section>
 
-      <Section title="Data" description="Deleting shows an Undo option for a few seconds.">
-        <Row label="Export my data" hint="Everything as a JSON file">
+      <Section title="Data">
+        <Row label="Export my data">
           <Button variant="outline" onClick={() => download("slidequiz-data.json", JSON.stringify(getState(), null, 2), "application/json")}>
             <Download /> Export
           </Button>
         </Row>
-        <Row label="Delete materials" hint={`${plural(data.materials.length, "material")} with their questions and flashcards`}>
+        <Row label="Delete materials">
           <Button variant="outline" onClick={() => setConfirm("materials")} disabled={!data.materials.length}>
             <Trash2 /> Delete materials
           </Button>
         </Row>
-        <Row label="Delete history" hint="Quiz results, study sessions and flashcard progress">
+        <Row label="Delete history">
           <Button variant="outline" onClick={() => setConfirm("history")} disabled={!data.attempts.length && !data.sessions.length}>
             <RotateCcw /> Delete history
           </Button>
         </Row>
-        <Row label="Delete account & all data" hint="Removes everything stored by SlideQuiz on this device">
+        <Row label="Delete account & all data">
           <Button variant="destructive" onClick={() => setConfirm("all")}>
             <Trash2 /> Delete everything
           </Button>

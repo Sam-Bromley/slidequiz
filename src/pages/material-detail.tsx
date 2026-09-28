@@ -14,29 +14,14 @@ import { Menu } from "@/components/ui/menu";
 import { Tabs, tabPanelProps } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { Link, useLocation } from "@/lib/router";
-import { buildNotes } from "@/services/notes";
+import { notesExportDoc } from "@/services/notes";
 import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } from "@/services/practice";
-import type { ExportDoc } from "@/services/export";
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
 import type { ID, Material } from "@/types/models";
 
 type Tab = "notes" | "practice" | "progress";
-
-function notesExport(m: Material): ExportDoc {
-  const blocks: ExportDoc["blocks"] = [];
-  for (const sec of buildNotes(m)) {
-    blocks.push({ kind: "h2", text: sec.title });
-    for (const s of sec.slides) {
-      if (s.title) blocks.push({ kind: "p", text: s.title.toUpperCase() });
-      const items = s.lines.map((l) => (l.term ? `${l.term}${l.sep ?? ": "}${l.text}` : l.text));
-      if (s.table) items.push(...s.table.map((r) => r.join(" | ")));
-      if (items.length) blocks.push({ kind: "list", items });
-    }
-  }
-  return { title: `${m.title} notes`, subtitle: m.subject, blocks };
-}
 
 export function MaterialDetailPage({ id }: { id: string }) {
   const data = useData();
@@ -166,7 +151,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
           open
           onClose={() => setExporting(false)}
           title={m.title}
-          notes={notesExport(m)}
+          notes={notesExportDoc(m)}
           questions={practiceSet(data, m.id).map((q) => {
             const v = shuffleOptions(q, count);
             return { ...q, pool: false, options: v.options, correctIndex: v.correct };
