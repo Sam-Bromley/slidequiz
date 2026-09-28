@@ -6,6 +6,7 @@ import type {
   Flashcard,
   GenerationKind,
   ID,
+  NoteExtra,
   Question,
   SourceRef,
   SummaryDoc,
@@ -74,6 +75,17 @@ export interface ChatReply {
   tutorStep?: number;
 }
 
+export interface DetailRequest {
+  /** What the student typed, e.g. "more on the Calvin cycle". */
+  request: string;
+  /** All included pages of the material. */
+  pages: GroundingPage[];
+  /** When the student asked from a specific slide in the notes. */
+  pageId?: ID | null;
+}
+
+export type DetailResult = Pick<NoteExtra, "pageId" | "blocks">;
+
 /**
  * The single seam between SlideQuiz and any language model.
  * The UI never talks to a model directly — swap MockAIProvider for RemoteAIProvider
@@ -87,4 +99,8 @@ export interface AIProvider {
   gradeWritten(q: Question, response: string, pages: GroundingPage[]): Promise<WrittenFeedback>;
   summarize(materialId: ID, pages: GroundingPage[], topics: GroundingTopic[], detail: SummaryDoc["detail"]): Promise<Omit<SummaryDoc, "generatedAt">>;
   chat(req: ChatRequest): Promise<ChatReply>;
+  /** Multiple-choice questions covering every fact in the pages (right answer first, then a pool of wrong ones). */
+  mcqSet(pages: GroundingPage[], topics: GroundingTopic[], subject: string): Promise<QuestionDraft[]>;
+  /** Extra detail for one part of the notes. */
+  moreDetail(req: DetailRequest): Promise<DetailResult>;
 }

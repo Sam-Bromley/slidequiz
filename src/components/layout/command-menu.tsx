@@ -1,14 +1,12 @@
-import { Sunset, BookOpen, CornerDownLeft, FileText, Keyboard, Layers, ListChecks, MessageSquare, Moon, Search, Upload, CirclePlay, type LucideIcon } from "lucide-react";
+import { Sunset, BookOpen, CornerDownLeft, FileText, Keyboard, Moon, Search, Upload, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { navigate } from "@/lib/router";
-import { truncate } from "@/lib/text";
-import { openQuizSetup, setUI, useUI } from "@/lib/ui";
+import { setUI, useUI } from "@/lib/ui";
 import { cn, isMac } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
-import { startQuickStudy } from "@/components/quiz/start";
 
 interface Item {
   id: string;
@@ -35,19 +33,13 @@ export function CommandMenu() {
   const items = useMemo<Item[]>(() => {
     const act: Item[] = [
       { id: "a-upload", group: "Actions", label: "Upload material", icon: Upload, run: () => navigate("/upload"), keywords: "add file pdf pptx" },
-      { id: "a-quick", group: "Actions", label: "Start quick study", icon: CirclePlay, run: () => startQuickStudy(), keywords: "study now session" },
-      { id: "a-quiz", group: "Actions", label: "Take a quiz", icon: ListChecks, run: () => openQuizSetup({}), keywords: "test exam practice" },
-      { id: "a-cards", group: "Actions", label: "Review flashcards", icon: Layers, run: () => navigate("/flashcards/review"), keywords: "spaced repetition due" },
-      { id: "a-ask", group: "Actions", label: "Ask your notes", icon: MessageSquare, run: () => navigate("/ask"), keywords: "tutor chat question" },
       { id: "a-theme", group: "Actions", label: "Toggle dark mode", icon: Moon, run: () => actions.updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }), keywords: "theme light" },
       { id: "a-night", group: "Actions", label: "Night light (warm colours)", icon: Sunset, run: () => actions.updateSettings({ theme: "warm" }), keywords: "theme blue light late night warm" },
       { id: "a-keys", group: "Actions", label: "Keyboard shortcuts", icon: Keyboard, run: () => setUI({ shortcuts: true }) },
     ];
     const mats: Item[] = data.materials.map((m) => ({ id: m.id, group: "Materials", label: `${m.subject} · ${m.title}`, sub: `${m.pages.length} ${m.unit}`, icon: FileText, run: () => navigate(`/materials/${m.id}`), keywords: m.topics.map((t) => t.name).join(" ") }));
-    const topics: Item[] = data.materials.flatMap((m) => m.topics.map((t) => ({ id: t.id, group: "Topics", label: t.name, sub: m.title, icon: BookOpen, run: () => navigate(`/questions?m=${m.id}&t=${t.id}`) })));
-    const qs: Item[] = data.questions.map((x) => ({ id: x.id, group: "Questions", label: truncate(x.prompt, 90), sub: data.materials.find((m) => m.id === x.materialId)?.title, icon: ListChecks, run: () => navigate(`/questions?q=${x.id}`) }));
-    const cards: Item[] = data.flashcards.map((c) => ({ id: c.id, group: "Flashcards", label: c.front, sub: truncate(c.back, 60), icon: Layers, run: () => navigate(`/flashcards?q=${encodeURIComponent(c.front)}`) }));
-    return [...act, ...mats, ...topics, ...qs, ...cards];
+    const topics: Item[] = data.materials.flatMap((m) => m.topics.map((t) => ({ id: t.id, group: "Topics", label: t.name, sub: m.title, icon: BookOpen, run: () => navigate(`/materials/${m.id}?tab=notes`) })));
+    return [...act, ...mats, ...topics];
   }, [data]);
 
   const results = useMemo(() => {

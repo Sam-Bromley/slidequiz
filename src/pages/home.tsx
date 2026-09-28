@@ -1,12 +1,11 @@
-import { ArrowUp, Paperclip, Play, RotateCcw, X } from "lucide-react";
+import { ArrowUp, Paperclip, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
-import { startQuickStudy } from "@/components/quiz/start";
 import { Button } from "@/components/ui/button";
 import { handOffUpload } from "@/lib/handoff";
 import { Link, navigate } from "@/lib/router";
 import { cn, formatBytes } from "@/lib/utils";
 import { ACCEPT_ATTR } from "@/services/parsing";
-import { inProgressAttempts, recentMaterials } from "@/store/selectors";
+import { recentMaterials } from "@/store/selectors";
 import { useData } from "@/store/store";
 
 /** Home: one quiet box in the middle. Drop files or paste notes, press go. */
@@ -16,7 +15,6 @@ export function HomePage() {
   const [text, setText] = useState("");
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const inProgress = inProgressAttempts(data)[0];
   const recent = recentMaterials(data, 4);
   const ready = files.length > 0 || text.trim().length > 20;
 
@@ -98,18 +96,8 @@ export function HomePage() {
           />
         </div>
 
-        {(inProgress || recent.length > 0) && (
+        {recent.length > 0 && (
           <div className="mt-10 flex flex-wrap justify-center gap-2">
-            {inProgress && (
-              <Link to={`/quiz/${inProgress.id}`} className="inline-flex h-9 items-center gap-2 rounded-full border bg-card px-4 text-[13.5px] transition-colors hover:bg-accent focus-ring">
-                <RotateCcw className="size-3.5 text-primary" /> Continue quiz
-              </Link>
-            )}
-            {data.questions.length > 0 && (
-              <button onClick={() => startQuickStudy()} className="inline-flex h-9 items-center gap-2 rounded-full border bg-card px-4 text-[13.5px] transition-colors hover:bg-accent focus-ring">
-                <Play className="size-3.5 text-primary" /> Study now
-              </button>
-            )}
             {recent.map((m) => (
               <Link key={m.id} to={`/materials/${m.id}`} className="inline-flex h-9 max-w-[220px] items-center rounded-full border bg-card px-4 text-[13.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring">
                 <span className="truncate">{m.title}</span>

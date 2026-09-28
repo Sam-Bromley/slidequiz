@@ -3,6 +3,8 @@ import { stripTrailingPunct, truncate } from "@/lib/text";
 import type { Difficulty, ID, Question, QuestionType } from "@/types/models";
 import type { AIProvider, FlashcardDraft, GenerationRequest, GenerationResult, GroundingPage, GroundingTopic, QuestionChange, QuestionDraft } from "../types";
 import { chatReply } from "./chat";
+import { buildCoverageMcqs } from "./coverage";
+import { buildDetail } from "./detail";
 import { gradeWritten } from "./grading";
 import { buildKnowledge, excerpt, refOf, type Knowledge } from "./knowledge";
 import { BUILDERS, FALLBACK, type BuildCtx } from "./questions";
@@ -243,6 +245,15 @@ export class MockAIProvider implements AIProvider {
   async summarize(materialId: ID, pages: GroundingPage[], topics: GroundingTopic[], detail: "brief" | "standard" | "detailed") {
     await sleep(900);
     return summarize(materialId, pages, topics, detail);
+  }
+
+  async mcqSet(pages: GroundingPage[], topics: GroundingTopic[], subject: string) {
+    return buildCoverageMcqs(pages, topics, subject);
+  }
+
+  async moreDetail(req: import("../types").DetailRequest) {
+    await sleep(350);
+    return buildDetail(req);
   }
 
   async chat(req: import("../types").ChatRequest) {

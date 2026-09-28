@@ -54,7 +54,9 @@ fs.copyFileSync(path.join(root, "public/index.html"), path.join(dist, "index.htm
 }
 for (const f of fs.readdirSync(path.join(root, "public"))) if (f !== "index.html") fs.copyFileSync(path.join(root, "public", f), path.join(dist, f));
 // Re-emit the pdf.js worker with ASCII-only output (some hosts reject raw control bytes in text files).
-await esbuild.build({ entryPoints: [path.join(root, "node_modules/pdfjs-dist/build/pdf.worker.min.mjs")], outfile: path.join(dist, "pdf.worker.min.mjs"), format: "esm", minify: true, charset: "ascii", logLevel: "warning" });
+// The worker also gets the small fallbacks from src/lib/polyfills.ts (newer Map/Promise features older browsers lack).
+const polyfill = fs.readFileSync(path.join(root, "src/lib/polyfills.ts"), "utf8").match(/POLYFILL_SOURCE = `([\s\S]*?)`;/)[1];
+await esbuild.build({ entryPoints: [path.join(root, "node_modules/pdfjs-dist/build/pdf.worker.min.mjs")], outfile: path.join(dist, "pdf.worker.min.mjs"), format: "esm", minify: true, charset: "ascii", logLevel: "warning", banner: { js: polyfill } });
 
 const opts = {
   entryPoints: [path.join(root, "src/main.tsx")],

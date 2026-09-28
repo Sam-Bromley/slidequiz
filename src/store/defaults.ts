@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: AppData["settings"] = {
   defaultTimerMinutes: null,
   dailyGoalMinutes: 30,
   scene: "none",
+  mcqOptions: 5,
   nightStart: "21:00",
   nightEnd: "06:00",
 };

@@ -50,6 +50,8 @@ export interface Settings {
   showExplanations: boolean;
   defaultTimerMinutes: number | null;
   dailyGoalMinutes: number;
+  /** Answer options shown per multiple-choice question (3 to 6). */
+  mcqOptions?: number;
 }
 
 export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text";
@@ -77,6 +79,27 @@ export interface Page {
   included: boolean;
   imageDataUrl?: string;
   needsText?: boolean; // image pages waiting on OCR / manual text
+  /** Pictures found on this slide/page. The files themselves live in the image store. */
+  images?: PageImage[];
+}
+
+export interface PageImage {
+  id: ID;
+  width: number;
+  height: number;
+  included: boolean;
+  /** Same picture on most slides (a logo or template decoration). */
+  repeated?: boolean;
+}
+
+/** Extra detail a student asked for in their notes. */
+export interface NoteExtra {
+  id: ID;
+  request: string;
+  /** The slide/page the detail is attached under. */
+  pageId: ID | null;
+  blocks: { text: string; label: string; pageId: ID; kind: "fact" | "definition" | "note" }[];
+  createdAt: ISODate;
 }
 
 export interface Topic {
@@ -103,6 +126,7 @@ export interface Material {
   isDemo?: boolean;
   /** Folder in My Materials (null/undefined = top level). */
   folderId?: ID | null;
+  noteExtras?: NoteExtra[];
 }
 
 export interface Folder {
@@ -157,6 +181,11 @@ export interface Question {
   createdAt: ISODate;
   stats: QuestionStats;
   generationId?: ID;
+  /**
+   * Coverage MCQs keep the right answer at options[0] followed by a pool of wrong answers.
+   * The practice screen picks how many to show and shuffles them every time.
+   */
+  pool?: boolean;
 }
 
 export interface SrsState {

@@ -1,4 +1,5 @@
-import type { Material, Page, SourceFile, SourceFileType, Topic } from "@/types/models";
+import type { Material, Page, PageImage, SourceFile, SourceFileType, Topic } from "@/types/models";
+import { pendingImages } from "@/services/storage/images";
 import { nowISO, uid } from "@/lib/utils";
 import { docxParser, imageParser, parsePlainText, pdfParser, pptxParser, txtParser } from "./parsers";
 import { detectTopics, isLikelyIrrelevant } from "./sections";
@@ -52,6 +53,23 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
     uploadedAt: nowISO(),
     pageCount: doc.pages.length,
   };
+  // One stored file per distinct picture; a logo on most slides is marked "repeated" and left out by default.
+  const keyId = new Map<string, string>();
+  const keyCount = new Map<string, number>();
+  doc.pages.forEach((p) => new Set((p.images ?? []).map((x) => x.key)).forEach((k) => keyCount.set(k, (keyCount.get(k) ?? 0) + 1)));
+  const n = doc.pages.length;
+  const imagesFor = (p: ParsedDocument["pages"][number]): PageImage[] =>
+    (p.images ?? []).map((img) => {
+      let id = keyId.get(img.key);
+      if (!id) {
+        id = uid("img");
+        keyId.set(img.key, id);
+        pendingImages.set(id, img.blob);
+      }
+      const repeated = (keyCount.get(img.key) ?? 0) >= 3 && (keyCount.get(img.key) ?? 0) >= n * 0.5;
+      const small = img.width < 100 || img.height < 100;
+      return { id, width: img.width, height: img.height, included: !repeated && !small, repeated: repeated || undefined };
+    });
   const pages: Page[] = doc.pages.map((p, i) => ({
     id: uid("pg"),
     fileId: sourceFile.id,
@@ -60,9 +78,10 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
     title: p.title || `${LABEL[doc.unit]} ${i + 1}`,
     text: p.text,
     topicId: null,
-    included: !isLikelyIrrelevant(p, i) && !(p.needsText && !p.imageDataUrl),
+    included: !isLikelyIrrelevant(p, i) && !(p.needsText && !p.imageDataUrl && !p.images?.length),
     imageDataUrl: p.imageDataUrl,
     needsText: p.needsText,
+    images: p.images?.length ? imagesFor(p) : undefined,
   }));
   const groups = detectTopics(doc.pages);
   const topics: Topic[] = groups.map((g) => ({ id: uid("top"), name: g.name, pageIds: g.pageIdxs.map((i) => pages[i].id) }));

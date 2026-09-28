@@ -11,10 +11,10 @@ import { topicName } from "@/store/selectors";
 import { getState } from "@/store/store";
 import type { Flashcard, Question, SummaryDoc } from "@/types/models";
 
-type Content = "questions" | "flashcards" | "summary";
+type Content = "notes" | "questions" | "flashcards" | "summary";
 
-export function ExportDialog({ open, onClose, title, questions, flashcards, summary }: { open: boolean; onClose: () => void; title: string; questions?: Question[]; flashcards?: Flashcard[]; summary?: SummaryDoc }) {
-  const available: Content[] = [questions?.length ? "questions" : null, flashcards?.length ? "flashcards" : null, summary ? "summary" : null].filter(Boolean) as Content[];
+export function ExportDialog({ open, onClose, title, questions, flashcards, summary, notes }: { open: boolean; onClose: () => void; title: string; questions?: Question[]; flashcards?: Flashcard[]; summary?: SummaryDoc; notes?: ExportDoc }) {
+  const available: Content[] = [notes?.blocks.length ? "notes" : null, questions?.length ? "questions" : null, flashcards?.length ? "flashcards" : null, summary ? "summary" : null].filter(Boolean) as Content[];
   const [content, setContent] = useState<Content>(available[0] ?? "questions");
   const [format, setFormat] = useState<ExportFormat>("pdf");
   const [answers, setAnswers] = useState(true);
@@ -25,6 +25,7 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
 
   const build = (): { doc: ExportDoc; csv?: string; json?: unknown } => {
     const d = getState();
+    if (content === "notes" && notes) return { doc: notes, json: notes };
     if (content === "flashcards" && flashcards) return { doc: flashcardsDoc(`${title} flashcards`, flashcards), csv: flashcardsCsv(flashcards), json: flashcards.map((c) => ({ front: c.front, back: c.back, source: c.source?.label })) };
     if (content === "summary" && summary) return { doc: summaryDocument(`${title} summary`, summary), json: summary };
     return {
@@ -65,12 +66,12 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
     { value: "txt", label: "Text", icon: FileType, hint: "Plain .txt file" },
     { value: "md", label: "Markdown", icon: FileCode, hint: "For Notion, Obsidian" },
     { value: "html", label: "Web page", icon: Globe, hint: "Opens in any browser" },
-    ...(content !== "summary" ? [{ value: "csv" as const, label: "CSV", icon: Table, hint: content === "flashcards" ? "Anki, Quizlet, Excel" : "Excel, Google Sheets" }] : []),
+    ...(content === "questions" || content === "flashcards" ? [{ value: "csv" as const, label: "CSV", icon: Table, hint: content === "flashcards" ? "Anki, Quizlet, Excel" : "Excel, Google Sheets" }] : []),
     { value: "json", label: "JSON", icon: Braces, hint: "Raw data" },
     ...(inArtifactHost() ? [] : [{ value: "print" as const, label: "Print", icon: Printer, hint: "Printable worksheet" }]),
   ];
 
-  const count = content === "questions" ? plural(questions?.length ?? 0, "question") : content === "flashcards" ? plural(flashcards?.length ?? 0, "flashcard") : "Summary";
+  const count = content === "questions" ? plural(questions?.length ?? 0, "question") : content === "flashcards" ? plural(flashcards?.length ?? 0, "flashcard") : content === "notes" ? "Notes" : "Summary";
 
   return (
     <Dialog
@@ -92,7 +93,7 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
     >
       <div className="space-y-5">
         {available.length > 1 && (
-          <Segmented label="What to export" value={content} onChange={(c) => { setContent(c); if (c === "summary" && format === "csv") setFormat("pdf"); }} options={available.map((a) => ({ value: a, label: a[0].toUpperCase() + a.slice(1) }))} />
+          <Segmented label="What to export" value={content} onChange={(c) => { setContent(c); if ((c === "summary" || c === "notes") && format === "csv") setFormat("pdf"); }} options={available.map((a) => ({ value: a, label: a[0].toUpperCase() + a.slice(1) }))} />
         )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Format">
           {formats.map((f) => (

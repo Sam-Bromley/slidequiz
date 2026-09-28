@@ -11,6 +11,7 @@ import type {
   GenerationRecord,
   ID,
   Material,
+  NoteExtra,
   Question,
   QuizAttempt,
   Settings,
@@ -147,6 +148,52 @@ export const actions = {
       };
     });
     return { id, questionIds: qs.map((q) => q.id), flashcardIds: fcs.map((c) => c.id) };
+  },
+
+  /* ------------------------------------------------------------ practice (coverage MCQs) */
+  /** Replace a material's practice questions, keeping progress on any question that is unchanged. */
+  setPracticeQuestions(materialId: ID, drafts: QuestionDraft[]) {
+    const now = nowISO();
+    setState((s) => {
+      const old = s.questions.filter((q) => q.materialId === materialId && q.pool);
+      const key = (q: { prompt: string; answer: string }) => `${q.prompt}|${q.answer}`;
+      const oldBy = new Map(old.map((q) => [key(q), q]));
+      const next: Question[] = drafts.map((d) => {
+        const prev = oldBy.get(key(d));
+        return prev ? { ...prev, ...d, id: prev.id, stats: prev.stats, createdAt: prev.createdAt } : { ...d, id: uid("q"), createdAt: now, stats: { attempts: 0, correct: 0 } };
+      });
+      return { ...s, questions: [...next, ...s.questions.filter((q) => !(q.materialId === materialId && q.pool))] };
+    });
+  },
+  answerPractice(questionId: ID, correct: boolean) {
+    const now = nowISO();
+    setState((s) => {
+      const q = s.questions.find((x) => x.id === questionId);
+      if (!q) return s;
+      const next = {
+        ...s,
+        questions: s.questions.map((x) =>
+          x.id !== questionId ? x : { ...x, stats: { ...x.stats, attempts: x.stats.attempts + 1, correct: x.stats.correct + (correct ? 1 : 0), lastResult: correct ? ("correct" as const) : ("incorrect" as const), lastAnsweredAt: now } },
+        ),
+        materials: s.materials.map((m) => (m.id === q.materialId ? { ...m, lastStudiedAt: now } : m)),
+      };
+      return addXp(next, correct ? XP.correct : 1);
+    });
+  },
+  resetPractice(materialId: ID): Undo {
+    const before = getState().questions.filter((q) => q.materialId === materialId && q.pool);
+    setState((s) => ({ ...s, questions: s.questions.map((q) => (q.materialId === materialId && q.pool ? { ...q, stats: { attempts: 0, correct: 0 } } : q)) }));
+    return () => setState((s) => ({ ...s, questions: s.questions.map((q) => before.find((b) => b.id === q.id) ?? q) }));
+  },
+
+  /* ------------------------------------------------------------ notes */
+  addNoteExtra(materialId: ID, extra: Omit<NoteExtra, "id" | "createdAt">): ID {
+    const id = uid("nx");
+    setState((s) => ({ ...s, materials: s.materials.map((m) => (m.id === materialId ? { ...m, noteExtras: [...(m.noteExtras ?? []), { ...extra, id, createdAt: nowISO() }] } : m)) }));
+    return id;
+  },
+  removeNoteExtra(materialId: ID, id: ID) {
+    setState((s) => ({ ...s, materials: s.materials.map((m) => (m.id === materialId ? { ...m, noteExtras: (m.noteExtras ?? []).filter((x) => x.id !== id) } : m)) }));
   },
 
   /* ------------------------------------------------------------ questions */

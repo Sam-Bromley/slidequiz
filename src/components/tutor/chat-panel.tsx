@@ -1,4 +1,4 @@
-import { ArrowUp, Brain, Eraser, GraduationCap, Lightbulb, ListChecks, MessageSquareQuote, Microscope, SquarePen } from "lucide-react";
+import { ArrowUp, Brain, Eraser, GraduationCap, Lightbulb, ListChecks, MessageSquareQuote, Microscope, SquarePen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SourceChip } from "@/components/questions/source";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ const MODES: { mode: ChatMode; label: string; icon: typeof Brain; prompt: string
 ];
 
 /** "Ask your notes": answers only from the student's material, with slide citations. */
-export function ChatPanel({ material, className }: { material: Material; className?: string }) {
+export function ChatPanel({ material, className, onClose }: { material: Material; className?: string; onClose?: () => void }) {
   const data = useData();
   const messages = data.chats[material.id] ?? [];
   const [input, setInput] = useState("");
@@ -74,7 +74,7 @@ export function ChatPanel({ material, className }: { material: Material; classNa
     <div className={cn("flex h-[70dvh] min-h-[480px] flex-col overflow-hidden rounded-2xl border bg-card", className)}>
       <div className="flex items-center gap-3 border-b px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold">Ask your notes</p>
+          <p className="truncate text-[14px] font-semibold">Ask about your notes</p>
           <p className="truncate text-[12px] text-muted-foreground">Answers come only from {material.title}, with citations</p>
         </div>
         <Tooltip content="Tutor mode teaches through questions instead of giving the answer straight away." side="bottom">
@@ -87,6 +87,11 @@ export function ChatPanel({ material, className }: { material: Material; classNa
         {messages.length > 0 && (
           <Button variant="ghost" size="icon-sm" aria-label="Clear conversation" title="Clear conversation" onClick={() => actions.clearChat(material.id)}>
             <Eraser />
+          </Button>
+        )}
+        {onClose && (
+          <Button variant="ghost" size="icon-sm" aria-label="Close" title="Close" onClick={onClose}>
+            <X />
           </Button>
         )}
       </div>

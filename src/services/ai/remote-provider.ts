@@ -5,7 +5,7 @@
  *   localStorage.setItem("slidequiz:ai-endpoint", "https://your-api.example.com/ai")
  */
 import type { Question } from "@/types/models";
-import type { AIProvider, ChatRequest, GenerationRequest, GenerationStage, GroundingPage, GroundingTopic, QuestionChange } from "./types";
+import type { AIProvider, ChatRequest, DetailRequest, GenerationRequest, GenerationStage, GroundingPage, GroundingTopic, QuestionChange } from "./types";
 
 export class RemoteAIProvider implements AIProvider {
   readonly name = "Remote AI";
@@ -48,5 +48,11 @@ export class RemoteAIProvider implements AIProvider {
   }
   chat(req: ChatRequest) {
     return this.call<Awaited<ReturnType<AIProvider["chat"]>>>("chat", req);
+  }
+  mcqSet(pages: GroundingPage[], topics: GroundingTopic[], subject: string) {
+    return this.call<Awaited<ReturnType<AIProvider["mcqSet"]>>>("mcq-set", { pages, topics, subject });
+  }
+  moreDetail(req: DetailRequest) {
+    return this.call<Awaited<ReturnType<AIProvider["moreDetail"]>>>("more-detail", req);
   }
 }

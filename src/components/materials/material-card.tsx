@@ -1,4 +1,4 @@
-import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, MessageSquare, MoreHorizontal, Pencil, Play, Presentation, SquarePen, StickyNote, Trash2 } from "lucide-react";
+import { BookOpen, Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, ListChecks, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,7 +13,7 @@ import { actions } from "@/store/actions";
 import { materialCounts, unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
 import type { Folder, Material, SourceFileType } from "@/types/models";
-import { startQuickStudy } from "@/components/quiz/start";
+import { overallProgress } from "@/services/practice";
 
 const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage };
 
@@ -28,7 +28,7 @@ export function MaterialIcon({ m, className }: { m: Material; className?: string
 }
 
 export function materialStatsLine(m: Material, c: ReturnType<typeof materialCounts>) {
-  return [`${c.pages} ${unitWord(m, c.pages)}`, c.questions ? `${c.questions} questions` : null, c.flashcards ? `${c.flashcards} flashcards` : null].filter(Boolean).join(" · ");
+  return [`${c.pages} ${unitWord(m, c.pages)}`, c.questions ? `${c.questions} questions` : null].filter(Boolean).join(" · ");
 }
 
 export function RenameDialog({ m, open, onClose }: { m: Material; open: boolean; onClose: () => void }) {
@@ -116,10 +116,8 @@ export function useMaterialMenu(m: Material) {
   const [del, setDel] = useState(false);
   const [move, setMove] = useState(false);
   const items = [
-    { label: "Open", icon: FileText, onSelect: () => navigate(`/materials/${m.id}`) },
-    { label: "Study now", icon: Play, onSelect: () => startQuickStudy([m.id]) },
-    { label: "Generate questions", icon: SquarePen, onSelect: () => navigate(`/generate?m=${m.id}`) },
-    { label: "Ask your notes", icon: MessageSquare, onSelect: () => navigate(`/ask?m=${m.id}`) },
+    { label: "Notes", icon: BookOpen, onSelect: () => navigate(`/materials/${m.id}?tab=notes`) },
+    { label: "Practice", icon: ListChecks, onSelect: () => navigate(`/materials/${m.id}?tab=practice`) },
     { label: "Rename", icon: Pencil, onSelect: () => setRename(true), separatorBefore: true },
     { label: "Move to folder", icon: FolderInput, onSelect: () => setMove(true) },
     { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDel(true) },
@@ -132,7 +130,7 @@ export function useMaterialMenu(m: Material) {
         open={del}
         onClose={() => setDel(false)}
         title={`Delete “${m.title}”?`}
-        description="This removes the material with its questions, flashcards and summary. Your quiz history stays."
+        description="This removes the material with its notes, questions and progress."
         onConfirm={() => {
           const undo = actions.deleteMaterial(m.id);
           toast.undo("Material deleted", undo);
@@ -147,6 +145,7 @@ export function useMaterialMenu(m: Material) {
 export function MaterialCard({ m, selectable, selected, onSelect }: { m: Material; selectable?: boolean; selected?: boolean; onSelect?: (v: boolean) => void }) {
   const data = useData();
   const c = materialCounts(data, m);
+  const prog = overallProgress(data, m);
   const { items, dialogs } = useMaterialMenu(m);
   return (
     <article
@@ -177,17 +176,22 @@ export function MaterialCard({ m, selectable, selected, onSelect }: { m: Materia
           <Menu label={`${m.title} actions`} items={items} trigger={(p) => <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${m.title}`} {...p}><MoreHorizontal /></Button>} />
         </div>
       </div>
-      <p className="mt-3 text-[13px] tabular-nums text-muted-foreground">{materialStatsLine(m, c)}</p>
-      <div className="mt-3 flex items-center justify-between border-t pt-3 text-[12px] text-muted-foreground">
-        <span>{c.included < c.pages ? `Using ${c.included} of ${c.pages}` : `All ${unitWord(m)} included`}</span>
-        <span>{m.lastStudiedAt ? `Studied ${relativeTime(m.lastStudiedAt)}` : `Added ${relativeTime(m.createdAt)}`}</span>
+      <div className="mt-4">
+        <div className="mb-1.5 flex items-center justify-between text-[12.5px] text-muted-foreground">
+          <span>{prog.total ? `${prog.covered} of ${prog.total} covered` : `${c.included} of ${c.pages} ${unitWord(m)}`}</span>
+          <span className="font-medium tabular-nums text-foreground">{prog.pct}%</span>
+        </div>
+        <div className="h-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-foreground" style={{ width: `${prog.pct}%` }} />
+        </div>
       </div>
+      <p className="mt-3 text-[12px] text-muted-foreground">{m.lastStudiedAt ? `Practised ${relativeTime(m.lastStudiedAt)}` : `Added ${relativeTime(m.createdAt)}`}</p>
       <div className="relative z-10 mt-3 flex gap-2">
-        <Button size="sm" variant="subtle" className="flex-1" onClick={() => startQuickStudy([m.id])} disabled={!c.questions}>
-          <Play /> Study
+        <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/materials/${m.id}?tab=notes`)}>
+          <BookOpen /> Notes
         </Button>
-        <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/generate?m=${m.id}`)}>
-          <SquarePen /> Questions
+        <Button size="sm" className="flex-1" onClick={() => navigate(`/materials/${m.id}?tab=practice`)}>
+          <ListChecks /> Practice
         </Button>
       </div>
       {dialogs}

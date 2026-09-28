@@ -16,7 +16,8 @@ const SKIP_TITLE = /^(thank\s*you|thanks|any\s+questions\??|questions\??|q\s*&\s
 export function isLikelyIrrelevant(p: PageLike, idx: number): boolean {
   const t = p.title.trim();
   if (SKIP_TITLE.test(t)) return true;
-  if (idx === 0 && wordCount(p.text) < 14 && !/:/.test(p.text)) return true; // title slide
+  const body = p.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
+  if (idx === 0 && wordCount(body) < 14 && !/:/.test(body)) return true; // title slide
   return false;
 }
 

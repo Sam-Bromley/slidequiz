@@ -1,7 +1,6 @@
 import { Download, RotateCcw, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
-import { DIFFICULTY_SETTINGS } from "@/components/questions/meta";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -10,9 +9,8 @@ import { toast } from "@/components/ui/toast";
 import { download, plural } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
-import type { AcademicLevel, BackgroundScene, DifficultySetting, Settings, ThemeName } from "@/types/models";
+import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
 import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
-import { MinutesInput } from "@/components/ui/minutes-input";
 import { SCENE_ORDER } from "@/components/layout/app-background";
 import { sceneLabel } from "@/components/layout/personalise";
 
@@ -82,29 +80,10 @@ export function SettingsPage() {
         <p className="text-[12.5px] text-muted-foreground">Night light uses warm amber tones with very little blue light, which is easier on your eyes late at night. For the full effect, also turn on your device's night mode.</p>
       </Section>
 
-      <Section title="Study" description="Defaults for new questions and quizzes.">
-        <Row label="Default difficulty" htmlFor="set-diff">
-          <Select id="set-diff" value={s.defaultDifficulty} onChange={(e) => set({ defaultDifficulty: e.target.value as DifficultySetting })} className="sm:w-48">
-            {DIFFICULTY_SETTINGS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </Select>
-        </Row>
-        <Row label="Default question count" htmlFor="set-count">
-          <Select id="set-count" value={s.defaultCount} onChange={(e) => set({ defaultCount: Number(e.target.value) })} className="sm:w-48">
-            {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} questions</option>)}
-          </Select>
-        </Row>
-        <Row label="Show explanations" hint="After each answer in practice mode" htmlFor="set-expl">
-          <Switch id="set-expl" checked={s.showExplanations} onChange={(v) => set({ showExplanations: v })} label="Show explanations" />
-        </Row>
-        <Row label="Quiz timer" hint="Default for new quizzes" htmlFor="set-timer">
-          <div className="flex items-center gap-3">
-            {s.defaultTimerMinutes != null && <MinutesInput id="set-timer-min" value={s.defaultTimerMinutes} onChange={(m) => set({ defaultTimerMinutes: m })} />}
-            <Switch id="set-timer" checked={s.defaultTimerMinutes != null} onChange={(v) => set({ defaultTimerMinutes: v ? 20 : null })} label="Use a timer by default" />
-          </div>
-        </Row>
-        <Row label="Academic level" htmlFor="set-level">
-          <Select id="set-level" value={data.user.level} onChange={(e) => { actions.updateUser({ level: e.target.value as AcademicLevel }); toast("Settings saved"); }} className="sm:w-48">
-            {(["GCSE", "A-Level", "University", "Custom"] as const).map((l) => <option key={l}>{l}</option>)}
+      <Section title="Practice" description="How multiple-choice questions are shown.">
+        <Row label="Answer options" hint="The right letter changes every time" htmlFor="set-opts">
+          <Select id="set-opts" value={s.mcqOptions ?? 5} onChange={(e) => set({ mcqOptions: Number(e.target.value) })} className="sm:w-48">
+            {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} options (A to {"ABCDEF"[n - 1]})</option>)}
           </Select>
         </Row>
       </Section>

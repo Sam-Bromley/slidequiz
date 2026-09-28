@@ -1,10 +1,19 @@
 import type { SourceFileType } from "@/types/models";
 
+export interface ParsedImage {
+  /** Same key = same picture (used to spot logos repeated on every slide). */
+  key: string;
+  blob: Blob;
+  width: number;
+  height: number;
+}
+
 export interface ParsedPage {
   title: string;
   text: string;
   imageDataUrl?: string;
   needsText?: boolean;
+  images?: ParsedImage[];
 }
 
 export interface ParsedDocument {

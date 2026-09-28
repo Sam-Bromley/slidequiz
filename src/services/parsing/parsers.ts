@@ -1,5 +1,64 @@
 import { normalizeWhitespace, truncate } from "@/lib/text";
-import { ParseError, type DocumentParser, type ParsedDocument, type ParsedPage } from "./types";
+import { ParseError, type DocumentParser, type ParsedDocument, type ParsedImage, type ParsedPage } from "./types";
+
+/* ------------------------------------------------------------------ images */
+
+const MAX_IMAGE = 1200;
+const MIN_IMAGE = 48;
+
+function canvasToBlob(c: HTMLCanvasElement, type: string): Promise<Blob | null> {
+  return new Promise((res) => c.toBlob((b) => res(b), type, 0.85));
+}
+
+/** Decode, shrink to a sensible size and re-encode. Returns null for icons or formats browsers can't show (EMF/WMF). */
+async function prepareImage(key: string, source: CanvasImageSource & { width: number; height: number }, keepAlpha: boolean): Promise<ParsedImage | null> {
+  const { width, height } = source;
+  if (!width || !height || width < MIN_IMAGE || height < MIN_IMAGE) return null;
+  const scale = Math.min(1, MAX_IMAGE / Math.max(width, height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(width * scale);
+  c.height = Math.round(height * scale);
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  if (!keepAlpha) {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+  }
+  ctx.drawImage(source, 0, 0, c.width, c.height);
+  const blob = await canvasToBlob(c, keepAlpha ? "image/png" : "image/jpeg");
+  return blob ? { key, blob, width: c.width, height: c.height } : null;
+}
+
+async function imageFromBytes(key: string, bytes: Blob, name: string): Promise<ParsedImage | null> {
+  if (!/\.(png|jpe?g|gif|bmp|webp)$/i.test(name)) return null;
+  try {
+    const bmp = await createImageBitmap(bytes);
+    const out = await prepareImage(key, bmp, /\.(png|gif)$/i.test(name));
+    bmp.close?.();
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Map of relationship id → zip path, for a part's .rels file. */
+async function relTargets(zip: import("jszip"), relsPath: string, baseDir: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const f = zip.file(relsPath);
+  if (!f) return map;
+  const doc = xml(await f.async("string"));
+  for (const r of all(doc, "Relationship")) {
+    const target = r.getAttribute("Target") ?? "";
+    if (r.getAttribute("TargetMode") === "External") continue;
+    const parts = (target.startsWith("/") ? target.slice(1) : baseDir + "/" + target).split("/");
+    const out: string[] = [];
+    for (const p of parts) p === ".." ? out.pop() : p && p !== "." && out.push(p);
+    map.set(r.getAttribute("Id") ?? "", out.join("/"));
+  }
+  return map;
+}
+
+const embedOf = (el: Element) => el.getAttribute("r:embed") ?? el.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed") ?? "";
 
 const baseName = (name: string) => name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ").trim();
 
@@ -38,6 +97,7 @@ export const pptxParser: DocumentParser = {
     const ordered = order.length ? order.filter((p) => slidePaths.includes(p)) : slidePaths;
 
     const pages: ParsedPage[] = [];
+    const mediaCache = new Map<string, ParsedImage | null>();
     for (let i = 0; i < ordered.length; i++) {
       const doc = xml(await zip.file(ordered[i])!.async("string"));
       let title = "";
@@ -60,9 +120,17 @@ export const pptxParser: DocumentParser = {
           if (cells.some(Boolean)) body.push(cells.join(": "));
         }
       }
-      const notesPath = ordered[i].replace("slides/slide", "notesSlides/notesSlide");
+      // The slide's own relationships say which notes page belongs to it (numbering doesn't always match).
+      const slideRels = zip.file(ordered[i].replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels"));
+      let notesPath = "";
+      if (slideRels) {
+        const rd = xml(await slideRels.async("string"));
+        const rel = all(rd, "Relationship").find((r) => /\/notesSlide$/.test(r.getAttribute("Type") ?? ""));
+        const target = rel?.getAttribute("Target") ?? "";
+        if (target) notesPath = target.startsWith("/") ? target.slice(1) : ("ppt/slides/" + target).replace(/[^/]+\/\.\.\//g, "");
+      }
       let notes = "";
-      if (zip.file(notesPath)) {
+      if (notesPath && zip.file(notesPath)) {
         const nd = xml(await zip.file(notesPath)!.async("string"));
         notes = all(nd, "sp")
           .filter((sp) => (all(sp, "ph")[0]?.getAttribute("type") ?? "") === "body")
@@ -72,7 +140,21 @@ export const pptxParser: DocumentParser = {
       }
       if (!title) title = body.shift() ?? `Slide ${i + 1}`;
       const text = normalizeWhitespace([...body, notes ? `\nSpeaker notes:\n${notes}` : ""].join("\n"));
-      pages.push({ title: truncate(title, 120), text });
+      // Pictures placed on this slide (layout/master decorations aren't in the slide's own rels).
+      const images: ParsedImage[] = [];
+      const rels = await relTargets(zip, ordered[i].replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels"), "ppt/slides");
+      for (const blip of all(doc, "blip")) {
+        const path = rels.get(embedOf(blip));
+        if (!path || images.some((x) => x.key === path)) continue;
+        let img = mediaCache.get(path);
+        if (img === undefined) {
+          const f = zip.file(path);
+          img = f ? await imageFromBytes(path, await f.async("blob"), path) : null;
+          mediaCache.set(path, img);
+        }
+        if (img) images.push(img);
+      }
+      pages.push({ title: truncate(title, 120), text, images });
       onProgress((i + 1) / ordered.length, `Reading slide ${i + 1} of ${ordered.length}`);
     }
     const warnings = pages.filter((p) => !p.text).length > pages.length / 2 ? ["Many slides contain little text. Images and diagrams can't be read yet."] : [];
@@ -143,7 +225,8 @@ export const pdfParser: DocumentParser = {
       const title = heading?.text ?? truncate(lines[0]?.text ?? `Page ${n}`, 90);
       const rest = lines.filter((l) => l !== heading).map((l) => l.text);
       const text = normalizeWhitespace(joinWrapped(rest));
-      pages.push({ title, text, needsText: !text && !heading });
+      const images = await pdfImages(pdfjs, page, n).catch(() => [] as ParsedImage[]);
+      pages.push({ title, text, needsText: !text && !heading && !images.length, images });
       onProgress(n / doc.numPages, `Reading page ${n} of ${doc.numPages}`);
     }
     const empty = pages.filter((p) => p.needsText).length;
@@ -151,6 +234,68 @@ export const pdfParser: DocumentParser = {
     return { fileType: "pdf", title: baseName(file.name), unit: "pages", pages, warnings };
   },
 };
+
+type PdfImageObj = { width: number; height: number; bitmap?: ImageBitmap; data?: Uint8ClampedArray | Uint8Array; kind?: number };
+
+/** Pictures drawn on a PDF page, read from the page's drawing instructions. */
+async function pdfImages(pdfjs: typeof import("pdfjs-dist"), page: import("pdfjs-dist").PDFPageProxy, n: number): Promise<ParsedImage[]> {
+  const ops = await page.getOperatorList();
+  const names: string[] = [];
+  for (let j = 0; j < ops.fnArray.length; j++) {
+    const fn = ops.fnArray[j];
+    if (fn === pdfjs.OPS.paintImageXObject || fn === pdfjs.OPS.paintImageXObjectRepeat) {
+      const name = ops.argsArray[j]?.[0];
+      if (typeof name === "string" && !names.includes(name)) names.push(name);
+    }
+  }
+  const out: ParsedImage[] = [];
+  for (const name of names.slice(0, 12)) {
+    const store = name.startsWith("g_") ? page.commonObjs : page.objs;
+    const obj = await new Promise<PdfImageObj | null>((res) => {
+      try {
+        store.get(name, (o: PdfImageObj) => res(o ?? null));
+        setTimeout(() => res(null), 3000);
+      } catch {
+        res(null);
+      }
+    });
+    if (!obj || obj.width < MIN_IMAGE || obj.height < MIN_IMAGE) continue;
+    const c = document.createElement("canvas");
+    c.width = obj.width;
+    c.height = obj.height;
+    const ctx = c.getContext("2d");
+    if (!ctx) continue;
+    if (obj.bitmap) ctx.drawImage(obj.bitmap, 0, 0);
+    else if (obj.data) {
+      const px = obj.width * obj.height;
+      const rgba = new Uint8ClampedArray(px * 4);
+      if (obj.kind === 3) rgba.set(obj.data.subarray(0, px * 4));
+      else if (obj.kind === 2) for (let i = 0; i < px; i++) (rgba[i * 4] = obj.data[i * 3]), (rgba[i * 4 + 1] = obj.data[i * 3 + 1]), (rgba[i * 4 + 2] = obj.data[i * 3 + 2]), (rgba[i * 4 + 3] = 255);
+      else if (obj.kind === 1) {
+        const rowBytes = (obj.width + 7) >> 3;
+        for (let y = 0; y < obj.height; y++)
+          for (let x = 0; x < obj.width; x++) {
+            const v = obj.data[y * rowBytes + (x >> 3)] & (128 >> (x & 7)) ? 255 : 0;
+            const i = (y * obj.width + x) * 4;
+            rgba[i] = rgba[i + 1] = rgba[i + 2] = v;
+            rgba[i + 3] = 255;
+          }
+      } else continue;
+      ctx.putImageData(new ImageData(rgba, obj.width, obj.height), 0, 0);
+    } else continue;
+    // A tiny fingerprint so the same logo on every page is recognised as one picture.
+    const t = document.createElement("canvas");
+    t.width = t.height = 6;
+    t.getContext("2d")!.drawImage(c, 0, 0, 6, 6);
+    const fp = Array.from(t.getContext("2d")!.getImageData(0, 0, 6, 6).data.filter((_, i) => i % 4 !== 3))
+      .map((v) => (v >> 5).toString(8))
+      .join("");
+    const img = await prepareImage(`pdf:${obj.width}x${obj.height}:${fp}`, c, false);
+    if (img) out.push(img);
+  }
+  void n;
+  return out;
+}
 
 function median(ns: number[]) {
   if (!ns.length) return 0;
@@ -176,8 +321,9 @@ export const docxParser: DocumentParser = {
   async parse(file, onProgress) {
     const { default: JSZip } = await import("jszip");
     let docXml: string;
+    let zip: InstanceType<typeof JSZip>;
     try {
-      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      zip = await JSZip.loadAsync(await file.arrayBuffer());
       const f = zip.file("word/document.xml");
       if (!f) throw new Error("missing document.xml");
       docXml = await f.async("string");
@@ -186,17 +332,35 @@ export const docxParser: DocumentParser = {
     }
     onProgress(0.4, "Reading document");
     const doc = xml(docXml);
-    type Block = { level: number; text: string };
+    const rels = await relTargets(zip, "word/_rels/document.xml.rels", "word");
+    const mediaCache = new Map<string, ParsedImage | null>();
+    type Block = { level: number; text: string; images: ParsedImage[] };
     const blocks: Block[] = [];
     for (const p of all(doc, "p")) {
       const style = all(p, "pStyle")[0]?.getAttribute("w:val") ?? all(p, "pStyle")[0]?.getAttributeNS("*", "val") ?? "";
       const text = all(p, "t").map((t) => t.textContent ?? "").join("").trim();
-      if (!text) continue;
+      const images: ParsedImage[] = [];
+      for (const blip of all(p, "blip")) {
+        const path = rels.get(embedOf(blip));
+        if (!path) continue;
+        let img = mediaCache.get(path);
+        if (img === undefined) {
+          const f = zip.file(path);
+          img = f ? await imageFromBytes(path, await f.async("blob"), path) : null;
+          mediaCache.set(path, img);
+        }
+        if (img) images.push(img);
+      }
+      if (!text && !images.length) continue;
+      if (!text) {
+        blocks.push({ level: 97, text: "", images });
+        continue;
+      }
       const m = style.match(/^(?:Heading|heading)\s?(\d)$/) ?? (style === "Title" ? ["", "0"] : null);
       const isList = all(p, "numPr").length > 0;
-      blocks.push({ level: m ? Number(m[1]) : isList ? 98 : 99, text: isList ? "• " + text : text });
+      blocks.push({ level: m ? Number(m[1]) : isList ? 98 : 99, text: isList ? "• " + text : text, images });
     }
-    if (!blocks.length) throw new ParseError("empty", "This document doesn't contain any readable text.");
+    if (!blocks.some((b) => b.text)) throw new ParseError("empty", "This document doesn't contain any readable text.");
     onProgress(0.8, "Finding sections");
 
     // Sections start at level 1–2 headings. If there are none, fall back to ~180-word chunks.
@@ -207,23 +371,38 @@ export const docxParser: DocumentParser = {
     if (splitLevel) {
       let cur: ParsedPage | null = null;
       let parentHeading = "";
+      let loose: ParsedImage[] = [];
       for (const b of blocks) {
         if (b.level === 0) continue;
+        if (b.level === 97) {
+          if (cur) (cur.images ??= []).push(...b.images);
+          else loose.push(...b.images);
+          continue;
+        }
         if (b.level < splitLevel) {
           parentHeading = b.text;
           continue;
         }
         if (b.level === splitLevel) {
           if (cur) pages.push(cur);
-          cur = { title: b.text, text: parentHeading ? `(${parentHeading})\n` : "" };
+          cur = { title: b.text, text: parentHeading ? `(${parentHeading})\n` : "", images: [...loose, ...b.images] };
+          loose = [];
         } else {
-          if (!cur) cur = { title: firstLine(b.text).slice(0, 80), text: "" };
-          cur.text += (b.level <= 6 ? "\n" + b.text + "\n" : b.text + "\n");
+          if (!cur) cur = { title: firstLine(b.text).slice(0, 80), text: "", images: loose };
+          cur.text += b.level <= 6 ? "\n" + b.text + "\n" : b.text + "\n";
+          if (b.images.length) (cur.images ??= []).push(...b.images);
         }
       }
       if (cur) pages.push(cur);
     } else {
-      pages.push(...chunkBlocks(blocks.map((b) => b.text)));
+      const textBlocks = blocks.filter((b) => b.text);
+      pages.push(...chunkBlocks(textBlocks.map((b) => b.text)));
+      // Place each picture on the chunk nearest its position in the document.
+      blocks.forEach((b, i) => {
+        if (!b.images.length || !pages.length) return;
+        const at = Math.min(pages.length - 1, Math.floor((i / blocks.length) * pages.length));
+        (pages[at].images ??= []).push(...b.images);
+      });
     }
     if (!docTitle) docTitle = baseName(file.name);
     onProgress(1);
