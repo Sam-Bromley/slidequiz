@@ -1,6 +1,7 @@
 import { Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useMemo, useState, type DragEvent } from "react";
 import { MaterialCard } from "@/components/materials/material-card";
+import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
 import { Button, buttonClass } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Dialog } from "@/components/ui/dialog";
@@ -28,9 +29,7 @@ export const FOLDER_COLOURS: { key: string; label: string; hex: string }[] = [
 ];
 const colourOf = (key?: string) => FOLDER_COLOURS.find((c) => c.key === key)?.hex;
 
-const MIN_W = 200;
-const MAX_W = 760;
-export const DEFAULT_FOLDER_W = 300;
+export const DEFAULT_FOLDER_W = DEFAULT_W;
 
 function ColourDialog({ f, onClose }: { f: Folder; onClose: () => void }) {
   const pick = (key?: string) => {
@@ -83,39 +82,11 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
   );
 }
 
-const SNAP = 16;
 
 function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; count: number; onDropMaterial: (id: string) => void; otherWidths: number[] }) {
   const [over, setOver] = useState(false);
   // Each folder has its own width; drag its right edge to change it.
-  const [live, setLive] = useState<number | null>(null);
-  const width = live ?? f.width ?? DEFAULT_FOLDER_W;
-  const drag = useRef<{ x: number; w: number } | null>(null);
-  const onResizeStart = (e: ReactPointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    drag.current = { x: e.clientX, w: width };
-    document.body.style.cursor = "ew-resize";
-    let last = width;
-    const move = (ev: PointerEvent) => {
-      if (!drag.current) return;
-      last = Math.round(Math.min(MAX_W, Math.max(MIN_W, drag.current.w + ev.clientX - drag.current.x)));
-      // Snap to another folder's width when close, so folders can line up evenly.
-      const near = otherWidths.reduce<number | null>((best, w) => (Math.abs(w - last) <= SNAP && (best === null || Math.abs(w - last) < Math.abs(best - last)) ? w : best), null);
-      if (near !== null) last = near;
-      setLive(last);
-    };
-    const up = () => {
-      drag.current = null;
-      document.body.style.cursor = "";
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      actions.setFolderWidth(f.id, last);
-      setLive(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
+  const { width, start: onResizeStart } = useResizableWidth(f.width, otherWidths, (w) => actions.setFolderWidth(f.id, w));
   const [colouring, setColouring] = useState(false);
   const hex = colourOf(f.color);
   const [renaming, setRenaming] = useState(false);
@@ -158,14 +129,7 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
         />
       </div>
       {/* Drag the right edge to make folders wider. */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Drag to resize folders"
-        title="Drag to resize"
-        onPointerDown={onResizeStart}
-        className="absolute -right-1.5 inset-y-0 z-20 hidden w-3 cursor-ew-resize touch-none sm:block"
-      />
+      <ResizeEdge onPointerDown={onResizeStart} label="Drag to resize folders" />
       {colouring && <ColourDialog f={f} onClose={() => setColouring(false)} />}
       {renaming && <NameDialog title="Rename folder" initial={f.name} confirm="Save" onSave={(n) => actions.renameFolder(f.id, n)} onClose={() => setRenaming(false)} />}
       <ConfirmDialog

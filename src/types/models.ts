@@ -214,6 +214,8 @@ export interface Deck {
   name: string;
   materialIds: ID[];
   createdAt: ISODate;
+  /** Width in the Flashcards list, in pixels (drag the right edge to change). */
+  width?: number;
 }
 
 export interface Flashcard {

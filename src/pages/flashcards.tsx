@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, Layers, List, MoreHorizontal, Penci
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
+import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
@@ -183,6 +184,25 @@ function NameDialog({ title, initial = "", confirm, onSave, onClose }: { title: 
 
 /* ---------------------------------------------------------------- decks list */
 
+/** One deck in the list. Drag its right edge to make it wider (it snaps to other decks' widths). */
+function DeckTile({ d, count, otherWidths }: { d: Deck; count: number; otherWidths: number[] }) {
+  const { width, start } = useResizableWidth(d.width, otherWidths, (w) => actions.setDeckWidth(d.id, w));
+  return (
+    <div className="group relative rounded-xl border bg-card transition-colors hover:border-foreground/20" style={{ width: `min(100%, ${width}px)` }}>
+      <Link to={`/flashcards/${d.id}`} className="flex items-center gap-3 rounded-xl px-3.5 py-3 focus-ring">
+        <Layers className="size-5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[14px] font-medium" title={d.name}>
+            {d.name}
+          </span>
+          <span className="block text-[12px] text-muted-foreground">{plural(count, "card")}</span>
+        </span>
+      </Link>
+      <ResizeEdge onPointerDown={start} label="Drag to resize" />
+    </div>
+  );
+}
+
 export function FlashcardsPage() {
   const data = useData();
   const decks = data.decks ?? [];
@@ -221,23 +241,10 @@ export function FlashcardsPage() {
           </button>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {decks.map((d) => {
-            const cards = data.flashcards.filter((c) => c.deckId === d.id);
-            return (
-              <Link key={d.id} to={`/flashcards/${d.id}`} className="group rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20 focus-ring">
-                <div className="flex items-start gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground">
-                    <Layers className="size-[18px]" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold">{d.name}</p>
-                    <p className="text-[12.5px] text-muted-foreground">{plural(cards.length, "card")}</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+        <div className="flex flex-col items-start gap-2">
+          {decks.map((d) => (
+            <DeckTile key={d.id} d={d} count={data.flashcards.filter((c) => c.deckId === d.id).length} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
+          ))}
         </div>
       )}
       {creating && <CreateDialog onClose={() => setCreating(false)} />}

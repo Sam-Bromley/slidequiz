@@ -249,6 +249,9 @@ export const actions = {
     setState((s) => ({ ...s, decks: [deck, ...(s.decks ?? [])], flashcards: [...fcs, ...s.flashcards] }));
     return id;
   },
+  setDeckWidth(id: ID, width: number) {
+    setState((s) => ({ ...s, decks: (s.decks ?? []).map((d) => (d.id === id ? { ...d, width } : d)) }));
+  },
   renameDeck(id: ID, name: string) {
     setState((s) => ({ ...s, decks: (s.decks ?? []).map((d) => (d.id === id ? { ...d, name: name.trim() || d.name } : d)) }));
   },
