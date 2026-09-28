@@ -1,5 +1,5 @@
-import { ArrowRight, Check, RotateCcw, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, ChevronDown, RotateCcw, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isCovered, needsReview, overallProgress, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
@@ -16,11 +16,41 @@ function splitPrompt(prompt: string): { kicker: string | null; text: string } {
   return m ? { kicker: m[1].replace(/\?$/, "?"), text: m[2].replace(/^“|”$/g, "") } : { kicker: null, text: prompt };
 }
 
-export function PracticeView({ material, topicId, onTopicChange, onOpenNotes }: { material: Material; topicId: ID | null; onTopicChange: (t: ID | null) => void; onOpenNotes: (pageId: string) => void }) {
+/** A small button that opens a panel underneath it. */
+function Pop({ label, title, children, align = "left", className }: { label: string; title: string; children: ReactNode; align?: "left" | "right"; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className={cn("relative", className)}>
+      <button type="button" aria-expanded={open} aria-haspopup="true" title={title} onClick={() => setOpen((o) => !o)} className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring">
+        <span className="truncate">{label}</span>
+        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div role="dialog" aria-label={title} className={cn("absolute top-full z-30 mt-1.5 w-64 animate-scale-in rounded-xl border bg-popover p-1.5 shadow-pop", align === "right" ? "right-0" : "left-0")}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }: { material: Material; topicIds: ID[]; onTopicsChange: (t: ID[]) => void; onOpenNotes: (pageId: string) => void }) {
   const data = useData();
   const count = Math.min(6, Math.max(3, data.settings.mcqOptions ?? 5));
   const all = practiceSet(data, material.id);
-  const topicQs = topicId ? all.filter((q) => q.topicId === topicId) : all;
+  const topicQs = topicIds.length ? all.filter((q) => q.topicId && topicIds.includes(q.topicId)) : all;
   const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs));
   const [pos, setPos] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -29,7 +59,7 @@ export function PracticeView({ material, topicId, onTopicChange, onOpenNotes }: 
   const nextBtn = useRef<HTMLButtonElement>(null);
 
   // Rebuild the order when the topic filter or the question set changes.
-  const setKey = `${topicId}|${topicQs.map((q) => q.id).join(",")}`;
+  const setKey = `${topicIds.join(",")}|${topicQs.map((q) => q.id).join(",")}`;
   const lastKey = useRef(setKey);
   useEffect(() => {
     if (lastKey.current === setKey) return;
@@ -80,7 +110,7 @@ export function PracticeView({ material, topicId, onTopicChange, onOpenNotes }: 
 
   const again = () => {
     const d = getState();
-    const qs = practiceSet(d, material.id).filter((x) => !topicId || x.topicId === topicId);
+    const qs = practiceSet(d, material.id).filter((x) => !topicIds.length || (x.topicId && topicIds.includes(x.topicId)));
     setQueue(practiceQueue(qs));
     setPos(0);
     setChosen(null);
@@ -115,22 +145,37 @@ export function PracticeView({ material, topicId, onTopicChange, onOpenNotes }: 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <select
-          value={topicId ?? ""}
-          onChange={(e) => onTopicChange(e.target.value || null)}
-          aria-label="Topic"
-          className="h-8 max-w-[60%] rounded-full border bg-card px-3 text-[13px] focus-ring"
+        <Pop
+          label={topicIds.length === 0 ? "All topics" : topicIds.length === 1 ? topics.find((t) => t.id === topicIds[0])?.name ?? "1 topic" : `${topicIds.length} topics`}
+          title="Topics to practise"
+          className="max-w-[70%]"
         >
-          <option value="">All topics</option>
-          {topics.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-        <div className="ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
-          <span className="hidden sm:inline">Options</span>
-          <div className="inline-flex rounded-full border bg-card p-0.5" role="radiogroup" aria-label="Answer options per question">
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-[14px] hover:bg-accent">
+            <input type="checkbox" className="size-4 accent-foreground" checked={topicIds.length === 0} onChange={() => onTopicsChange([])} />
+            All topics
+          </label>
+          <div className="my-1 border-t" />
+          {topics.map((t) => {
+            const on = topicIds.includes(t.id);
+            return (
+              <label key={t.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-[14px] hover:bg-accent">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-foreground"
+                  checked={on}
+                  onChange={() => {
+                    const next = on ? topicIds.filter((x) => x !== t.id) : [...topicIds, t.id];
+                    onTopicsChange(next.length === topics.length ? [] : next);
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                <span className="text-[12px] tabular-nums text-muted-foreground">{all.filter((x) => x.topicId === t.id).length}</span>
+              </label>
+            );
+          })}
+        </Pop>
+        <Pop label={`${count} options`} title="Answer options" align="right" className="ml-auto">
+          <div className="grid grid-cols-4 gap-1 p-1" role="radiogroup" aria-label="Answer options per question">
             {COUNTS.map((n) => (
               <button
                 key={n}
@@ -138,14 +183,14 @@ export function PracticeView({ material, topicId, onTopicChange, onOpenNotes }: 
                 role="radio"
                 aria-checked={count === n}
                 onClick={() => actions.updateSettings({ mcqOptions: n })}
-                className={cn("h-7 min-w-7 rounded-full px-2 text-[12.5px] font-medium tabular-nums transition-colors focus-ring", count === n ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}
-                title={`${n} options (A to ${LETTERS[n - 1]})`}
+                className={cn("h-9 rounded-lg text-[14px] font-medium tabular-nums transition-colors focus-ring", count === n ? "bg-foreground text-background" : "hover:bg-accent")}
               >
                 {n}
               </button>
             ))}
           </div>
-        </div>
+          <p className="px-2 pb-1 pt-2 text-[12px] text-muted-foreground">A to {LETTERS[count - 1]} for each question</p>
+        </Pop>
       </div>
 
       <div className="mb-5">
@@ -258,7 +303,6 @@ export function PracticeView({ material, topicId, onTopicChange, onOpenNotes }: 
           )}
         </article>
       )}
-      {q && !answered && <p className="mt-3 hidden text-center text-[12px] text-muted-foreground sm:block">Press A to {LETTERS[view!.options.length - 1]} to answer</p>}
     </div>
   );
 }

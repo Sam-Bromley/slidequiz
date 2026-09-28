@@ -6,6 +6,10 @@ export interface ParsedImage {
   blob: Blob;
   width: number;
   height: number;
+  /** Has enough detail to be a real picture/diagram (not a plain block of colour or a gradient). */
+  detailed?: boolean;
+  /** Worth showing in the notes by default (decided per slide, from size and placement). */
+  useful?: boolean;
 }
 
 export interface ParsedPage {

@@ -24,7 +24,7 @@ import type { ID, Material } from "@/types/models";
 
 type Tab = "notes" | "practice" | "progress";
 
-function notesExport(m: Material): ExportDoc {
+function notesExport(m: Material, speaker: boolean): ExportDoc {
   const blocks: ExportDoc["blocks"] = [];
   for (const sec of buildNotes(m)) {
     blocks.push({ kind: "h2", text: sec.title });
@@ -33,11 +33,8 @@ function notesExport(m: Material): ExportDoc {
       const items = s.lines.map((l) => (l.term ? `${l.term}${l.sep ?? ": "}${l.text}` : l.text));
       if (s.table) items.push(...s.table.map((r) => r.join(" | ")));
       if (items.length) blocks.push({ kind: "list", items });
-      if (s.speaker.length) blocks.push({ kind: "p", text: `Speaker notes: ${s.speaker.join(" ")}`, muted: true });
-      for (const x of (m.noteExtras ?? []).filter((e) => e.pageId === s.page.id))
-        if (x.blocks.length) blocks.push({ kind: "list", items: x.blocks.map((b) => `${b.text} (${b.label})`) });
+      if (speaker && s.speaker.length) blocks.push({ kind: "p", text: `Speaker notes: ${s.speaker.join(" ")}`, muted: true });
     }
-    if (sec.terms.length) blocks.push({ kind: "list", items: sec.terms.map((t) => `${t.term}: ${t.definition}`) });
   }
   return { title: `${m.title} notes`, subtitle: m.subject, blocks };
 }
@@ -48,7 +45,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
   const m = data.materials.find((x) => x.id === id);
   const initial = query.get("tab");
   const [tab, setTab] = useState<Tab>(initial === "practice" || initial === "progress" ? initial : "notes");
-  const [topic, setTopic] = useState<ID | null>(null);
+  const [topics, setTopics] = useState<ID[]>([]);
   const [choosing, setChoosing] = useState(false);
   const [draft, setDraft] = useState<Material | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -133,12 +130,12 @@ export function MaterialDetailPage({ id }: { id: string }) {
       />
       <div {...tabPanelProps("mat", tab)}>
         {tab === "notes" && <NotesView material={m} />}
-        {tab === "practice" && <PracticeView material={m} topicId={topic} onTopicChange={setTopic} onOpenNotes={openNotes} />}
+        {tab === "practice" && <PracticeView material={m} topicIds={topics} onTopicsChange={setTopics} onOpenNotes={openNotes} />}
         {tab === "progress" && (
           <ProgressView
             material={m}
             onPractise={(t) => {
-              setTopic(t);
+              setTopics(t ? [t] : []);
               changeTab("practice");
             }}
           />
@@ -170,7 +167,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
           open
           onClose={() => setExporting(false)}
           title={m.title}
-          notes={notesExport(m)}
+          notes={notesExport(m, !!data.settings.showSpeakerNotes)}
           questions={practiceSet(data, m.id).map((q) => {
             const v = shuffleOptions(q, count);
             return { ...q, pool: false, options: v.options, correctIndex: v.correct };

@@ -68,7 +68,7 @@ export function buildMaterial(doc: ParsedDocument, file: { name: string; size: n
       }
       const repeated = (keyCount.get(img.key) ?? 0) >= 3 && (keyCount.get(img.key) ?? 0) >= n * 0.5;
       const small = img.width < 100 || img.height < 100;
-      return { id, width: img.width, height: img.height, included: !repeated && !small, repeated: repeated || undefined };
+      return { id, width: img.width, height: img.height, included: !repeated && !small && img.useful !== false, repeated: repeated || undefined };
     });
   const pages: Page[] = doc.pages.map((p, i) => ({
     id: uid("pg"),

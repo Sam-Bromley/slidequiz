@@ -2,20 +2,16 @@ import { ArrowUp, Paperclip, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { handOffUpload } from "@/lib/handoff";
-import { Link, navigate } from "@/lib/router";
+import { navigate } from "@/lib/router";
 import { cn, formatBytes } from "@/lib/utils";
 import { ACCEPT_ATTR } from "@/services/parsing";
-import { recentMaterials } from "@/store/selectors";
-import { useData } from "@/store/store";
 
 /** Home: one quiet box in the middle. Drop files or paste notes, press go. */
 export function HomePage() {
-  const data = useData();
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const recent = recentMaterials(data, 4);
   const ready = files.length > 0 || text.trim().length > 20;
 
   const go = () => {
@@ -96,15 +92,6 @@ export function HomePage() {
           />
         </div>
 
-        {recent.length > 0 && (
-          <div className="mt-10 flex flex-wrap justify-center gap-2">
-            {recent.map((m) => (
-              <Link key={m.id} to={`/materials/${m.id}`} className="inline-flex h-9 max-w-[220px] items-center rounded-full border bg-card px-4 text-[13.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring">
-                <span className="truncate">{m.title}</span>
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

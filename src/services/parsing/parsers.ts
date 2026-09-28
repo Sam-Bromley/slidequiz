@@ -26,7 +26,31 @@ async function prepareImage(key: string, source: CanvasImageSource & { width: nu
   }
   ctx.drawImage(source, 0, 0, c.width, c.height);
   const blob = await canvasToBlob(c, keepAlpha ? "image/png" : "image/jpeg");
-  return blob ? { key, blob, width: c.width, height: c.height } : null;
+  return blob ? { key, blob, width: c.width, height: c.height, detailed: hasDetail(c) } : null;
+}
+
+/** Plain colour blocks, gradients and near-empty images aren't worth showing. */
+function hasDetail(src: HTMLCanvasElement) {
+  const n = 32;
+  const t = document.createElement("canvas");
+  t.width = t.height = n;
+  const ctx = t.getContext("2d");
+  if (!ctx) return true;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, n, n);
+  ctx.drawImage(src, 0, 0, n, n);
+  const d = ctx.getImageData(0, 0, n, n).data;
+  const lum: number[] = [];
+  const buckets = new Set<number>();
+  let edges = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    lum.push(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+    buckets.add(((d[i] >> 5) << 6) | ((d[i + 1] >> 5) << 3) | (d[i + 2] >> 5));
+  }
+  const mean = lum.reduce((a, b) => a + b, 0) / lum.length;
+  const sd = Math.sqrt(lum.reduce((a, b) => a + (b - mean) ** 2, 0) / lum.length);
+  for (let y = 0; y < n; y++) for (let x = 1; x < n; x++) if (Math.abs(lum[y * n + x] - lum[y * n + x - 1]) > 24) edges++;
+  return sd > 10 && buckets.size >= 4 && edges >= 12;
 }
 
 async function imageFromBytes(key: string, bytes: Blob, name: string): Promise<ParsedImage | null> {
@@ -98,6 +122,14 @@ export const pptxParser: DocumentParser = {
 
     const pages: ParsedPage[] = [];
     const mediaCache = new Map<string, ParsedImage | null>();
+    let slideSize: { cx: number; cy: number } | null = null;
+    try {
+      const pres = xml(await zip.file("ppt/presentation.xml")!.async("string"));
+      const sz = all(pres, "sldSz")[0];
+      if (sz) slideSize = { cx: Number(sz.getAttribute("cx")), cy: Number(sz.getAttribute("cy")) };
+    } catch {
+      /* use defaults */
+    }
     for (let i = 0; i < ordered.length; i++) {
       const doc = xml(await zip.file(ordered[i])!.async("string"));
       let title = "";
@@ -143,8 +175,10 @@ export const pptxParser: DocumentParser = {
       // Pictures placed on this slide (layout/master decorations aren't in the slide's own rels).
       const images: ParsedImage[] = [];
       const rels = await relTargets(zip, ordered[i].replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels"), "ppt/slides");
-      for (const blip of all(doc, "blip")) {
-        const path = rels.get(embedOf(blip));
+      const words = body.join(" ").split(/\s+/).filter(Boolean).length;
+      for (const pic of all(doc, "pic")) {
+        const blip = all(pic, "blip")[0];
+        const path = blip && rels.get(embedOf(blip));
         if (!path || images.some((x) => x.key === path)) continue;
         let img = mediaCache.get(path);
         if (img === undefined) {
@@ -152,7 +186,17 @@ export const pptxParser: DocumentParser = {
           img = f ? await imageFromBytes(path, await f.async("blob"), path) : null;
           mediaCache.set(path, img);
         }
-        if (img) images.push(img);
+        if (!img) continue;
+        // How big the picture is on the slide decides whether it's content or decoration.
+        const ext = all(pic, "ext").find((e) => e.getAttribute("cx"));
+        const cx = Number(ext?.getAttribute("cx") ?? 0);
+        const cy = Number(ext?.getAttribute("cy") ?? 0);
+        const area = cx && cy && slideSize ? (cx * cy) / (slideSize.cx * slideSize.cy) : 0.2;
+        const ratio = cx && cy ? cx / cy : img.width / img.height;
+        const icon = area < 0.035;
+        const background = area > 0.8 && words >= 8;
+        const strip = ratio > 5 || ratio < 0.2;
+        images.push({ ...img, useful: !!img.detailed && !icon && !background && !strip });
       }
       pages.push({ title: truncate(title, 120), text, images });
       onProgress((i + 1) / ordered.length, `Reading slide ${i + 1} of ${ordered.length}`);
@@ -291,7 +335,10 @@ async function pdfImages(pdfjs: typeof import("pdfjs-dist"), page: import("pdfjs
       .map((v) => (v >> 5).toString(8))
       .join("");
     const img = await prepareImage(`pdf:${obj.width}x${obj.height}:${fp}`, c, false);
-    if (img) out.push(img);
+    if (img) {
+      const ratio = img.width / img.height;
+      out.push({ ...img, useful: !!img.detailed && Math.min(obj.width, obj.height) >= 100 && ratio < 5 && ratio > 0.2 });
+    }
   }
   void n;
   return out;
@@ -349,7 +396,14 @@ export const docxParser: DocumentParser = {
           img = f ? await imageFromBytes(path, await f.async("blob"), path) : null;
           mediaCache.set(path, img);
         }
-        if (img) images.push(img);
+        if (!img) continue;
+        // Size on the page (EMU; 914400 per inch). Under ~1 inch is an icon or bullet picture.
+        const ext = all(p, "extent")[0];
+        const cx = Number(ext?.getAttribute("cx") ?? 0);
+        const cy = Number(ext?.getAttribute("cy") ?? 0);
+        const small = cx && cy ? cx < 914400 && cy < 914400 : false;
+        const ratio = cx && cy ? cx / cy : img.width / img.height;
+        images.push({ ...img, useful: !!img.detailed && !small && ratio < 5 && ratio > 0.2 });
       }
       if (!text && !images.length) continue;
       if (!text) {

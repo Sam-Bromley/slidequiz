@@ -52,6 +52,8 @@ export interface Settings {
   dailyGoalMinutes: number;
   /** Answer options shown per multiple-choice question (3 to 6). */
   mcqOptions?: number;
+  /** Show slide speaker notes in the notes view (off by default). */
+  showSpeakerNotes?: boolean;
 }
 
 export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text";
