@@ -1,15 +1,15 @@
-import { Download, LogIn, LogOut, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Download, RotateCcw, Trash2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
-import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { download } from "@/lib/utils";
 import { actions } from "@/store/actions";
-import { getState, useData } from "@/store/store";
+import { useData } from "@/store/store";
+import { backupName, makeBackup, restoreBackup } from "@/services/backup";
 import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
 import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
 import { SCENE_ORDER } from "@/components/layout/app-background";
@@ -27,9 +27,9 @@ function Section({ title, description, children }: { title: string; description?
   );
 }
 
-function Row({ label, hint, htmlFor, children }: { label: string; hint?: string; htmlFor?: string; children: React.ReactNode }) {
+function Row({ label, hint, htmlFor, children, inline }: { label: string; hint?: string; htmlFor?: string; children: React.ReactNode; inline?: boolean }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className={inline ? "flex items-center justify-between gap-4" : "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"}>
       <label htmlFor={htmlFor} className="text-[14px]">
         <span className="block font-medium">{label}</span>
         {hint && <span className="block text-[12.5px] text-muted-foreground">{hint}</span>}
@@ -42,15 +42,14 @@ function Row({ label, hint, htmlFor, children }: { label: string; hint?: string;
 export function SettingsPage() {
   const data = useData();
   const s = data.settings;
-  const [name, setName] = useState(data.user.name);
-  const [email, setEmail] = useState(data.user.email);
-  const [loggingIn, setLoggingIn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [confirm, setConfirm] = useState<null | "materials" | "history" | "all">(null);
   const set = (p: Partial<Settings>) => {
     actions.updateSettings(p);
     toast("Settings saved");
   };
-  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <div className="max-w-4xl">
@@ -67,10 +66,10 @@ export function SettingsPage() {
             {SCENE_ORDER.map((sc) => <option key={sc} value={sc}>{sceneLabel(sc)}</option>)}
           </Select>
         </Row>
-        <Row label="Quote of the day" htmlFor="set-quote">
+        <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>
-        <Row label="Night light" htmlFor="set-night">
+        <Row label="Night light" htmlFor="set-night" inline>
           <Switch id="set-night" checked={!!s.nightLightAuto} onChange={(v) => set({ nightLightAuto: v })} label="Night light" />
         </Row>
         {s.nightLightAuto && (
@@ -92,33 +91,38 @@ export function SettingsPage() {
         </Row>
       </Section>
 
-      <Section title="Account">
-        {data.user.email ? (
-          <Row label={data.user.name || data.user.email} hint={data.user.name ? data.user.email : undefined}>
-            <Button
-              variant="outline"
-              onClick={() => {
-                actions.updateUser({ name: "", email: "" });
-                toast("Logged out");
-              }}
-            >
-              <LogOut /> Log out
-            </Button>
-          </Row>
-        ) : (
-          <Row label="Not logged in">
-            <Button onClick={() => setLoggingIn(true)}>
-              <LogIn /> Log in
-            </Button>
-          </Row>
-        )}
-      </Section>
-
       <Section title="Data">
-        <Row label="Export my data">
-          <Button variant="outline" onClick={() => download("slidequiz-data.json", JSON.stringify(getState(), null, 2), "application/json")}>
-            <Download /> Export
+        <Row label="Back up">
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await download(backupName(), await makeBackup(), "application/json");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <Download /> Download backup
           </Button>
+        </Row>
+        <Row label="Restore from backup">
+          <Button variant="outline" disabled={busy} onClick={() => fileRef.current?.click()}>
+            <Upload /> Restore
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) setRestoring(f);
+            }}
+          />
         </Row>
         <Row label="Delete materials">
           <Button variant="outline" onClick={() => setConfirm("materials")} disabled={!data.materials.length}>
@@ -130,7 +134,7 @@ export function SettingsPage() {
             <RotateCcw /> Delete history
           </Button>
         </Row>
-        <Row label="Delete account & all data">
+        <Row label="Delete all data">
           <Button variant="destructive" onClick={() => setConfirm("all")}>
             <Trash2 /> Delete everything
           </Button>
@@ -139,45 +143,28 @@ export function SettingsPage() {
 
       <ConfirmDialog open={confirm === "materials"} onClose={() => setConfirm(null)} title="Delete all materials?" description="All materials, questions, flashcards, summaries and plans will be removed." onConfirm={() => toast.undo("All materials deleted", actions.deleteAllMaterials())} />
       <ConfirmDialog open={confirm === "history"} onClose={() => setConfirm(null)} title="Delete your study history?" description="Quiz results, streaks and flashcard scheduling will be reset. Your materials and questions stay." onConfirm={() => toast.undo("History deleted", actions.deleteHistory())} />
-      <ConfirmDialog open={confirm === "all"} onClose={() => setConfirm(null)} title="Delete your account and all data?" description="This can't be undone." requireText="delete" confirmLabel="Delete everything" onConfirm={() => { actions.deleteEverything(); setName(""); setEmail(""); toast("All data deleted"); }} />
-      {loggingIn && (
-        <Dialog
-          open
-          onClose={() => setLoggingIn(false)}
-          title="Log in"
-          size="sm"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setLoggingIn(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" form="login-form" disabled={!emailOk}>
-                Log in
-              </Button>
-            </>
+      <ConfirmDialog open={confirm === "all"} onClose={() => setConfirm(null)} title="Delete all your data?" description="This can't be undone." requireText="delete" confirmLabel="Delete everything" onConfirm={() => { actions.deleteEverything(); toast("All data deleted"); }} />
+      <ConfirmDialog
+        open={!!restoring}
+        onClose={() => setRestoring(null)}
+        title="Restore this backup?"
+        description="Everything currently in SlideQuiz on this device will be replaced by the backup."
+        confirmLabel="Restore"
+        onConfirm={async () => {
+          const f = restoring;
+          setRestoring(null);
+          if (!f) return;
+          setBusy(true);
+          try {
+            const r = await restoreBackup(f);
+            toast(`Backup restored (${r.materials} material${r.materials === 1 ? "" : "s"})`);
+          } catch (err) {
+            toast((err as Error).message);
+          } finally {
+            setBusy(false);
           }
-        >
-          <form
-            id="login-form"
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!emailOk) return;
-              actions.updateUser({ name: name.trim(), email: email.trim() });
-              setLoggingIn(false);
-              toast("Logged in");
-            }}
-          >
-            <Field label="Email" htmlFor="acc-email">
-              <Input id="acc-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" data-autofocus />
-            </Field>
-            <Field label="Name (optional)" htmlFor="acc-name">
-              <Input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-            </Field>
-            <p className="text-[12.5px] text-muted-foreground">Your work is saved in this browser.</p>
-          </form>
-        </Dialog>
-      )}
+        }}
+      />
     </div>
   );
 }

@@ -132,6 +132,10 @@ export const actions = {
   setFolderColor(id: ID, color: string | undefined) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, color } : f)) }));
   },
+  /** "YYYY-MM-DD", or undefined to clear. */
+  setFolderExam(id: ID, examDate: string | undefined) {
+    setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, examDate } : f)) }));
+  },
   /** Deletes a folder (and sub-folders); its materials move up to the parent folder. */
   deleteFolder(id: ID): Undo {
     const s0 = getState();

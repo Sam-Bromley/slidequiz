@@ -1,4 +1,0 @@
-# The site is pre-built into dist/, so Netlify only needs to publish it.
-[build]
-  publish = "dist"
-  command = ""

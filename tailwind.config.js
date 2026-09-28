@@ -45,6 +45,7 @@ module.exports = {
         boop: { "0%": { transform: "scale(1)" }, "30%": { transform: "scale(0.9) translateY(1px)" }, "60%": { transform: "scale(1.12) translateY(-2px)" }, "100%": { transform: "scale(1)" } },
         hop: { "0%,100%": { transform: "translateY(0)" }, "40%": { transform: "translateY(-6px)" }, "70%": { transform: "translateY(1px)" } },
         twinkle: { "0%,100%": { opacity: "0.25" }, "50%": { opacity: "0.9" } },
+        flash: { "0%,40%": { backgroundColor: "hsl(var(--accent))" }, "100%": { backgroundColor: "transparent" } },
         press: { "0%": { transform: "scale(1)" }, "35%": { transform: "scale(0.96)" }, "70%": { transform: "scale(1.015)" }, "100%": { transform: "scale(1)" } },
       },
       animation: {
@@ -59,6 +60,7 @@ module.exports = {
         boop: "boop .38s cubic-bezier(.3,.7,.4,1.4)",
         hop: "hop .45s cubic-bezier(.3,.7,.4,1.4)",
         twinkle: "twinkle 4s ease-in-out infinite",
+        flash: "flash 2s ease-out",
         press: "press .32s cubic-bezier(.3,.7,.4,1.3)",
       },
     },

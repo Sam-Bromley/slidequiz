@@ -41,6 +41,20 @@ export function MaterialDetailPage({ id }: { id: string }) {
     actions.setLastVisit(`/materials/${m.id}`, `${m.subject} · ${m.title}`);
     // Materials from before the notes/practice update get their questions made on first open.
     if (!practiceSet(data, m.id).length && m.pages.some((p) => p.included && p.text.trim())) buildPracticeQuestions(m.id);
+    // Opened from search or mixed practice: jump to that slide in the notes.
+    const target = query.get("p");
+    if (target)
+      setTimeout(() => {
+        // A slide merged into the one before it has no heading of its own, so use the nearest earlier one.
+        const idx = m.pages.findIndex((p) => p.id === target);
+        const el = m.pages
+          .slice(0, idx + 1)
+          .reverse()
+          .map((p) => document.getElementById(`note-${p.id}`))
+          .find(Boolean);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        el?.classList.add("animate-flash", "rounded-lg");
+      }, 150);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 

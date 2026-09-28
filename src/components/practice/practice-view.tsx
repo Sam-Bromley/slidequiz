@@ -2,10 +2,10 @@ import { ArrowRight, Check, ChevronDown, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { isCovered, needsReview, overallProgress, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
+import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
-import type { ID, Material } from "@/types/models";
+import type { ID, Material, Question } from "@/types/models";
 
 const LETTERS = "ABCDEF";
 const COUNTS = [3, 4, 5, 6];
@@ -46,11 +46,17 @@ function Pop({ label, title, children, align = "left", className }: { label: str
   );
 }
 
-export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }: { material: Material; topicIds: ID[]; onTopicsChange: (t: ID[]) => void; onOpenNotes: (pageId: string) => void }) {
+/**
+ * One question at a time. Normally for one material (filtered by topic); with `mixed`,
+ * questions come from several materials and the filter picks materials instead.
+ */
+export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpenNotes }: { material: Material; mixed?: Material[]; topicIds: ID[]; onTopicsChange: (t: ID[]) => void; onOpenNotes: (pageId: string, materialId: ID) => void }) {
   const data = useData();
   const count = Math.min(6, Math.max(3, data.settings.mcqOptions ?? 5));
-  const all = practiceSet(data, material.id);
-  const topicQs = topicIds.length ? all.filter((q) => q.topicId && topicIds.includes(q.topicId)) : all;
+  const setFor = (d: typeof data) => (mixed ? mixed.flatMap((m) => practiceSet(d, m.id)) : practiceSet(d, material.id));
+  const groupOf = (x: Question) => (mixed ? x.materialId : x.topicId);
+  const all = setFor(data);
+  const topicQs = topicIds.length ? all.filter((q) => groupOf(q) && topicIds.includes(groupOf(q)!)) : all;
   const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs));
   const [pos, setPos] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -81,9 +87,11 @@ export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }
   const view = useMemo(() => (q ? shuffleOptions(q, frozen.current) : null), [qid, pos, round, frozen.current]); // eslint-disable-line react-hooks/exhaustive-deps
   const correct = answered && view ? chosen === view.correct : false;
   const isRetry = q ? needsReview(q) && !answered : false;
-  const page = q ? material.pages.find((p) => p.id === q.sources[0]?.pageId) : undefined;
-  const topicName = q ? material.topics.find((t) => t.id === q.topicId)?.name : undefined;
-  const prog = overallProgress(data, material);
+  const qMaterial = q ? (mixed ? mixed.find((m) => m.id === q.materialId) : material) : undefined;
+  const page = q ? qMaterial?.pages.find((p) => p.id === q.sources[0]?.pageId) : undefined;
+  const topicName = q ? (mixed ? qMaterial?.title : material.topics.find((t) => t.id === q.topicId)?.name) : undefined;
+  const coveredN = all.filter(isCovered).length;
+  const prog = { total: all.length, covered: coveredN, review: all.filter(needsReview).length, pct: all.length ? Math.round((coveredN / all.length) * 100) : 0 };
 
   const answer = (i: number) => {
     if (!q || !view || answered) return;
@@ -110,7 +118,7 @@ export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }
 
   const again = () => {
     const d = getState();
-    const qs = practiceSet(d, material.id).filter((x) => !topicIds.length || (x.topicId && topicIds.includes(x.topicId)));
+    const qs = setFor(d).filter((x) => !topicIds.length || (groupOf(x) && topicIds.includes(groupOf(x)!)));
     setQueue(practiceQueue(qs));
     setPos(0);
     setChosen(null);
@@ -140,19 +148,19 @@ export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const topics = material.topics.filter((t) => all.some((x) => x.topicId === t.id));
+  const topics = (mixed ? mixed.map((m) => ({ id: m.id, name: m.title })) : material.topics).filter((t) => all.some((x) => groupOf(x) === t.id));
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Pop
-          label={topicIds.length === 0 ? "All topics" : topicIds.length === 1 ? topics.find((t) => t.id === topicIds[0])?.name ?? "1 topic" : `${topicIds.length} topics`}
-          title="Topics to practise"
+          label={topicIds.length === 0 ? (mixed ? "All materials" : "All topics") : topicIds.length === 1 ? topics.find((t) => t.id === topicIds[0])?.name ?? "1 topic" : `${topicIds.length} ${mixed ? "materials" : "topics"}`}
+          title={mixed ? "Materials to practise" : "Topics to practise"}
           className="max-w-[70%]"
         >
           <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-[14px] hover:bg-accent">
             <input type="checkbox" className="size-4 accent-foreground" checked={topicIds.length === 0} onChange={() => onTopicsChange([])} />
-            All topics
+            {mixed ? "All materials" : "All topics"}
           </label>
           <div className="my-1 border-t" />
           {topics.map((t) => {
@@ -169,7 +177,7 @@ export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }
                   }}
                 />
                 <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                <span className="text-[12px] tabular-nums text-muted-foreground">{all.filter((x) => x.topicId === t.id).length}</span>
+                <span className="text-[12px] tabular-nums text-muted-foreground">{all.filter((x) => groupOf(x) === t.id).length}</span>
               </label>
             );
           })}
@@ -289,7 +297,7 @@ export function PracticeView({ material, topicIds, onTopicsChange, onOpenNotes }
               {!correct && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
               <div className="mt-5 flex items-center justify-between gap-3">
                 {page ? (
-                  <button type="button" onClick={() => onOpenNotes(page.id)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
+                  <button type="button" onClick={() => onOpenNotes(page.id, q.materialId)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
                     See it in your notes
                   </button>
                 ) : (

@@ -27,6 +27,11 @@ export async function parseFile(file: File, onProgress: ProgressFn = () => {}): 
   try {
     const doc = await parser.parse(file, onProgress);
     if (!doc.pages.length) throw new ParseError("empty", "We couldn't find any content in this file.");
+    // Scanned pages and photos of slides are pictures, so there's no text to make notes from.
+    const words = doc.pages.reduce((n, p) => n + `${p.title} ${p.text}`.split(/\s+/).filter((w) => /[a-z]{2}/i.test(w)).length, 0);
+    const titlesOnly = doc.pages.every((p) => !p.text.trim());
+    if (v.type !== "image" && (words < 15 || (titlesOnly && doc.pages.length > 1 && doc.pages.filter((p) => /^(page|slide) \d+$/i.test(p.title)).length >= doc.pages.length / 2)))
+      throw new ParseError("no-text", "This file has no readable text. It looks like scanned pages or pictures. Try the original slides, or a PDF saved from PowerPoint or Word.");
     return doc;
   } catch (e) {
     if (e instanceof ParseError) throw e;

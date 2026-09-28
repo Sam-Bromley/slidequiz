@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
+import { CalendarDays, Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Play, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useState, type DragEvent } from "react";
 import { MaterialCard } from "@/components/materials/material-card";
 import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
@@ -12,6 +12,8 @@ import { toast } from "@/components/ui/toast";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { actions, folderOrder } from "@/store/actions";
+import { highlightParts, searchNotes } from "@/services/search";
+import { daysUntil, examLabel, folderCoverage, materialsIn } from "@/services/folders";
 import { useData } from "@/store/store";
 import type { Folder } from "@/types/models";
 
@@ -49,6 +51,51 @@ function ColourDialog({ f, onClose }: { f: Folder; onClose: () => void }) {
           </button>
         ))}
       </div>
+    </Dialog>
+  );
+}
+
+function ExamDialog({ f, onClose }: { f: Folder; onClose: () => void }) {
+  const [date, setDate] = useState(f.examDate ?? "");
+  const today = new Date();
+  const min = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Exam date for “${f.name}”`}
+      size="sm"
+      footer={
+        <>
+          {f.examDate && (
+            <Button
+              variant="ghost"
+              className="mr-auto"
+              onClick={() => {
+                actions.setFolderExam(f.id, undefined);
+                onClose();
+              }}
+            >
+              Remove date
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="exam-date" disabled={!date}>Save</Button>
+        </>
+      }
+    >
+      <form
+        id="exam-date"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!date) return;
+          actions.setFolderExam(f.id, date);
+          onClose();
+        }}
+      >
+        <label htmlFor="exam-date-input" className="sr-only">Exam date</label>
+        <Input id="exam-date-input" type="date" min={min} value={date} onChange={(e) => setDate(e.target.value)} onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()} className="cursor-pointer" data-autofocus />
+      </form>
     </Dialog>
   );
 }
@@ -94,6 +141,9 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
   const hex = colourOf(f.color);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dating, setDating] = useState(false);
+  const exam = examLabel(f.examDate);
+  const soon = (daysUntil(f.examDate) ?? 99) <= 7 && (daysUntil(f.examDate) ?? -1) >= 0;
   return (
     <div
       draggable
@@ -133,7 +183,10 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
       <FolderIcon className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
       <Link to={`/materials?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
         <span className="block truncate text-[14px] font-medium" title={f.name}>{f.name}</span>
-        <span className="block text-[12px] text-muted-foreground">{count ? plural(count, "item") : "Empty"}</span>
+        <span className="block truncate text-[12px] text-muted-foreground">
+          {count ? plural(count, "item") : "Empty"}
+          {exam && <span className={cn(soon && "font-medium text-warning")}> · {exam}</span>}
+        </span>
       </Link>
       <div className="relative z-10">
         <Menu
@@ -141,6 +194,7 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
           items={[
             { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
             { label: "Colour", icon: Palette, onSelect: () => setColouring(true) },
+            { label: f.examDate ? "Change exam date" : "Add exam date", icon: CalendarDays, onSelect: () => setDating(true) },
             { label: "Delete folder", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
           ]}
           trigger={(p) => (
@@ -153,6 +207,7 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
       {/* Drag the right edge to make folders wider. */}
       <ResizeEdge onPointerDown={onResizeStart} label="Drag to resize folders" />
       {colouring && <ColourDialog f={f} onClose={() => setColouring(false)} />}
+      {dating && <ExamDialog f={f} onClose={() => setDating(false)} />}
       {renaming && <NameDialog title="Rename folder" initial={f.name} confirm="Save" onSave={(n) => actions.renameFolder(f.id, n)} onClose={() => setRenaming(false)} />}
       <ConfirmDialog
         open={deleting}
@@ -162,6 +217,34 @@ function FolderTile({ f, count, onDropMaterial, otherWidths }: { f: Folder; coun
         confirmLabel="Delete folder"
         onConfirm={() => toast.undo("Folder deleted", actions.deleteFolder(f.id))}
       />
+    </div>
+  );
+}
+
+/** Inside a folder: exam countdown, how much is covered, and practice across everything in it. */
+function FolderBar({ f }: { f: Folder }) {
+  const data = useData();
+  const [dating, setDating] = useState(false);
+  const mats = materialsIn(data, f.id);
+  const cov = folderCoverage(data, f.id);
+  const exam = examLabel(f.examDate);
+  if (!mats.length) return null;
+  return (
+    <div className="-mt-2 mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13.5px] text-muted-foreground">
+      <button type="button" onClick={() => setDating(true)} className="inline-flex items-center gap-1.5 rounded hover:text-foreground focus-ring">
+        <CalendarDays className="size-4" />
+        {exam ?? "Add exam date"}
+      </button>
+      {cov.total > 0 && (
+        <>
+          <span aria-hidden>·</span>
+          <span>{cov.pct}% covered</span>
+          <Link to={`/practice?f=${f.id}`} className={buttonClass("outline", "sm", "ml-auto rounded-full")}>
+            <Play /> Practise all
+          </Link>
+        </>
+      )}
+      {dating && <ExamDialog f={f} onClose={() => setDating(false)} />}
     </div>
   );
 }
@@ -206,7 +289,8 @@ export function MaterialsPage() {
     toast(target ? `Moved to ${data.folders.find((f) => f.id === target)?.name}` : "Moved to My Materials");
   };
   const selectedMaterials = data.materials.filter((m) => sel.includes(m.id));
-  const empty = !folders.length && !list.length;
+  const hits = useMemo(() => (searching ? searchNotes(data.materials, q) : []), [data.materials, q, searching]);
+  const empty = !folders.length && !list.length && !hits.length;
 
   return (
     <div>
@@ -265,13 +349,15 @@ export function MaterialsPage() {
         </div>
       </div>
 
+      {current && !searching && <FolderBar f={current} />}
+
       {data.materials.length > 0 && (
         <div className="mb-5 flex gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all materials" className="pl-9" aria-label="Search materials" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="pl-9" aria-label="Search materials" />
           </div>
-          <Select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort materials" className="w-40">
+          <Select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort materials" className="w-36 sm:w-40">
             <option value="recent">Recently used</option>
             <option value="name">Name</option>
           </Select>
@@ -296,6 +382,29 @@ export function MaterialsPage() {
             <MaterialCard key={m.id} m={m} selectable={selecting} selected={sel.includes(m.id)} onSelect={(v) => setSel((s) => (v ? [...s, m.id] : s.filter((x) => x !== m.id)))} />
           ))}
         </div>
+      )}
+
+      {hits.length > 0 && (
+        <section aria-labelledby="hits-h" className={cn(list.length > 0 && "mt-8")}>
+          <h2 id="hits-h" className="mb-2 text-[13px] font-medium text-muted-foreground">
+            In your notes · {hits.length}
+            {hits.length >= 60 ? "+" : ""}
+          </h2>
+          <ul className="divide-y rounded-xl border bg-card">
+            {hits.map((h, i) => (
+              <li key={i}>
+                <Link to={`/materials/${h.materialId}?p=${h.pageId}`} className="block px-4 py-3 transition-colors hover:bg-accent focus-ring">
+                  <span className="block truncate text-[12px] text-muted-foreground">
+                    {h.materialTitle} · {h.pageTitle}
+                  </span>
+                  <span className="mt-0.5 block text-[14px] leading-snug">
+                    {highlightParts(h.snippet, q).map((part, j) => (part.hit ? <mark key={j} className="rounded bg-warning-soft px-0.5 text-foreground">{part.text}</mark> : <span key={j}>{part.text}</span>))}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {empty &&

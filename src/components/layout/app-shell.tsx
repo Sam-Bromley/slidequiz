@@ -1,4 +1,4 @@
-import { Menu as MenuIcon, Search, Settings, Upload, X } from "lucide-react";
+import { Search, Settings, Upload, X } from "lucide-react";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
 import { useEffect, useState, type ReactNode } from "react";
@@ -53,7 +53,7 @@ function SettingsButton() {
   );
 }
 
-function MobileTopBar({ onMenu }: { onMenu: () => void }) {
+function MobileTopBar(_: { onMenu: () => void }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-1 bg-background/40 px-3 backdrop-blur-xl lg:hidden" style={{ top: "env(safe-area-inset-top, 0px)" }}>
       <Link to="/" className="mr-auto rounded-md focus-ring" aria-label="SlideQuiz home">
@@ -64,9 +64,6 @@ function MobileTopBar({ onMenu }: { onMenu: () => void }) {
       </Button>
       <Personalise />
       <SettingsButton />
-      <Button variant="ghost" size="icon" aria-label="Open menu" onClick={onMenu}>
-        <MenuIcon />
-      </Button>
     </header>
   );
 }

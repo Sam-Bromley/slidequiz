@@ -144,6 +144,8 @@ export interface Folder {
   width?: number;
   /** Position among its sibling folders (drag to reorder). */
   order?: number;
+  /** Exam date for everything in this folder, "YYYY-MM-DD" (shows a countdown). */
+  examDate?: string;
 }
 
 export type BackgroundScene = "none" | "sunset" | "forest" | "ocean" | "aurora" | "dunes" | "peaks" | "snow" | "hills" | "lake" | "canyon";
