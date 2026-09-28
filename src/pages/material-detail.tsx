@@ -24,7 +24,7 @@ import type { ID, Material } from "@/types/models";
 
 type Tab = "notes" | "practice" | "progress";
 
-function notesExport(m: Material, speaker: boolean): ExportDoc {
+function notesExport(m: Material): ExportDoc {
   const blocks: ExportDoc["blocks"] = [];
   for (const sec of buildNotes(m)) {
     blocks.push({ kind: "h2", text: sec.title });
@@ -33,7 +33,6 @@ function notesExport(m: Material, speaker: boolean): ExportDoc {
       const items = s.lines.map((l) => (l.term ? `${l.term}${l.sep ?? ": "}${l.text}` : l.text));
       if (s.table) items.push(...s.table.map((r) => r.join(" | ")));
       if (items.length) blocks.push({ kind: "list", items });
-      if (speaker && s.speaker.length) blocks.push({ kind: "p", text: `Speaker notes: ${s.speaker.join(" ")}`, muted: true });
     }
   }
   return { title: `${m.title} notes`, subtitle: m.subject, blocks };
@@ -167,7 +166,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
           open
           onClose={() => setExporting(false)}
           title={m.title}
-          notes={notesExport(m, !!data.settings.showSpeakerNotes)}
+          notes={notesExport(m)}
           questions={practiceSet(data, m.id).map((q) => {
             const v = shuffleOptions(q, count);
             return { ...q, pool: false, options: v.options, correctIndex: v.correct };

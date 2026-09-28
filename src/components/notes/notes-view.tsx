@@ -1,4 +1,4 @@
-import { BookOpen, MessageCircle, MessageSquareText } from "lucide-react";
+import { BookOpen, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { buildNotes, type NoteLine, type NoteSlide } from "@/services/notes";
-import { actions } from "@/store/actions";
-import { useData } from "@/store/store";
 import type { Material, PageImage } from "@/types/models";
 
 function Line({ l }: { l: NoteLine }) {
@@ -39,7 +37,7 @@ function Figure({ img, label, open, className }: { img: PageImage; label: string
   );
 }
 
-function SlideBlock({ s, speaker, openImage }: { s: NoteSlide; speaker: boolean; openImage: (img: PageImage, label: string) => void }) {
+function SlideBlock({ s, openImage }: { s: NoteSlide; openImage: (img: PageImage, label: string) => void }) {
   const hasText = s.lines.length > 0 || !!s.table;
   const imgs = s.images;
   // One picture sits beside the text like a textbook figure; wide ones or several go underneath.
@@ -92,24 +90,15 @@ function SlideBlock({ s, speaker, openImage }: { s: NoteSlide; speaker: boolean;
         )}
         {s.photo && <img src={s.photo} alt={s.page.title} className="mt-4 max-h-72 rounded-xl border object-contain" />}
       </div>
-      {speaker && s.speaker.length > 0 && (
-        <div className="mt-3 animate-fade-in border-l-2 pl-3 text-[14px] text-muted-foreground">
-          <span className="font-medium">Speaker notes: </span>
-          {s.speaker.join(" ")}
-        </div>
-      )}
     </div>
   );
 }
 
 /** The material as organised notes. */
 export function NotesView({ material }: { material: Material }) {
-  const data = useData();
   const sections = useMemo(() => buildNotes(material), [material]);
   const [asking, setAsking] = useState(false);
   const [big, setBig] = useState<{ img: PageImage; label: string } | null>(null);
-  const speaker = !!data.settings.showSpeakerNotes;
-  const hasSpeaker = sections.some((sec) => sec.slides.some((s) => s.speaker.length));
 
   useEffect(() => {
     if (!asking) return;
@@ -149,18 +138,13 @@ export function NotesView({ material }: { material: Material }) {
           <Button variant="outline" size="sm" className="rounded-full" onClick={() => setAsking(true)}>
             <MessageCircle /> Ask about these notes
           </Button>
-          {hasSpeaker && (
-            <Button variant={speaker ? "secondary" : "ghost"} size="sm" className="rounded-full text-muted-foreground" aria-pressed={speaker} onClick={() => actions.updateSettings({ showSpeakerNotes: !speaker })}>
-              <MessageSquareText /> Speaker notes {speaker ? "on" : "off"}
-            </Button>
-          )}
         </div>
 
         {sections.map((sec, si) => (
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
             {sec.slides.map((s) => (
-              <SlideBlock key={s.page.id} s={s} speaker={speaker} openImage={(img, label) => setBig({ img, label })} />
+              <SlideBlock key={s.page.id} s={s} openImage={(img, label) => setBig({ img, label })} />
             ))}
           </section>
         ))}

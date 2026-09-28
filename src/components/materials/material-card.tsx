@@ -1,4 +1,4 @@
-import { BookOpen, Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, ListChecks, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2 } from "lucide-react";
+import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -116,9 +116,7 @@ export function useMaterialMenu(m: Material) {
   const [del, setDel] = useState(false);
   const [move, setMove] = useState(false);
   const items = [
-    { label: "Notes", icon: BookOpen, onSelect: () => navigate(`/materials/${m.id}?tab=notes`) },
-    { label: "Practice", icon: ListChecks, onSelect: () => navigate(`/materials/${m.id}?tab=practice`) },
-    { label: "Rename", icon: Pencil, onSelect: () => setRename(true), separatorBefore: true },
+    { label: "Rename", icon: Pencil, onSelect: () => setRename(true) },
     { label: "Move to folder", icon: FolderInput, onSelect: () => setMove(true) },
     { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDel(true) },
   ];
@@ -186,14 +184,6 @@ export function MaterialCard({ m, selectable, selected, onSelect }: { m: Materia
         </div>
       </div>
       <p className="mt-3 text-[12px] text-muted-foreground">{m.lastStudiedAt ? `Practised ${relativeTime(m.lastStudiedAt)}` : `Added ${relativeTime(m.createdAt)}`}</p>
-      <div className="relative z-10 mt-3 flex gap-2">
-        <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate(`/materials/${m.id}?tab=notes`)}>
-          <BookOpen /> Notes
-        </Button>
-        <Button size="sm" className="flex-1" onClick={() => navigate(`/materials/${m.id}?tab=practice`)}>
-          <ListChecks /> Practice
-        </Button>
-      </div>
       {dialogs}
     </article>
   );

@@ -11,7 +11,9 @@ export function groundingFor(materials: Material[], opts: { includeExcluded?: bo
       if (!opts.includeExcluded && !p.included) continue;
       if (opts.topicIds && (!p.topicId || !opts.topicIds.includes(p.topicId))) continue;
       if (!p.text.trim()) continue;
-      pages.push({ id: p.id, materialId: m.id, materialTitle: m.title, label: p.label, title: p.title, text: p.text, topicId: p.topicId });
+      // Materials saved before speaker notes were dropped may still contain them.
+      const text = p.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
+      pages.push({ id: p.id, materialId: m.id, materialTitle: m.title, label: p.label, title: p.title, text, topicId: p.topicId });
     }
   }
   return { pages, topics };

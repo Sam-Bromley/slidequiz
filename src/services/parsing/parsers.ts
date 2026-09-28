@@ -152,26 +152,9 @@ export const pptxParser: DocumentParser = {
           if (cells.some(Boolean)) body.push(cells.join(": "));
         }
       }
-      // The slide's own relationships say which notes page belongs to it (numbering doesn't always match).
-      const slideRels = zip.file(ordered[i].replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels"));
-      let notesPath = "";
-      if (slideRels) {
-        const rd = xml(await slideRels.async("string"));
-        const rel = all(rd, "Relationship").find((r) => /\/notesSlide$/.test(r.getAttribute("Type") ?? ""));
-        const target = rel?.getAttribute("Target") ?? "";
-        if (target) notesPath = target.startsWith("/") ? target.slice(1) : ("ppt/slides/" + target).replace(/[^/]+\/\.\.\//g, "");
-      }
-      let notes = "";
-      if (notesPath && zip.file(notesPath)) {
-        const nd = xml(await zip.file(notesPath)!.async("string"));
-        notes = all(nd, "sp")
-          .filter((sp) => (all(sp, "ph")[0]?.getAttribute("type") ?? "") === "body")
-          .flatMap((sp) => all(sp, "p").map((p) => all(p, "t").map((t) => t.textContent).join("")))
-          .filter((s) => s.trim())
-          .join("\n");
-      }
+      // Speaker notes are deliberately not read.
       if (!title) title = body.shift() ?? `Slide ${i + 1}`;
-      const text = normalizeWhitespace([...body, notes ? `\nSpeaker notes:\n${notes}` : ""].join("\n"));
+      const text = normalizeWhitespace(body.join("\n"));
       // Pictures placed on this slide (layout/master decorations aren't in the slide's own rels).
       const images: ParsedImage[] = [];
       const rels = await relTargets(zip, ordered[i].replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels"), "ppt/slides");

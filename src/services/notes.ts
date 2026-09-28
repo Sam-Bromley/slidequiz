@@ -1,6 +1,6 @@
 /**
  * Turns the included slides into organised study notes: grouped by topic, every line kept,
- * with key terms picked out, sub-points nested, tables laid out and speaker notes kept separate.
+ * with key terms picked out, sub-points nested and tables laid out. Speaker notes are left out.
  */
 import { extractDefinitions, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
 import type { ID, Material, Page, PageImage } from "@/types/models";
@@ -21,7 +21,6 @@ export interface NoteSlide {
   title: string | null;
   lines: NoteLine[];
   table: string[][] | null;
-  speaker: string[];
   images: PageImage[];
   photo?: string;
 }
@@ -61,7 +60,7 @@ function tableRows(lines: string[]): { rows: string[][]; start: number; end: num
 }
 
 export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
-  const { body, speaker } = splitBody(page.text);
+  const { body } = splitBody(page.text);
   const raw = body.split(/\n+/).map(clean).filter(Boolean);
   // Word sections start with "(Parent heading)" for context; the section heading already shows it.
   if (raw[0] && /^\(.*\)$/.test(raw[0])) raw.shift();
@@ -99,7 +98,6 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
     title: page.title && !same(page.title, sectionTitle) ? page.title : null,
     lines,
     table: table?.rows ?? null,
-    speaker: speaker.split(/\n+/).map(clean).filter(Boolean),
     images: (page.images ?? []).filter((i) => i.included),
     photo: page.imageDataUrl,
   };
