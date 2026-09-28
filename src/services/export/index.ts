@@ -302,7 +302,7 @@ const PRINT_CSS = `
 #sq-print-root{display:none}
 @media print{
   body>*:not(#sq-print-root){display:none!important}
-  #sq-print-root{display:block;color:#111;font:11pt/1.55 Nunito,'Segoe UI',system-ui,sans-serif}
+  #sq-print-root{display:block;color:#111;font:11pt/1.5 Arial,Helvetica,sans-serif}
   .sq-print h1{font-size:20pt;margin:0 0 2pt}.sq-print h2{font-size:13pt;margin:18pt 0 6pt}
   .sq-print .muted{color:#666}.sq-print .small{font-size:8.5pt}
   .sq-print header{border-bottom:1px solid #ccc;margin-bottom:14pt;padding-bottom:8pt}

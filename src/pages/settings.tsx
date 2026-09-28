@@ -63,7 +63,7 @@ export function SettingsPage() {
           </Select>
         </Row>
         <Row label="Background" htmlFor="set-scene">
-          <Select id="set-scene" value={s.scene ?? "none"} onChange={(e) => actions.updateSettings({ scene: e.target.value as BackgroundScene })} className="sm:w-48">
+          <Select id="set-scene" value={SCENE_ORDER.includes(s.scene ?? "none") ? s.scene ?? "none" : "none"} onChange={(e) => actions.updateSettings({ scene: e.target.value as BackgroundScene })} className="sm:w-48">
             {SCENE_ORDER.map((sc) => <option key={sc} value={sc}>{sceneLabel(sc)}</option>)}
           </Select>
         </Row>

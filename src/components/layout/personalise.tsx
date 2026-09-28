@@ -19,7 +19,8 @@ export function Personalise() {
   const wrap = useRef<HTMLDivElement>(null);
   const current = effectiveTheme(data.settings);
   const dark = isDarkTheme(current);
-  const scene = data.settings.scene ?? "none";
+  const saved = data.settings.scene ?? "none";
+  const scene = SCENE_ORDER.includes(saved) ? saved : "none";
 
   useEffect(() => {
     if (!open) return;

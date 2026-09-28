@@ -6,9 +6,9 @@ module.exports = {
     container: { center: true, padding: "1rem" },
     extend: {
       fontFamily: {
-        sans: ["Nunito", "ui-rounded", "'Segoe UI'", "system-ui", "sans-serif"],
-        display: ["Nunito", "ui-rounded", "'Segoe UI'", "system-ui", "sans-serif"],
-        mono: ["Nunito", "ui-rounded", "'Segoe UI'", "system-ui", "sans-serif"],
+        sans: ["Arial", "Helvetica", "sans-serif"],
+        display: ["Arial", "Helvetica", "sans-serif"],
+        mono: ["Arial", "Helvetica", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

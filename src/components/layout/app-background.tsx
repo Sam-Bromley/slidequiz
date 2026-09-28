@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BackgroundScene } from "@/types/models";
 
 type Pal = { sky: [string, string, string]; sun: string; layers: [string, string, string]; stars?: boolean; glow?: [string, string] };
@@ -66,7 +66,7 @@ export const SCENES: Record<Exclude<BackgroundScene, "none">, { label: string; l
   },
 };
 
-export const SCENE_ORDER: BackgroundScene[] = ["none", "sunset", "forest", "peaks", "snow", "hills", "lake", "ocean", "canyon", "dunes", "aurora"];
+export const SCENE_ORDER: BackgroundScene[] = ["none", "sunset", "forest", "peaks", "hills", "ocean", "canyon", "dunes", "aurora"];
 
 /** Scenes whose shapes rise higher up the screen. */
 const TALL: Partial<Record<BackgroundScene, true>> = { peaks: true };
@@ -86,7 +86,7 @@ function pine(x: number, base: number, h: number, w: number) {
 }
 
 /** A soft ground line so each row of trees sits on its own rise. */
-const ground = (y: number, lift: number) => `M0 400 L0 ${y} C 360 ${y - lift}, 1080 ${y + lift}, 1440 ${y - lift / 2} L1440 400 Z`;
+const ground = (y: number, lift: number, w = 1440) => `M0 400 L0 ${y} C ${w * 0.25} ${y - lift}, ${w * 0.75} ${y + lift}, ${w} ${y - lift / 2} L${w} 400 Z`;
 
 type Peak = [cx: number, top: number, left: number, right: number];
 
@@ -128,8 +128,22 @@ const mesas = (list: [cx: number, top: number, w: number][], base = 400) =>
 const LAKE_PEAKS: Peak[] = [[160, 150, 260, 280], [520, 95, 300, 280], [900, 140, 270, 300], [1270, 110, 300, 320]];
 const LAKE_FRONT: Peak[] = [[340, 205, 240, 230], [1080, 200, 260, 240]];
 
-const FOREST_BACK = [90, 330, 590, 860, 1120, 1370];
-const FOREST_FRONT = [210, 540, 1000, 1300];
+const BACK_H = [210, 250, 190, 240, 220, 200];
+const FRONT_H = [300, 270, 320, 285];
+
+/** Forest drawn for a given drawing width, so trees keep their shape and never get cropped. */
+function forest(w: number, b: string, c: string) {
+  const back: string[] = [];
+  const front: string[] = [];
+  for (let i = 0, x = 90; x < w + 120; i++, x += 250 + ((i * 37) % 40)) back.push(pine(x, 306, BACK_H[i % BACK_H.length], 150));
+  for (let i = 0, x = 210; x < w + 160; i++, x += 380 + ((i * 53) % 90)) front.push(pine(x, 380, FRONT_H[i % FRONT_H.length], 215));
+  return (
+    <>
+      <path d={ground(300, 16, w) + back.join("")} fill={b} />
+      <path d={ground(372, 12, w) + front.join("")} fill={c} />
+    </>
+  );
+}
 
 const PEAKS_BACK: Peak[] = [[170, 40, 300, 330], [560, 5, 340, 300], [930, 70, 260, 300], [1280, 20, 320, 360]];
 const PEAKS_MID: Peak[] = [[20, 150, 220, 260], [390, 115, 280, 250], [760, 165, 240, 280], [1090, 110, 300, 250], [1430, 160, 260, 220]];
@@ -148,12 +162,7 @@ function Shapes({ scene, p }: { scene: Exclude<BackgroundScene, "none">; p: Pal 
   const [a, b, c] = p.layers;
   switch (scene) {
     case "forest":
-      return (
-        <>
-          <path d={ground(300, 16) + FOREST_BACK.map((x, i) => pine(x, 306, [210, 250, 190, 240, 220, 200][i], 150)).join("")} fill={b} />
-          <path d={ground(372, 12) + FOREST_FRONT.map((x, i) => pine(x, 380, [300, 270, 320, 285][i], 215)).join("")} fill={c} />
-        </>
-      );
+      return forest(1440, b, c);
     case "hills":
       return (
         <>
@@ -320,9 +329,32 @@ function StarField() {
   );
 }
 
+/** The forest's drawing width follows the screen's shape, so trees are never squashed or cut off. */
+function ForestSvg({ p }: { p: Pal }) {
+  const ref = useRef<SVGSVGElement>(null);
+  const [w, setW] = useState(1440);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) setW(Math.round((400 * r.width) / r.height));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <svg ref={ref} viewBox={`0 0 ${w} 400`} preserveAspectRatio="xMidYMax meet" className="absolute inset-x-0 bottom-0 h-[30vh] min-h-[160px] w-full sm:h-[40vh] sm:min-h-[220px]">
+      {forest(w, p.layers[1], p.layers[2])}
+    </svg>
+  );
+}
+
 /** Decorative background preset, fixed behind the app. "none" = plain theme background. */
 export function AppBackground({ scene, dark }: { scene: BackgroundScene; dark: boolean }) {
-  if (scene === "none") return null;
+  if (scene === "none" || !SCENE_ORDER.includes(scene)) return null;
   const def = SCENES[scene];
   const p = dark ? def.dark : def.light;
   const sun = SUN_SPOT[scene];
@@ -341,9 +373,13 @@ export function AppBackground({ scene, dark }: { scene: BackgroundScene; dark: b
           style={{ left: sun.left, top: sun.top, width: sun.size, height: sun.size, background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }}
         />
       )}
-      <svg viewBox="0 0 1440 400" preserveAspectRatio={scene === "forest" ? "xMidYMax slice" : "none"} className={TALL[scene] ? "absolute inset-x-0 bottom-0 h-[52vh] min-h-[260px] w-full sm:h-[68vh]" : "absolute inset-x-0 bottom-0 h-[30vh] min-h-[160px] w-full sm:h-[40vh] sm:min-h-[220px]"}>
-        <Shapes scene={scene} p={p} />
-      </svg>
+      {scene === "forest" ? (
+        <ForestSvg p={p} />
+      ) : (
+        <svg viewBox="0 0 1440 400" preserveAspectRatio="none" className={TALL[scene] ? "absolute inset-x-0 bottom-0 h-[52vh] min-h-[260px] w-full sm:h-[68vh]" : "absolute inset-x-0 bottom-0 h-[30vh] min-h-[160px] w-full sm:h-[40vh] sm:min-h-[220px]"}>
+          <Shapes scene={scene} p={p} />
+        </svg>
+      )}
     </div>
   );
 }
