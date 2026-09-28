@@ -52,8 +52,6 @@ export interface Settings {
   dailyGoalMinutes: number;
   /** Answer options shown per multiple-choice question (3 to 6). */
   mcqOptions?: number;
-  /** Width of folder rows in My Materials, in pixels (drag the right edge to change). */
-  folderWidth?: number;
 }
 
 export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text";
@@ -138,6 +136,8 @@ export interface Folder {
   createdAt: ISODate;
   /** Colour key from FOLDER_COLOURS (none = plain). */
   color?: string;
+  /** Width in My Materials, in pixels (drag the right edge to change). */
+  width?: number;
 }
 
 export type BackgroundScene = "none" | "sunset" | "forest" | "ocean" | "aurora" | "dunes" | "peaks" | "snow" | "hills" | "lake" | "canyon";

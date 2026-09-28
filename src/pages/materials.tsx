@@ -83,8 +83,34 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
   );
 }
 
-function FolderTile({ f, count, onDropMaterial, onResizeStart }: { f: Folder; count: number; onDropMaterial: (id: string) => void; onResizeStart: (e: ReactPointerEvent) => void }) {
+function FolderTile({ f, count, onDropMaterial }: { f: Folder; count: number; onDropMaterial: (id: string) => void }) {
   const [over, setOver] = useState(false);
+  // Each folder has its own width; drag its right edge to change it.
+  const [live, setLive] = useState<number | null>(null);
+  const width = live ?? f.width ?? DEFAULT_FOLDER_W;
+  const drag = useRef<{ x: number; w: number } | null>(null);
+  const onResizeStart = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    drag.current = { x: e.clientX, w: width };
+    document.body.style.cursor = "ew-resize";
+    let last = width;
+    const move = (ev: PointerEvent) => {
+      if (!drag.current) return;
+      last = Math.round(Math.min(MAX_W, Math.max(MIN_W, drag.current.w + ev.clientX - drag.current.x)));
+      setLive(last);
+    };
+    const up = () => {
+      drag.current = null;
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      actions.setFolderWidth(f.id, last);
+      setLive(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const [colouring, setColouring] = useState(false);
   const hex = colourOf(f.color);
   const [renaming, setRenaming] = useState(false);
@@ -103,6 +129,7 @@ function FolderTile({ f, count, onDropMaterial, onResizeStart }: { f: Folder; co
         const id = e.dataTransfer.getData(MATERIAL_MIME);
         if (id) onDropMaterial(id);
       }}
+      style={{ width: `min(100%, ${width}px)` }}
       className={cn("group relative flex items-center gap-3 rounded-xl border bg-card px-3.5 py-3 transition-colors hover:border-foreground/20", over && "border-foreground/50 bg-accent")}
     >
       <FolderIcon className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
@@ -132,10 +159,8 @@ function FolderTile({ f, count, onDropMaterial, onResizeStart }: { f: Folder; co
         aria-label="Drag to resize folders"
         title="Drag to resize"
         onPointerDown={onResizeStart}
-        className="absolute -right-1.5 inset-y-2 z-20 hidden w-3 cursor-ew-resize touch-none items-center justify-center sm:flex"
-      >
-        <span className="h-6 w-1 rounded-full bg-foreground/0 transition-colors group-hover:bg-foreground/15 hover:!bg-foreground/40" />
-      </div>
+        className="absolute -right-1.5 inset-y-0 z-20 hidden w-3 cursor-ew-resize touch-none sm:block"
+      />
       {colouring && <ColourDialog f={f} onClose={() => setColouring(false)} />}
       {renaming && <NameDialog title="Rename folder" initial={f.name} confirm="Save" onSave={(n) => actions.renameFolder(f.id, n)} onClose={() => setRenaming(false)} />}
       <ConfirmDialog
@@ -151,31 +176,7 @@ function FolderTile({ f, count, onDropMaterial, onResizeStart }: { f: Folder; co
 }
 
 export function MaterialsPage() {
-  const saved = useData().settings.folderWidth ?? DEFAULT_FOLDER_W;
-  const [live, setLive] = useState<number | null>(null);
-  const width = live ?? saved;
-  const drag = useRef<{ x: number; w: number } | null>(null);
-  const startResize = (e: ReactPointerEvent) => {
-    e.preventDefault();
-    drag.current = { x: e.clientX, w: width };
-    document.body.style.cursor = "ew-resize";
-    let last = width;
-    const move = (ev: PointerEvent) => {
-      if (!drag.current) return;
-      last = Math.round(Math.min(MAX_W, Math.max(MIN_W, drag.current.w + ev.clientX - drag.current.x)));
-      setLive(last);
-    };
-    const up = () => {
-      drag.current = null;
-      document.body.style.cursor = "";
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      actions.updateSettings({ folderWidth: last });
-      setLive(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
+
   const data = useData();
   const { query } = useLocation();
   const folderId = data.folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
@@ -290,9 +291,9 @@ export function MaterialsPage() {
 
       {folders.length > 0 && (
         <section aria-label="Folders" className="mb-6">
-          <div className="flex flex-col gap-2" style={{ width: `min(100%, ${width}px)` }}>
+          <div className="flex flex-col items-start gap-2">
             {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} onResizeStart={startResize} />
+              <FolderTile key={f.id} f={f} count={countIn(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} />
             ))}
           </div>
         </section>

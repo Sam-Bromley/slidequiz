@@ -1,14 +1,13 @@
-import { AlertCircle, ArrowRight, ClipboardPaste, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { AlertCircle, ClipboardPaste, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PageHeader } from "@/components/layout/page-header";
-import { SlideChooser } from "@/components/materials/slide-chooser";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/toast";
 import { takeUpload } from "@/lib/handoff";
 import { navigate, useLocation } from "@/lib/router";
-import { cn, formatBytes, plural, uid } from "@/lib/utils";
+import { cn, formatBytes, uid } from "@/lib/utils";
 import { ACCEPT_ATTR, buildMaterial, detectType, FILE_TYPE_LABEL, ParseError, parseFile, parsePastedText, validateFile } from "@/services/parsing";
 import { buildPracticeQuestions } from "@/services/practice";
 import { persistPendingImages } from "@/services/storage/images";
@@ -31,7 +30,6 @@ export function UploadPage() {
   const { query } = useLocation();
   const [items, setItems] = useState<Item[]>([]);
   const [drag, setDrag] = useState(false);
-  const [active, setActive] = useState<string | null>(null);
   const [paste, setPaste] = useState(false);
   const [pasteTitle, setPasteTitle] = useState("");
   const [pasteText, setPasteText] = useState("");
@@ -50,7 +48,6 @@ export function UploadPage() {
       const doc = await parseFile(file, (f, label) => patch(id, { progress: f, label: label ?? "Reading…" }));
       const material = buildMaterial(doc, file);
       patch(id, { status: "ready", progress: 1, label: `${doc.pages.length} ${doc.unit}`, material });
-      setActive((a) => a ?? id);
     } catch (e) {
       patch(id, { status: "error", progress: 0, error: e instanceof ParseError ? e.userMessage : "Something went wrong reading this file. Try again." });
     }
@@ -70,7 +67,6 @@ export function UploadPage() {
       const material = buildMaterial(doc, { name: `${title.trim() || "My notes"} (pasted)`, size: new Blob([text]).size });
       const id = uid("up");
       setItems((xs) => [...xs, { id, name: material.title, size: material.files[0].size, status: "ready", progress: 1, label: `${doc.pages.length} sections`, material }]);
-      setActive(id);
       setPaste(false);
       setPasteText("");
       setPasteTitle("");
@@ -96,8 +92,6 @@ export function UploadPage() {
 
   const ready = items.filter((i) => i.status === "ready" && i.material);
   const busy = items.some((i) => i.status === "reading");
-  const current = ready.find((i) => i.id === active) ?? ready[0];
-  const updateMaterial = (id: string, m: Material) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, material: m } : x)));
 
   const save = async () => {
     const folderId = getState().folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
@@ -119,7 +113,7 @@ export function UploadPage() {
   };
 
   return (
-    <div className={cn(ready.length > 0 && "pb-24")}>
+    <div>
       <PageHeader back={{ to: "/", label: "Home" }} title="Add material" />
 
       <div
@@ -160,13 +154,10 @@ export function UploadPage() {
       {items.length > 0 && (
         <ul className="mt-4 space-y-2" aria-label="Files">
           {items.map((it) => {
-            const isActive = current?.id === it.id && ready.length > 1;
             return (
-              <li key={it.id} className={cn("flex items-center gap-3 rounded-xl border bg-card px-4 py-3", isActive && "border-foreground/40")}>
+              <li key={it.id} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <button type="button" disabled={it.status !== "ready"} onClick={() => setActive(it.id)} className="block max-w-full truncate text-left text-[14px] font-medium disabled:cursor-default focus-ring">
-                    {it.material?.title ?? it.name}
-                  </button>
+                  <p className="truncate text-[14px] font-medium">{it.material?.title ?? it.name}</p>
                   <p className="text-[12.5px] text-muted-foreground">
                     {formatBytes(it.size)} · {it.status === "error" ? <span className="font-medium text-destructive">{it.error}</span> : it.label}
                   </p>
@@ -183,26 +174,11 @@ export function UploadPage() {
         </ul>
       )}
 
-      {current?.material && (
-        <section className="mt-8 rounded-2xl border bg-card p-5 sm:p-6" aria-label="Choose what to include">
-          <Field label="Title" htmlFor={`title-${current.id}`} className="mb-6 max-w-md">
-            <Input id={`title-${current.id}`} value={current.material.title} onChange={(e) => updateMaterial(current.id, { ...current.material!, title: e.target.value })} />
-          </Field>
-          <SlideChooser material={current.material} onChange={(m) => updateMaterial(current.id, m)} />
-        </section>
-      )}
-
-      {ready.length > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom,0px))] z-30 border-t bg-background/92 backdrop-blur-md lg:bottom-0 lg:left-[248px]">
-          <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-            <p className="hidden flex-1 text-[13px] text-muted-foreground sm:block">
-              {ready.length > 1 ? plural(ready.length, "file") + " · " : ""}
-              {ready.reduce((n, r) => n + r.material!.pages.filter((p) => p.included).length, 0)} {ready[0].material!.unit} included
-            </p>
-            <Button onClick={save} disabled={busy} loading={saving} className="flex-1 sm:flex-none">
-              Make notes and questions <ArrowRight />
-            </Button>
-          </div>
+      {items.length > 0 && (
+        <div className="mt-6 flex justify-center">
+          <Button size="lg" onClick={save} disabled={busy || !ready.length} loading={saving} className="min-w-44 rounded-full">
+            {busy ? "Reading…" : "Generate"}
+          </Button>
         </div>
       )}
     </div>

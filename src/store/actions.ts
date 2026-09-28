@@ -108,6 +108,9 @@ export const actions = {
   renameFolder(id: ID, name: string) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, name: name.trim() || f.name } : f)) }));
   },
+  setFolderWidth(id: ID, width: number) {
+    setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, width } : f)) }));
+  },
   setFolderColor(id: ID, color: string | undefined) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, color } : f)) }));
   },
