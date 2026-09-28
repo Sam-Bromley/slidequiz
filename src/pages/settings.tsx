@@ -1,5 +1,7 @@
-import { Download, RotateCcw, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
+import { clearNotice, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -14,6 +16,14 @@ import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
 import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
 import { SCENE_ORDER } from "@/components/layout/app-background";
 import { sceneLabel } from "@/components/layout/personalise";
+
+const STATUS: Record<SyncStatus, string | undefined> = {
+  off: undefined,
+  syncing: "Saving…",
+  saved: "Your work is saved to your account",
+  offline: "Offline. Your work will save when you're back online",
+  error: "Couldn't save to your account. It will try again",
+};
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -45,6 +55,17 @@ export function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const account = useAccount();
+  const [auth, setAuth] = useState<AuthMode | null>(null);
+  const [newPw, setNewPw] = useState(false);
+  // Messages from email links (confirmed, expired link, choose a new password).
+  useEffect(() => {
+    if (account.recovering) setNewPw(true);
+    else if (account.notice) {
+      toast(account.notice);
+      clearNotice();
+    }
+  }, [account.recovering, account.notice]);
   const [confirm, setConfirm] = useState<null | "materials" | "history" | "all">(null);
   const set = (p: Partial<Settings>) => {
     actions.updateSettings(p);
@@ -54,6 +75,33 @@ export function SettingsPage() {
   return (
     <div className="max-w-4xl">
       <PageHeader title="Settings" description="Changes save automatically." />
+
+      <Section title="Account">
+        {account.user ? (
+          <Row label={account.user.email} hint={STATUS[account.status]}>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await logOut();
+                toast("Logged out");
+              }}
+            >
+              <LogOut /> Log out
+            </Button>
+          </Row>
+        ) : (
+          <Row label="Not logged in">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setAuth("signup")}>
+                Create account
+              </Button>
+              <Button onClick={() => setAuth("login")}>
+                <LogIn /> Log in
+              </Button>
+            </div>
+          </Row>
+        )}
+      </Section>
 
       <Section title="Appearance">
         <Row label="Theme" htmlFor="set-theme">
@@ -143,7 +191,9 @@ export function SettingsPage() {
 
       <ConfirmDialog open={confirm === "materials"} onClose={() => setConfirm(null)} title="Delete all materials?" description="All materials, questions, flashcards, summaries and plans will be removed." onConfirm={() => toast.undo("All materials deleted", actions.deleteAllMaterials())} />
       <ConfirmDialog open={confirm === "history"} onClose={() => setConfirm(null)} title="Delete your study history?" description="Quiz results, streaks and flashcard scheduling will be reset. Your materials and questions stay." onConfirm={() => toast.undo("History deleted", actions.deleteHistory())} />
-      <ConfirmDialog open={confirm === "all"} onClose={() => setConfirm(null)} title="Delete all your data?" description="This can't be undone." requireText="delete" confirmLabel="Delete everything" onConfirm={() => { actions.deleteEverything(); toast("All data deleted"); }} />
+      <ConfirmDialog open={confirm === "all"} onClose={() => setConfirm(null)} title="Delete all your data?" description="This can't be undone." requireText="delete" confirmLabel="Delete everything" onConfirm={async () => { if (account.user) await deleteCloudData().catch(() => {}); actions.deleteEverything(); toast("All data deleted"); }} />
+      {auth && <AuthDialog initial={auth} onClose={() => setAuth(null)} />}
+      {newPw && <NewPasswordDialog onClose={() => { setNewPw(false); clearNotice(); }} />}
       <ConfirmDialog
         open={!!restoring}
         onClose={() => setRestoring(null)}

@@ -66,6 +66,12 @@ export function replaceState(next: AppData) {
   persist();
 }
 
+/** Run `l` after every change (used by account syncing). */
+export function subscribeState(l: () => void) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
 function subscribe(l: () => void) {
   listeners.add(l);
   return () => listeners.delete(l);
