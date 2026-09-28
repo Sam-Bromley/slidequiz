@@ -1,353 +1,501 @@
-import { ArrowLeft, Bookmark, BookmarkCheck, Download, Layers, MoreHorizontal, Play, RotateCcw, Search, Shuffle, SquarePen, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ExportDialog } from "@/components/export/export-dialog";
-import { FlipCard } from "@/components/flashcards/flip-card";
-import { PageHeader, SectionTitle } from "@/components/layout/page-header";
-import { MaterialIcon } from "@/components/materials/material-card";
-import { SourceChip } from "@/components/questions/source";
-import { TodaysReview } from "@/components/study/widgets";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Layers, MoreHorizontal, Pencil, Plus, RotateCcw, Shuffle, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Select } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
+import { ConfirmDialog } from "@/components/ui/confirm";
+import { Dialog } from "@/components/ui/dialog";
+import { Input, Textarea } from "@/components/ui/input";
 import { Menu } from "@/components/ui/menu";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/toast";
-import { Link, navigate, useLocation } from "@/lib/router";
-import { cn, formatDuration, plural, shuffle } from "@/lib/utils";
-import { isDifficult, isDue, isMastered, isNew, nextIntervalLabel, reviewQueue } from "@/services/study/srs";
+import { Link, navigate } from "@/lib/router";
+import { cn, plural } from "@/lib/utils";
+import { cardsFor } from "@/services/flashcards";
 import { actions } from "@/store/actions";
-import { topicName } from "@/store/selectors";
-import { getState, useData } from "@/store/store";
-import type { Flashcard, FlashcardRating } from "@/types/models";
+import { useData } from "@/store/store";
+import type { Deck, Flashcard, ID } from "@/types/models";
 
-function cardStatus(c: Flashcard): { label: string; tone: BadgeTone } {
-  if (isNew(c)) return { label: "New", tone: "neutral" };
-  if (isMastered(c)) return { label: "Mastered", tone: "success" };
-  if (isDifficult(c)) return { label: "Difficult", tone: "danger" };
-  if (isDue(c)) return { label: "Due", tone: "warning" };
-  return { label: "Learning", tone: "primary" };
-}
+/* ---------------------------------------------------------------- create from materials */
 
-export function FlashcardsPage() {
+function CreateDialog({ onClose }: { onClose: () => void }) {
   const data = useData();
-  const { query } = useLocation();
-  const [search, setSearch] = useState(query.get("q") ?? "");
-  const [material, setMaterial] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [limit, setLimit] = useState(24);
-  const [exporting, setExporting] = useState(false);
+  const mats = data.materials;
+  const [picked, setPicked] = useState<Record<ID, ID[] | "all">>({});
+  const [open, setOpen] = useState<ID | null>(mats.length === 1 ? mats[0].id : null);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const chosen = Object.keys(picked);
+  const suggested = chosen.length === 1 ? mats.find((m) => m.id === chosen[0])?.title ?? "" : chosen.length > 1 ? "Mixed flashcards" : "";
 
-  const list = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    return data.flashcards.filter((c) => {
-      if (material !== "all" && c.materialId !== material) return false;
-      if (status === "bookmarked" && !c.bookmarked) return false;
-      if (status !== "all" && status !== "bookmarked" && cardStatus(c).label.toLowerCase() !== status) return false;
-      return !s || `${c.front} ${c.back}`.toLowerCase().includes(s);
+  const toggleMaterial = (id: ID) =>
+    setPicked((p) => {
+      const next = { ...p };
+      if (next[id]) delete next[id];
+      else next[id] = "all";
+      return next;
     });
-  }, [data.flashcards, search, material, status]);
+  const toggleTopic = (mid: ID, tid: ID, all: ID[]) =>
+    setPicked((p) => {
+      const cur = p[mid] === "all" || !p[mid] ? all : (p[mid] as ID[]);
+      const on = p[mid] && cur.includes(tid);
+      const nextList = on ? cur.filter((x) => x !== tid) : [...cur, tid];
+      const next = { ...p };
+      if (!nextList.length) delete next[mid];
+      else next[mid] = nextList.length === all.length ? "all" : nextList;
+      return next;
+    });
 
-  if (!data.flashcards.length)
-    return (
-      <div>
-        <PageHeader title="Flashcards" />
-        <EmptyState icon={Layers} title="No flashcards yet" description="Generate flashcards from any material. Difficult cards will come back more often." action={<Link to="/materials" className={buttonClass()}><SquarePen /> Choose material</Link>} />
-      </div>
-    );
+  const create = async () => {
+    setBusy(true);
+    try {
+      const cards = [];
+      for (const mid of chosen) {
+        const m = mats.find((x) => x.id === mid);
+        if (!m) continue;
+        const sel = picked[mid];
+        cards.push(...(await cardsFor(m, sel === "all" ? [] : sel)));
+      }
+      if (!cards.length) {
+        toast.error("Couldn't find anything to make cards from", { description: "Try choosing more topics." });
+        return;
+      }
+      const id = actions.createDeck(name || suggested, chosen, cards);
+      toast(`${plural(cards.length, "flashcard")} made`);
+      onClose();
+      navigate(`/flashcards/${id}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Flashcards"
-        description="Spaced repetition brings difficult cards back sooner and spaces out the ones you know."
-        actions={
-          <>
-            <Button variant="outline" onClick={() => setExporting(true)}>
-              <Download /> Export
-            </Button>
-            <Link to="/flashcards/review" className={buttonClass()}>
-              <Play /> Start review
-            </Link>
-          </>
-        }
-        className="mb-0 sm:mb-0"
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <TodaysReview />
-        <section className="rounded-xl border bg-card p-5" aria-labelledby="decks-h">
-          <h2 id="decks-h" className="text-[15px] font-semibold">Decks</h2>
-          <ul className="mt-3 divide-y">
-            {data.materials
-              .filter((m) => data.flashcards.some((c) => c.materialId === m.id))
-              .map((m) => {
-                const cs = data.flashcards.filter((c) => c.materialId === m.id);
-                const due = cs.filter((c) => !isNew(c) && isDue(c)).length;
-                const mastered = cs.filter(isMastered).length;
-                return (
-                  <li key={m.id} className="flex items-center gap-3 py-3">
-                    <MaterialIcon m={m} className="size-9" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-medium">{m.title}</p>
-                      <p className="text-[12px] text-muted-foreground">
-                        {cs.length} cards · {due} due · {mastered} mastered
-                      </p>
-                      <Progress value={mastered / cs.length} tone="success" size="sm" className="mt-1.5 max-w-[200px]" label={`${m.title} mastery`} />
-                    </div>
-                    <Button variant={due ? "subtle" : "ghost"} size="sm" onClick={() => navigate(`/flashcards/review?m=${m.id}`)}>
-                      Review
-                    </Button>
-                  </li>
-                );
-              })}
-          </ul>
-        </section>
-      </div>
-
-      <section aria-labelledby="all-cards-h">
-        <SectionTitle id="all-cards-h">All cards</SectionTitle>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search flashcards" className="pl-9" aria-label="Search flashcards" />
-          </div>
-          <div className="flex gap-2">
-            <Select aria-label="Material" value={material} onChange={(e) => setMaterial(e.target.value)} className="sm:w-44">
-              <option value="all">All materials</option>
-              {data.materials.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-            </Select>
-            <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className="sm:w-40">
-              <option value="all">Any status</option>
-              <option value="difficult">Difficult</option>
-              <option value="due">Due</option>
-              <option value="learning">Learning</option>
-              <option value="mastered">Mastered</option>
-              <option value="new">New</option>
-              <option value="bookmarked">Bookmarked</option>
-            </Select>
-          </div>
-        </div>
-        {list.length ? (
-          <ul className="grid gap-2.5 md:grid-cols-2">
-            {list.slice(0, limit).map((c) => {
-              const st = cardStatus(c);
+    <Dialog
+      open
+      onClose={onClose}
+      title="Create flashcards"
+      description="Select what to make them from."
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={create} disabled={!chosen.length} loading={busy}>
+            Create
+          </Button>
+        </>
+      }
+    >
+      {!mats.length ? (
+        <p className="py-6 text-center text-[14px] text-muted-foreground">
+          Add some material first.{" "}
+          <Link to="/upload" className="font-medium text-foreground underline underline-offset-2" onClick={onClose}>
+            Upload slides
+          </Link>
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <ul className="max-h-[50vh] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+            {mats.map((m) => {
+              const topicIds = m.topics.filter((t) => m.pages.some((p) => p.included && p.topicId === t.id)).map((t) => t.id);
+              const sel = picked[m.id];
+              const expanded = open === m.id;
               return (
-                <li key={c.id} className="flex gap-3 rounded-xl border bg-card p-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-semibold leading-snug">{c.front}</p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{c.back}</p>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                      <Badge tone={st.tone}>{st.label}</Badge>
-                      <Badge tone="outline">{topicName(data, c.materialId, c.topicId)}</Badge>
-                      {c.source && <SourceChip source={c.source} />}
+                <li key={m.id} className="rounded-xl border">
+                  <div className="flex items-center gap-3 px-3 py-2.5">
+                    <input type="checkbox" className="size-4 accent-foreground" checked={!!sel} onChange={() => toggleMaterial(m.id)} aria-label={`Use ${m.title}`} />
+                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setOpen(expanded ? null : m.id)}>
+                      <span className="block truncate text-[14px] font-medium">{m.title}</span>
+                      <span className="block text-[12px] text-muted-foreground">
+                        {sel && sel !== "all" ? `${sel.length} of ${plural(topicIds.length, "topic")}` : plural(topicIds.length, "topic")}
+                      </span>
+                    </button>
+                    {topicIds.length > 1 && (
+                      <button type="button" onClick={() => setOpen(expanded ? null : m.id)} className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent focus-ring" aria-label={expanded ? "Hide topics" : "Choose topics"} aria-expanded={expanded}>
+                        <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+                      </button>
+                    )}
+                  </div>
+                  {expanded && topicIds.length > 1 && (
+                    <div className="space-y-0.5 border-t px-3 py-2">
+                      {topicIds.map((tid) => {
+                        const on = !!sel && (sel === "all" || sel.includes(tid));
+                        return (
+                          <label key={tid} className="flex cursor-pointer items-center gap-3 rounded-lg py-1.5 pl-7 text-[13.5px] hover:bg-accent">
+                            <input type="checkbox" className="size-4 accent-foreground" checked={on} onChange={() => toggleTopic(m.id, tid, topicIds)} />
+                            {m.topics.find((t) => t.id === tid)?.name}
+                          </label>
+                        );
+                      })}
                     </div>
-                  </div>
-                  <div className="-mr-1.5 -mt-1 flex flex-col">
-                    <Button variant="ghost" size="icon-sm" aria-pressed={c.bookmarked} aria-label={c.bookmarked ? "Remove bookmark" : "Bookmark card"} onClick={() => actions.toggleCardBookmark(c.id)}>
-                      {c.bookmarked ? <BookmarkCheck className="text-primary" /> : <Bookmark />}
-                    </Button>
-                    <Menu
-                      label="Card actions"
-                      items={[
-                        { label: "Reset progress", icon: RotateCcw, onSelect: () => { actions.resetCard(c.id); toast("Card reset to new"); } },
-                        { label: "Remove", icon: Trash2, danger: true, onSelect: () => toast.undo("Flashcard removed", actions.deleteCard(c.id)) },
-                      ]}
-                      trigger={(p) => <Button variant="ghost" size="icon-sm" aria-label="More actions" {...p}><MoreHorizontal /></Button>}
-                    />
-                  </div>
+                  )}
                 </li>
               );
             })}
           </ul>
-        ) : (
-          <EmptyState icon={Search} title="No cards match" action={<Button variant="outline" onClick={() => { setSearch(""); setMaterial("all"); setStatus("all"); }}>Clear filters</Button>} />
-        )}
-        {list.length > limit && (
-          <div className="mt-4 text-center">
-            <Button variant="outline" onClick={() => setLimit((l) => l + 24)}>Show more</Button>
-          </div>
-        )}
-      </section>
-      {exporting && <ExportDialog open onClose={() => setExporting(false)} title={material !== "all" ? data.materials.find((m) => m.id === material)?.title ?? "Flashcards" : "SlideQuiz"} flashcards={list} />}
+          {chosen.length > 0 && (
+            <div>
+              <label htmlFor="deck-name" className="mb-1.5 block text-[13px] font-medium">
+                Name
+              </label>
+              <Input id="deck-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggested} />
+            </div>
+          )}
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+function NameDialog({ title, initial = "", confirm, onSave, onClose }: { title: string; initial?: string; confirm: string; onSave: (n: string) => void; onClose: () => void }) {
+  const [name, setName] = useState(initial);
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={title}
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="deck-name-form" disabled={!name.trim()}>
+            {confirm}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="deck-name-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave(name.trim());
+          onClose();
+        }}
+      >
+        <label htmlFor="deck-name-input" className="sr-only">
+          Name
+        </label>
+        <Input id="deck-name-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Key dates, Vocab" data-autofocus />
+      </form>
+    </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------- decks list */
+
+export function FlashcardsPage() {
+  const data = useData();
+  const decks = data.decks ?? [];
+  const [creating, setCreating] = useState(false);
+  const [own, setOwn] = useState(false);
+
+  const makeOwn = (name: string) => {
+    const id = actions.createDeck(name, [], []);
+    navigate(`/flashcards/${id}?add=1`);
+  };
+
+  return (
+    <div>
+      <PageHeader
+        title="Flashcards"
+        actions={
+          decks.length ? (
+            <>
+              <Button variant="outline" onClick={() => setOwn(true)}>
+                <Pencil /> Make your own
+              </Button>
+              <Button onClick={() => setCreating(true)}>
+                <Plus /> Create flashcards
+              </Button>
+            </>
+          ) : null
+        }
+      />
+      {!decks.length ? (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
+          <Button size="lg" className="h-12 rounded-full px-7 text-[15px]" onClick={() => setCreating(true)}>
+            <Plus /> Create flashcards
+          </Button>
+          <button type="button" onClick={() => setOwn(true)} className="text-[14px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
+            or make your own
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {decks.map((d) => {
+            const cards = data.flashcards.filter((c) => c.deckId === d.id);
+            const known = cards.filter((c) => c.known).length;
+            const pct = cards.length ? Math.round((known / cards.length) * 100) : 0;
+            return (
+              <Link key={d.id} to={`/flashcards/${d.id}`} className="group rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20 focus-ring">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground">
+                    <Layers className="size-[18px]" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold">{d.name}</p>
+                    <p className="text-[12.5px] text-muted-foreground">{plural(cards.length, "card")}</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div className="mb-1.5 flex justify-between text-[12.5px] text-muted-foreground">
+                    <span>{known} known</span>
+                    <span className="tabular-nums">{pct}%</span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+      {creating && <CreateDialog onClose={() => setCreating(false)} />}
+      {own && <NameDialog title="Make your own flashcards" confirm="Create" onSave={makeOwn} onClose={() => setOwn(false)} />}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ Review session */
+/* ---------------------------------------------------------------- one deck */
 
-export function FlashcardReviewPage() {
-  const { query } = useLocation();
-  const mid = query.get("m");
-  const mode = query.get("mode");
-  const initialQueue = useMemo(() => {
-    const d = getState();
-    const cards = d.flashcards.filter((c) => !mid || c.materialId === mid);
-    if (mode === "difficult") return cards.filter(isDifficult).map((c) => c.id);
-    const q = reviewQueue(cards, 25);
-    return (q.length ? q : shuffle(cards).slice(0, 20)).map((c) => c.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mid, mode]);
+function CardEditor({ c, onDone }: { c?: Flashcard; onDone: (front: string, back: string) => void }) {
+  const [front, setFront] = useState(c?.front ?? "");
+  const [back, setBack] = useState(c?.back ?? "");
+  return (
+    <form
+      className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-start"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!front.trim() || !back.trim()) return;
+        onDone(front, back);
+        if (!c) {
+          setFront("");
+          setBack("");
+          (e.currentTarget.querySelector("textarea") as HTMLTextAreaElement | null)?.focus();
+        }
+      }}
+    >
+      <Textarea value={front} onChange={(e) => setFront(e.target.value)} placeholder="Front (question or term)" aria-label="Front" className="min-h-[64px]" autoFocus={!!c} />
+      <Textarea value={back} onChange={(e) => setBack(e.target.value)} placeholder="Back (answer)" aria-label="Back" className="min-h-[64px]" />
+      <Button type="submit" disabled={!front.trim() || !back.trim()}>
+        {c ? "Save" : <><Plus /> Add</>}
+      </Button>
+    </form>
+  );
+}
+
+export function DeckPage({ id }: { id: string }) {
   const data = useData();
-  const [queue, setQueue] = useState<string[]>(initialQueue);
-  const [pos, setPos] = useState(0);
+  const deck: Deck | undefined = (data.decks ?? []).find((d) => d.id === id);
+  const cards = data.flashcards.filter((c) => c.deckId === id);
+  const [order, setOrder] = useState<ID[]>(() => cards.map((c) => c.id));
+  const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [tally, setTally] = useState<Record<FlashcardRating, number>>({ hard: 0, good: 0, easy: 0 });
-  const started = useRef(Date.now());
-  const saved = useRef(false);
+  const [adding, setAdding] = useState(() => /add=1/.test(location.hash));
+  const [editing, setEditing] = useState<ID | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  const total = initialQueue.length;
-  const done = pos >= queue.length;
-  const card = data.flashcards.find((c) => c.id === queue[pos]);
-  const reviewed = tally.hard + tally.good + tally.easy;
-
-  const saveSession = () => {
-    if (saved.current || !reviewed) return;
-    saved.current = true;
-    actions.addSession({ kind: "flashcards", materialIds: mid ? [mid] : [...new Set(queue.map((id) => getState().flashcards.find((c) => c.id === id)?.materialId).filter(Boolean) as string[])], startedAt: new Date(started.current).toISOString(), durationMs: Date.now() - started.current, items: reviewed });
-  };
-  useEffect(() => () => saveSession());
+  // Keep the study order in step with added/removed cards.
+  const ids = cards.map((c) => c.id).join(",");
   useEffect(() => {
-    if (done) saveSession();
+    setOrder((o) => [...o.filter((x) => cards.some((c) => c.id === x)), ...cards.filter((c) => !o.includes(c.id)).map((c) => c.id)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done]);
+  }, [ids]);
+  const studyOrder = useMemo(() => order.filter((x) => cards.some((c) => c.id === x)), [order, ids]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pos = Math.min(i, Math.max(0, studyOrder.length - 1));
+  const card = cards.find((c) => c.id === studyOrder[pos]);
 
-  const rate = (r: FlashcardRating) => {
-    if (!card) return;
-    actions.rateCard(card.id, r);
-    setTally((t) => ({ ...t, [r]: t[r] + 1 }));
-    if (r === "hard") setQueue((q) => [...q, card.id]); // comes back this session
+  const go = (d: number) => {
     setFlipped(false);
-    setPos((p) => p + 1);
+    setI((x) => (studyOrder.length ? (x + d + studyOrder.length) % studyOrder.length : 0));
+  };
+  const mark = (known: boolean) => {
+    if (!card) return;
+    actions.updateCard(card.id, { known });
+    go(1);
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest("input,textarea") || document.querySelector("[role=dialog]") || done) return;
+    const k = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest("input,textarea,select,[contenteditable]") || document.querySelector("[role=dialog]")) return;
       if (e.key === " ") {
         e.preventDefault();
         setFlipped((f) => !f);
-      } else if (flipped && ["1", "2", "3"].includes(e.key)) rate((["hard", "good", "easy"] as const)[Number(e.key) - 1]);
+      } else if (e.key === "ArrowRight") go(1);
+      else if (e.key === "ArrowLeft") go(-1);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
   });
 
-  const exit = () => {
-    saveSession();
-    navigate("/flashcards");
-  };
+  if (!deck)
+    return (
+      <div className="py-20 text-center">
+        <p className="font-medium">These flashcards don't exist any more.</p>
+        <Link to="/flashcards" className={buttonClass("outline", "md", "mt-4")}>
+          Back to flashcards
+        </Link>
+      </div>
+    );
+
+  const known = cards.filter((c) => c.known).length;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
-      <header className="sticky z-20 border-b bg-background/90 backdrop-blur-md" style={{ top: "env(safe-area-inset-top, 0px)" }}>
-        <div className="mx-auto flex h-14 max-w-2xl items-center gap-3 px-4">
-          <Button variant="ghost" size="icon" aria-label="Exit review" onClick={exit}>
-            <X />
-          </Button>
-          <div className="flex-1">
-            <Progress value={total ? Math.min(pos, total) / Math.max(total, queue.length) : 0} size="sm" label="Review progress" />
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        back={{ to: "/flashcards", label: "Flashcards" }}
+        title={deck.name}
+        description={`${plural(cards.length, "card")} · ${known} known`}
+        actions={
+          <Menu
+            label="Flashcard actions"
+            items={[
+              { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
+              { label: "Start again", icon: RotateCcw, onSelect: () => cards.forEach((c) => actions.updateCard(c.id, { known: false })) },
+              { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
+            ]}
+            trigger={(p) => (
+              <Button variant="ghost" size="icon" aria-label="More actions" {...p}>
+                <MoreHorizontal />
+              </Button>
+            )}
+          />
+        }
+      />
+
+      {card ? (
+        <section aria-label="Study">
+          <button
+            type="button"
+            onClick={() => setFlipped((f) => !f)}
+            className="group block w-full [perspective:1400px] focus-ring rounded-2xl"
+            aria-label={flipped ? "Show front" : "Show answer"}
+          >
+            <div className={cn("relative min-h-[260px] w-full transition-transform duration-500 [transform-style:preserve-3d] sm:min-h-[300px]", flipped && "[transform:rotateY(180deg)]")}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden]">
+                <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Front</span>
+                {card.known && <span className="absolute right-5 top-4 inline-flex items-center gap-1 text-[12px] text-success"><Check className="size-3.5" /> Known</span>}
+                <p className="whitespace-pre-line text-[20px] font-semibold leading-snug sm:text-[22px]">{card.front}</p>
+                <span className="absolute bottom-4 text-[12px] text-muted-foreground">Click to flip</span>
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Back</span>
+                <p className="whitespace-pre-line text-[18px] leading-relaxed sm:text-[19px]">{card.back}</p>
+              </div>
+            </div>
+          </button>
+          <div className="mt-5 flex items-center justify-between gap-2">
+            <Button variant="ghost" size="icon" onClick={() => go(-1)} aria-label="Previous card">
+              <ArrowLeft />
+            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => mark(false)}>
+                <X /> Still learning
+              </Button>
+              <Button onClick={() => mark(true)}>
+                <Check /> Got it
+              </Button>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => go(1)} aria-label="Next card">
+              <ArrowRight />
+            </Button>
           </div>
-          <span className="text-[13px] tabular-nums text-muted-foreground">
-            {Math.min(pos + 1, queue.length)} / {queue.length}
-          </span>
-          {!done && (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Shuffle remaining cards"
-              title="Shuffle"
+          <div className="mt-3 flex items-center justify-center gap-3 text-[12.5px] text-muted-foreground">
+            <span className="tabular-nums">
+              {pos + 1} of {studyOrder.length}
+            </span>
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 hover:text-foreground focus-ring rounded"
               onClick={() => {
-                setQueue((q) => [...q.slice(0, pos), ...shuffle(q.slice(pos))]);
+                setOrder((o) => [...o].sort(() => Math.random() - 0.5));
+                setI(0);
                 setFlipped(false);
-                toast("Shuffled");
               }}
             >
-              <Shuffle />
+              <Shuffle className="size-3.5" /> Shuffle
+            </button>
+          </div>
+        </section>
+      ) : (
+        <div className="rounded-2xl border border-dashed py-12 text-center">
+          <p className="font-medium">No cards yet</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">Add your first card below.</p>
+        </div>
+      )}
+
+      <section className="mt-12" aria-labelledby="cards-h">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 id="cards-h" className="text-[16px] font-semibold">
+            Cards
+          </h2>
+          {!adding && (
+            <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+              <Plus /> Add a card
             </Button>
           )}
         </div>
-      </header>
-
-      <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-4 pb-10 pt-8">
-        {!total ? (
-          <EmptyState icon={Layers} title="Nothing to review right now" description="You're all caught up. New and due cards will appear here." action={<Button onClick={exit}><ArrowLeft /> Back to flashcards</Button>} />
-        ) : done || !card ? (
-          <div className="animate-fade-up text-center">
-            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-success-soft text-success">
-              <Layers className="size-6" />
-            </span>
-            <h1 className="mt-5 text-[24px] font-bold">Session complete</h1>
-            <p className="mt-1 text-muted-foreground">
-              {plural(reviewed, "card")} reviewed in {formatDuration(Date.now() - started.current)}.
-            </p>
-            <div className="mx-auto mt-6 grid max-w-sm grid-cols-3 gap-2">
-              {(["hard", "good", "easy"] as const).map((r) => (
-                <div key={r} className="rounded-xl border bg-card p-3">
-                  <p className={cn("font-display text-[22px] font-bold tabular-nums", r === "hard" ? "text-destructive" : r === "good" ? "text-primary" : "text-success")}>{tally[r]}</p>
-                  <p className="text-[12px] capitalize text-muted-foreground">{r}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mx-auto mt-5 max-w-sm text-[13.5px] text-muted-foreground">Hard cards will come back soon; easy ones are scheduled days or weeks away.</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <Button variant="outline" onClick={exit}>Done</Button>
-              {tally.hard > 0 && (
-                <Button onClick={() => { navigate(`/flashcards/review?mode=difficult${mid ? `&m=${mid}` : ""}&r=${Date.now()}`); }}>
-                  <RotateCcw /> Review difficult cards
-                </Button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div key={card.id + pos} className="animate-fade-up">
-            <div className="mb-4 flex items-center justify-between">
-              <Badge tone={cardStatus(card).tone}>{cardStatus(card).label}</Badge>
-              <div className="flex">
-                <Button variant="ghost" size="icon-sm" aria-pressed={card.bookmarked} aria-label={card.bookmarked ? "Remove bookmark" : "Bookmark card"} onClick={() => actions.toggleCardBookmark(card.id)}>
-                  {card.bookmarked ? <BookmarkCheck className="text-primary" /> : <Bookmark />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Remove card"
-                  onClick={() => {
-                    const undo = actions.deleteCard(card.id);
-                    setQueue((q) => q.filter((x, i) => i < pos || x !== card.id));
-                    setFlipped(false);
-                    toast.undo("Flashcard removed", undo);
-                  }}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </div>
-            <FlipCard card={card} flipped={flipped} onFlip={() => setFlipped((f) => !f)} topic={topicName(data, card.materialId, card.topicId)} />
-            <div className="mt-6">
-              {flipped ? (
-                <div className="grid grid-cols-3 gap-2" role="group" aria-label="How well did you know it?">
-                  {([
-                    ["hard", "Hard", "border-destructive/30 hover:bg-destructive-soft text-destructive"],
-                    ["good", "Good", "border-primary/30 hover:bg-primary-soft text-primary"],
-                    ["easy", "Easy", "border-success/30 hover:bg-success-soft text-success"],
-                  ] as const).map(([r, label, cls], i) => (
-                    <button key={r} onClick={() => rate(r)} className={cn("flex flex-col items-center gap-0.5 rounded-xl border bg-card py-3 transition-colors focus-ring", cls)}>
-                      <span className="text-[15px] font-semibold">{label}</span>
-                      <span className="text-[11.5px] text-muted-foreground">{nextIntervalLabel(card.srs, r)}</span>
-                      <Kbd className="mt-1 hidden sm:inline-flex">{i + 1}</Kbd>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <Button size="lg" className="w-full" onClick={() => setFlipped(true)}>
-                  Show answer
-                </Button>
-              )}
+        {adding && (
+          <div className="mb-4 rounded-xl border bg-card p-3">
+            <CardEditor onDone={(f, b) => actions.addCard(deck.id, f, b)} />
+            <div className="mt-2 text-right">
+              <button type="button" onClick={() => setAdding(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground focus-ring rounded">
+                Done adding
+              </button>
             </div>
           </div>
         )}
-      </main>
+        <ul className="divide-y rounded-xl border bg-card">
+          {cards.map((c) => (
+            <li key={c.id} className="group px-4 py-3">
+              {editing === c.id ? (
+                <CardEditor
+                  c={c}
+                  onDone={(f, b) => {
+                    actions.updateCard(c.id, { front: f.trim(), back: b.trim() });
+                    setEditing(null);
+                  }}
+                />
+              ) : (
+                <div className="flex items-start gap-3">
+                  <div className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-4">
+                    <p className="text-[14px] font-medium">{c.front}</p>
+                    <p className="text-[14px] text-foreground/80">{c.back}</p>
+                  </div>
+                  {c.known && <Check className="mt-0.5 size-4 shrink-0 text-success" aria-label="Known" />}
+                  <div className="flex shrink-0 gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                    <Button variant="ghost" size="icon-sm" aria-label="Edit card" onClick={() => setEditing(c.id)}>
+                      <Pencil />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" aria-label="Delete card" onClick={() => toast.undo("Card deleted", actions.deleteCard(c.id))}>
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+          {!cards.length && <li className="px-4 py-6 text-center text-[13.5px] text-muted-foreground">Cards you add will appear here.</li>}
+        </ul>
+      </section>
+
+      {renaming && <NameDialog title="Rename" initial={deck.name} confirm="Save" onSave={(n) => actions.renameDeck(deck.id, n)} onClose={() => setRenaming(false)} />}
+      <ConfirmDialog
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        title={`Delete “${deck.name}”?`}
+        description={`This deletes ${plural(cards.length, "card")}.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          const undo = actions.deleteDeck(deck.id);
+          navigate("/flashcards");
+          toast.undo("Flashcards deleted", undo);
+        }}
+      />
     </div>
   );
 }

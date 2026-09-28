@@ -1,6 +1,6 @@
 import type {
   ChatMessage,
-  Folder, Flashcard, GenerationRecord, ID, Material, Question, QuizAttempt, SavedQuestion, Settings, StudyPlan, StudySession, SummaryDoc, User,
+  Deck, Folder, Flashcard, GenerationRecord, ID, Material, Question, QuizAttempt, SavedQuestion, Settings, StudyPlan, StudySession, SummaryDoc, User,
 } from "@/types/models";
 
 /** Everything SlideQuiz persists. A real backend would store each collection as a table. */
@@ -11,6 +11,7 @@ export interface AppData {
   materials: Material[];
   questions: Question[];
   flashcards: Flashcard[];
+  decks?: Deck[];
   attempts: QuizAttempt[];
   sessions: StudySession[];
   saved: SavedQuestion[];

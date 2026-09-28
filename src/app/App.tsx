@@ -8,7 +8,7 @@ import { useThemeSync } from "@/lib/theme";
 import { setUI } from "@/lib/ui";
 import { onPersistError, useData } from "@/store/store";
 import { AskPage } from "@/pages/ask";
-import { FlashcardReviewPage, FlashcardsPage } from "@/pages/flashcards";
+import { DeckPage, FlashcardsPage } from "@/pages/flashcards";
 import { GeneratePage } from "@/pages/generate";
 import { HistoryPage } from "@/pages/history";
 import { HomePage } from "@/pages/home";
@@ -32,7 +32,7 @@ const ROUTES: Route[] = [
   { pattern: "/generate", render: () => <GeneratePage /> },
   { pattern: "/questions", render: () => <QuestionBankPage /> },
   { pattern: "/flashcards", render: () => <FlashcardsPage /> },
-  { pattern: "/flashcards/review", render: () => <FlashcardReviewPage key={window.location.hash} />, bare: true },
+  { pattern: "/flashcards/:id", render: (p) => <DeckPage key={p.id} id={p.id} /> },
   { pattern: "/study", render: () => <StudyPage /> },
   { pattern: "/quiz/:id", render: (p) => <QuizPage id={p.id} />, bare: true },
   { pattern: "/quiz/:id/results", render: (p) => <QuizResultsPage id={p.id} /> },

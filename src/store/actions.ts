@@ -6,6 +6,7 @@ import { newSrs, schedule } from "@/services/study/srs";
 import type {
   Answer,
   ChatMessage,
+  Deck,
   Flashcard,
   FlashcardRating,
   GenerationRecord,
@@ -237,6 +238,34 @@ export const actions = {
       const next = applyAnswerToStats(s, a);
       return addXp(next, a.score >= 0.85 ? XP.correct : a.score >= 0.3 ? XP.partial : 1);
     });
+  },
+
+  /* ------------------------------------------------------------ decks */
+  createDeck(name: string, materialIds: ID[], cards: { front: string; back: string; materialId?: ID; topicId?: ID | null; source?: Flashcard["source"] }[]): ID {
+    const id = uid("deck");
+    const now = nowISO();
+    const deck: Deck = { id, name: name.trim() || "Flashcards", materialIds, createdAt: now };
+    const fcs: Flashcard[] = cards.map((c) => ({ id: uid("fc"), deckId: id, materialId: c.materialId ?? "", topicId: c.topicId ?? null, front: c.front, back: c.back, source: c.source, bookmarked: false, srs: newSrs(), createdAt: now }));
+    setState((s) => ({ ...s, decks: [deck, ...(s.decks ?? [])], flashcards: [...fcs, ...s.flashcards] }));
+    return id;
+  },
+  renameDeck(id: ID, name: string) {
+    setState((s) => ({ ...s, decks: (s.decks ?? []).map((d) => (d.id === id ? { ...d, name: name.trim() || d.name } : d)) }));
+  },
+  deleteDeck(id: ID): Undo {
+    const s0 = getState();
+    const deck = (s0.decks ?? []).find((d) => d.id === id);
+    if (!deck) return () => {};
+    const cards = s0.flashcards.filter((c) => c.deckId === id);
+    setState((s) => ({ ...s, decks: (s.decks ?? []).filter((d) => d.id !== id), flashcards: s.flashcards.filter((c) => c.deckId !== id) }));
+    return () => setState((s) => ({ ...s, decks: [deck, ...(s.decks ?? [])], flashcards: [...cards, ...s.flashcards] }));
+  },
+  addCard(deckId: ID, front: string, back: string) {
+    const card: Flashcard = { id: uid("fc"), deckId, materialId: "", topicId: null, front: front.trim(), back: back.trim(), bookmarked: false, srs: newSrs(), createdAt: nowISO() };
+    setState((s) => ({ ...s, flashcards: [...s.flashcards, card] }));
+  },
+  updateCard(id: ID, patch: Partial<Pick<Flashcard, "front" | "back" | "known">>) {
+    setState((s) => ({ ...s, flashcards: s.flashcards.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
   },
 
   /* ------------------------------------------------------------ flashcards */

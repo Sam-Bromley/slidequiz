@@ -61,7 +61,18 @@ function tableRows(lines: string[]): { rows: string[][]; start: number; end: num
 }
 
 /** Lines that are about the lecture rather than the subject. */
-const ADMIN_LINE = /^(learning (objectives|outcomes|aims)|by the end of|in this (lecture|session|lesson)|today we will|this (lecture|session) (will|covers)|recommended reading|further reading|reading:|see (chapter|page|pp?\.)|remember to|don'?t forget|deadline|submit)/i;
+const ADMIN_LINE =
+  /^(learning (objectives|outcomes|aims)|by the end of|in this (lecture|session|lesson|module)|today we will|this (lecture|session|module) (will|covers)|recommended reading|further reading|reading:|see (chapter|page|pp?\.)|remember to|don'?t forget|deadline|submit|hand in|assessment|coursework|exam (date|is)|module (code|leader|convenor|lead|handbook)|course (code|leader)|lecturer|tutor|instructor|office hours|contact|email|room\b|seminar|tutorial|workshop|lab (session|group)|attendance|moodle|blackboard|canvas|teams|zoom|slides (are|will be)|recording|week \d+|semester|term \d|credits?\b|marks? (available|breakdown)|weighting|source:|sources:|adapted from|image (credit|source|from)|photo (credit|by)|credit:|©|copyright|retrieved from|doi:|all rights reserved)/i;
+/** Whole lines that are only admin detail (module code, names, emails). */
+const ADMIN_WHOLE = /^([A-Z]{2,5}\s?\d{3,5}[A-Z]?\b.{0,40}|(dr|prof|professor|mr|mrs|ms)\.? [A-Z][a-z]+( [A-Z][a-z]+)?|[\w.+-]+@[\w-]+\.[\w.]+|\d{1,2}(st|nd|rd|th)? (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{2,4}|(lecture|week|session|topic|unit) \d+)$/i;
+
+/** In-text references like (Smith et al., 2019), (Jones & Lee 2020; Brown, 2018) or [3]. */
+const CITATIONS = [
+  /\s*\((?:see\s+)?(?:[A-Z][A-Za-z'’\-]+(?:\s(?:&|and)\s[A-Z][A-Za-z'’\-]+)?(?:\set\sal\.?)?,?\s(?:c\.\s?)?\d{4}[a-z]?(?:,\s?p+\.\s?\d+(?:[–-]\d+)?)?(?:;\s?)?)+\)/g,
+  /\s*\[\d+(?:\s?[,–-]\s?\d+)*\]/g,
+  /(?<=[A-Za-z])\s\((?:\d{4}[a-z]?)\)/g,
+];
+export const stripCitations = (t: string) => CITATIONS.reduce((x, re) => x.replace(re, ""), t);
 
 const FILLER_START = /^(it is (important|worth|useful) (to note|noting|remembering) that|it should be noted that|note that|remember that|in other words,?|basically,?|essentially,?|simply put,?|put simply,?|as (we|you) (can )?see,?|importantly,?|interestingly,?|of course,?)\s+/i;
 const WORDY: [RegExp, string][] = [
@@ -86,7 +97,7 @@ const WORDY: [RegExp, string][] = [
 
 /** Same meaning, fewer words. Nothing factual is removed. */
 export function concise(line: string) {
-  let t = line.replace(FILLER_START, "");
+  let t = stripCitations(line).replace(FILLER_START, "");
   for (const [re, to] of WORDY) t = t.replace(re, to);
   t = t.replace(/\s{2,}/g, " ").replace(/\s+([,.;:])/g, "$1").trim();
   return t ? t[0].toUpperCase() + t.slice(1) : t;
@@ -98,7 +109,7 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
     .split(/\n+/)
     .map(clean)
     .filter(Boolean)
-    .filter((l) => !ADMIN_LINE.test(l) && !same(l, page.title))
+    .filter((l) => !ADMIN_LINE.test(l) && !ADMIN_WHOLE.test(l) && !same(l, page.title))
     .map(concise);
   // Word sections start with "(Parent heading)" for context; the section heading already shows it.
   if (raw[0] && /^\(.*\)$/.test(raw[0])) raw.shift();
@@ -176,5 +187,43 @@ export function buildNotes(m: Material): NoteSection[] {
     for (const d of extractDefinitions(splitBody(p.text).body))
       if (!sec.terms.some((t) => t.term.toLowerCase() === d.term.toLowerCase())) sec.terms.push({ term: d.term, definition: stripTrailingPunct(d.definition), label: p.label, pageId: p.id });
   }
+  for (const sec of sections) giveSubheadings(sec);
   return sections.filter((x) => x.slides.length);
+}
+
+const GENERIC_TITLE = /^((slide|page|section|part)\s*\d+|continued|cont\.?|untitled|notes?|summary slide|\d+)$/i;
+const cleanTitle = (t: string) =>
+  t
+    .replace(/^(lecture|week|topic|unit|chapter|part|section)\s*\d+\s*[:.\-–]\s*/i, "")
+    .replace(/^\d+(\.\d+)*[.)]?\s+/, "")
+    .replace(/\s*[(\[]?(cont(inued|'d)?\.?|part\s*\d+|\d+\s*of\s*\d+)[)\]]?\s*$/i, "")
+    .replace(/\s*[-–:]\s*(part\s*)?\d+$/i, "")
+    .replace(/[?:]$/, "")
+    .trim();
+const SUBJECT = /^(.{2,40}?)\s+(is|are|was|were|has|have|holds?|stores?|transfers?|causes?|can|involves?|means|refers|occurs?|takes?|produces?|contains?|includes?|leads?|allows?|helps?)\b/i;
+const sentence = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+/** Lower-case the start unless it's a name or acronym (DNA, Calvin). */
+const lowerStart = (t: string) => (/^[A-Z][a-z]/.test(t) && !/^[A-Z][a-z]+ [A-Z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
+
+/** Every part of a topic gets a clear subheading; slides that continue the same heading are grouped under it. */
+function giveSubheadings(sec: NoteSection) {
+  let prev = "";
+  sec.slides.forEach((s, i) => {
+    let h = cleanTitle(s.page.title || "");
+    if (!h || GENERIC_TITLE.test(h) || same(h, sec.title)) {
+      if (i === 0) h = "Overview";
+      else {
+        // Name the part after what its points are about: "Long-term memory and rehearsal".
+        const subjects: string[] = [];
+        for (const l of s.lines) {
+          const subj = (l.term ?? l.text.match(SUBJECT)?.[1] ?? "").replace(/^(the|a|an)\s+/i, "").trim();
+          if (subj && subj.split(/\s+/).length <= 5 && !same(subj, sec.title) && !subjects.some((x) => same(x, subj))) subjects.push(subj);
+        }
+        if (subjects.length && subjects.length <= 3) h = sentence(subjects.map((x, j) => (j ? lowerStart(x) : x)).join(subjects.length === 2 ? " and " : ", ").replace(/, ([^,]*)$/, " and $1"));
+        else h = "More on " + sec.title.toLowerCase();
+      }
+    }
+    s.title = h.toLowerCase() === prev.toLowerCase() ? null : h;
+    prev = h;
+  });
 }

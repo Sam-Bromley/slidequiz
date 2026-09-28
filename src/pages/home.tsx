@@ -3,11 +3,15 @@ import { useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { handOffUpload } from "@/lib/handoff";
 import { navigate } from "@/lib/router";
+import { quoteOfTheDay } from "@/lib/quotes";
+import { useData } from "@/store/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { ACCEPT_ATTR } from "@/services/parsing";
 
 /** Home: one quiet box in the middle. Drop files or paste notes, press go. */
 export function HomePage() {
+  const showQuote = useData().settings.showQuote !== false;
+  const quote = quoteOfTheDay();
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
   const [drag, setDrag] = useState(false);
@@ -32,6 +36,12 @@ export function HomePage() {
   return (
     <div className="flex min-h-[calc(100dvh-10rem)] flex-col items-center justify-center py-8">
       <div className="w-full max-w-2xl">
+        {showQuote && (
+          <figure className="mb-6 px-2 text-center">
+            <blockquote className="text-[16px] italic leading-relaxed text-foreground/80">“{quote.text}”</blockquote>
+            <figcaption className="mt-1.5 text-[13px] text-muted-foreground">{quote.by}</figcaption>
+          </figure>
+        )}
 
         <div
           onDragOver={(e) => {

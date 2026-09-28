@@ -1,8 +1,9 @@
-import { Download, RotateCcw, Trash2, UserRound } from "lucide-react";
+import { Download, LogIn, LogOut, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
+import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
@@ -43,12 +44,13 @@ export function SettingsPage() {
   const s = data.settings;
   const [name, setName] = useState(data.user.name);
   const [email, setEmail] = useState(data.user.email);
+  const [loggingIn, setLoggingIn] = useState(false);
   const [confirm, setConfirm] = useState<null | "materials" | "history" | "all">(null);
   const set = (p: Partial<Settings>) => {
     actions.updateSettings(p);
     toast("Settings saved");
   };
-  const emailOk = !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <div className="max-w-4xl">
@@ -64,6 +66,9 @@ export function SettingsPage() {
           <Select id="set-scene" value={SCENE_ORDER.includes(s.scene ?? "none") ? s.scene ?? "none" : "none"} onChange={(e) => actions.updateSettings({ scene: e.target.value as BackgroundScene })} className="sm:w-48">
             {SCENE_ORDER.map((sc) => <option key={sc} value={sc}>{sceneLabel(sc)}</option>)}
           </Select>
+        </Row>
+        <Row label="Quote of the day" hint="Shown above the box on Home" htmlFor="set-quote">
+          <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>
         <Row label="Automatic night light" hint="Switch to warm, low-blue colours at set times" htmlFor="set-night">
           <Switch id="set-night" checked={!!s.nightLightAuto} onChange={(v) => set({ nightLightAuto: v })} label="Automatic night light" />
@@ -88,29 +93,26 @@ export function SettingsPage() {
         </Row>
       </Section>
 
-      <Section title="Account" description="Stored on this device until sign-in is connected.">
-        <form
-          className="grid gap-4 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!emailOk) return;
-            actions.updateUser({ name: name.trim(), email: email.trim() });
-            toast("Account updated");
-          }}
-        >
-          <Field label="Name" htmlFor="acc-name">
-            <Input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-          </Field>
-          <Field label="Email" htmlFor="acc-email">
-            <Input id="acc-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" aria-invalid={!emailOk} aria-describedby={!emailOk ? "email-err" : undefined} />
-            {!emailOk && <p id="email-err" className="text-xs text-destructive">Enter a valid email address.</p>}
-          </Field>
-          <div className="sm:col-span-2">
-            <Button type="submit" variant="outline" disabled={name === data.user.name && email === data.user.email}>
-              <UserRound /> Save account
+      <Section title="Account">
+        {data.user.email ? (
+          <Row label={data.user.name || data.user.email} hint={data.user.name ? data.user.email : undefined}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                actions.updateUser({ name: "", email: "" });
+                toast("Logged out");
+              }}
+            >
+              <LogOut /> Log out
             </Button>
-          </div>
-        </form>
+          </Row>
+        ) : (
+          <Row label="Not logged in">
+            <Button onClick={() => setLoggingIn(true)}>
+              <LogIn /> Log in
+            </Button>
+          </Row>
+        )}
       </Section>
 
       <Section title="Data" description="Deleting shows an Undo option for a few seconds.">
@@ -139,6 +141,44 @@ export function SettingsPage() {
       <ConfirmDialog open={confirm === "materials"} onClose={() => setConfirm(null)} title="Delete all materials?" description="All materials, questions, flashcards, summaries and plans will be removed." onConfirm={() => toast.undo("All materials deleted", actions.deleteAllMaterials())} />
       <ConfirmDialog open={confirm === "history"} onClose={() => setConfirm(null)} title="Delete your study history?" description="Quiz results, streaks and flashcard scheduling will be reset. Your materials and questions stay." onConfirm={() => toast.undo("History deleted", actions.deleteHistory())} />
       <ConfirmDialog open={confirm === "all"} onClose={() => setConfirm(null)} title="Delete your account and all data?" description="This can't be undone." requireText="delete" confirmLabel="Delete everything" onConfirm={() => { actions.deleteEverything(); setName(""); setEmail(""); toast("All data deleted"); }} />
+      {loggingIn && (
+        <Dialog
+          open
+          onClose={() => setLoggingIn(false)}
+          title="Log in"
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setLoggingIn(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="login-form" disabled={!emailOk}>
+                Log in
+              </Button>
+            </>
+          }
+        >
+          <form
+            id="login-form"
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!emailOk) return;
+              actions.updateUser({ name: name.trim(), email: email.trim() });
+              setLoggingIn(false);
+              toast("Logged in");
+            }}
+          >
+            <Field label="Email" htmlFor="acc-email">
+              <Input id="acc-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" data-autofocus />
+            </Field>
+            <Field label="Name (optional)" htmlFor="acc-name">
+              <Input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+            </Field>
+            <p className="text-[12.5px] text-muted-foreground">Your work is saved in this browser.</p>
+          </form>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { House, Library, type LucideIcon } from "lucide-react";
+import { House, Layers, Library, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -10,4 +10,5 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { to: "/", label: "Home", icon: House, match: (p) => p === "/" },
   { to: "/materials", label: "My Materials", icon: Library, match: (p) => p.startsWith("/materials") || p.startsWith("/upload") || p.startsWith("/generate") || p.startsWith("/ask") },
+  { to: "/flashcards", label: "Flashcards", icon: Layers, match: (p) => p.startsWith("/flashcards") },
 ];

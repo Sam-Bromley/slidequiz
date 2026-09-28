@@ -54,6 +54,8 @@ export interface Settings {
   mcqOptions?: number;
   /** Show slide images in the notes (off by default). */
   notesImages?: boolean;
+  /** Show a quote above the box on Home (on by default). */
+  showQuote?: boolean;
 }
 
 export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text";
@@ -206,8 +208,20 @@ export interface SrsState {
 
 export type FlashcardRating = "hard" | "good" | "easy";
 
+/** A saved set of flashcards (made from materials, or written by the student). */
+export interface Deck {
+  id: ID;
+  name: string;
+  materialIds: ID[];
+  createdAt: ISODate;
+}
+
 export interface Flashcard {
   id: ID;
+  /** The deck it belongs to (older cards may have none). */
+  deckId?: ID;
+  /** Marked "Got it" while studying. */
+  known?: boolean;
   materialId: ID;
   topicId: ID | null;
   front: string;

@@ -25,6 +25,7 @@ export function emptyData(theme: AppData["settings"]["theme"] = "light"): AppDat
     materials: [],
     questions: [],
     flashcards: [],
+    decks: [],
     attempts: [],
     sessions: [],
     saved: [],
