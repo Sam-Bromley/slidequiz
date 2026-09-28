@@ -1,7 +1,7 @@
 import { nowISO } from "@/lib/utils";
 import type { AppData } from "@/services/db/types";
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const DEFAULT_SETTINGS: AppData["settings"] = {
   theme: "light",

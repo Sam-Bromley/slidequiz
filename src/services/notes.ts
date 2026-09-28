@@ -2,7 +2,7 @@
  * Turns the included slides into organised study notes: grouped by topic, every line kept,
  * with key terms picked out, sub-points nested and tables laid out. Speaker notes are left out.
  */
-import { extractDefinitions, keywordSet, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
+import { extractDefinitions, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
 import type { ID, Material, Page, PageImage } from "@/types/models";
 
 export interface NoteLine {
@@ -173,10 +173,9 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
   };
 }
 
-/** The whole material as notes. Only included slides (and their included pictures) appear. */
+/** The whole material as notes. Every included slide appears, even one that's only a title. */
 export function buildNotes(m: Material): NoteSection[] {
-  const pages = m.pages.filter((p) => p.included && (p.text.trim() || p.images?.some((x) => x.included) || p.imageDataUrl));
-  const seen: Set<string>[] = [];
+  const pages = m.pages.filter((p) => p.included);
   const sections: NoteSection[] = [];
   const byTopic = new Map<string, NoteSection>();
   for (const p of pages) {
@@ -188,22 +187,7 @@ export function buildNotes(m: Material): NoteSection[] {
       byTopic.set(key, sec);
       sections.push(sec);
     }
-    const slide = noteSlide(p, sec.title);
-    // Drop points already made earlier in the notes (slides often repeat themselves).
-    slide.lines = slide.lines.filter((l) => {
-      if (l.kind === "sub") return true;
-      const k = keywordSet((l.term ?? "") + " " + l.text);
-      if (k.size < 3) return true;
-      const dup = seen.some((o) => {
-        let n = 0;
-        k.forEach((w) => o.has(w) && n++);
-        return n / Math.min(k.size, o.size) >= 0.85;
-      });
-      if (!dup) seen.push(k);
-      return !dup;
-    });
-    if (!slide.lines.length && !slide.table && !slide.images.length && !slide.photo) continue;
-    sec.slides.push(slide);
+    sec.slides.push(noteSlide(p, sec.title));
     for (const d of extractDefinitions(splitBody(p.text).body))
       if (!sec.terms.some((t) => t.term.toLowerCase() === d.term.toLowerCase())) sec.terms.push({ term: d.term, definition: stripTrailingPunct(d.definition), label: p.label, pageId: p.id });
   }
@@ -218,7 +202,7 @@ const cleanTitle = (t: string) =>
     .replace(/^\d+(\.\d+)*[.)]?\s+/, "")
     .replace(/\s*[(\[]?(cont(inued|'d)?\.?|part\s*\d+|\d+\s*of\s*\d+)[)\]]?\s*$/i, "")
     .replace(/\s*[-–:]\s*(part\s*)?\d+$/i, "")
-    .replace(/[?:]$/, "")
+    .replace(/:$/, "")
     .trim();
 const SUBJECT = /^(.{2,40}?)\s+(is|are|was|were|has|have|holds?|stores?|transfers?|causes?|can|involves?|means|refers|occurs?|takes?|produces?|contains?|includes?|leads?|allows?|helps?)\b/i;
 const sentence = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
@@ -243,7 +227,9 @@ function giveSubheadings(sec: NoteSection) {
         else h = "More on " + sec.title.toLowerCase();
       }
     }
-    s.title = h.toLowerCase() === prev.toLowerCase() ? null : h;
+    const empty = !s.lines.length && !s.table && !s.images.length && !s.photo;
+    // A slide with nothing but its title still shows, as a heading.
+    s.title = h.toLowerCase() === prev.toLowerCase() && !empty ? null : empty ? s.page.title || s.page.label : h;
     prev = h;
   });
 }
