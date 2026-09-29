@@ -104,7 +104,7 @@ export function App() {
   const { path, query } = useLocation();
   const title = pageTitle(path, query, data);
   useEffect(() => {
-    document.title = title ? `${title} – SlideQuiz` : "SlideQuiz";
+    document.title = title ? `${title} – SlideQuiz` : "SlideQuiz – notes, practice questions and flashcards from your slides";
   }, [title]);
   useThemeSync(data.settings);
   useGlobalShortcuts();

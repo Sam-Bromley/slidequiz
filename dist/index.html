@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>SlideQuiz</title>
+    <title>SlideQuiz – notes, practice questions and flashcards from your slides</title>
     <meta name="description" content="Upload your lecture slides, PDFs or Word documents and get clean, concise notes, practice questions and flashcards. Free, and your files stay on your device." />
     <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href="https://slidequiz.co.uk/" />
@@ -43,7 +43,15 @@
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown for a moment while the app loads, and read by search engines. The app replaces it. -->
+      <main style="max-width:640px;margin:15vh auto 0;padding:0 20px;font-family:Arial,Helvetica,sans-serif;opacity:0;animation:sq-in 0s 1.5s forwards">
+        <h1>SlideQuiz</h1>
+        <p>SlideQuiz turns your lecture slides, PDFs and Word documents into clean revision notes, practice questions and flashcards. Free, and your files stay on your device.</p>
+        <p><a href="about/">About SlideQuiz</a> · <a href="powerpoint-to-flashcards/">PowerPoint to flashcards</a> · <a href="lecture-slides-to-practice-questions/">Practice questions from slides</a> · <a href="revision-notes-from-slides/">Revision notes from slides</a></p>
+      </main>
+      <style>@keyframes sq-in{to{opacity:1}}</style>
+    </div>
     <noscript>SlideQuiz needs JavaScript enabled.</noscript>
     <script type="module" src="assets/app.js"></script>
     <!-- Cloudflare Web Analytics -->
