@@ -165,3 +165,33 @@ export function highlightParts(text: string, query: string): { text: string; hit
   const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "ig");
   return text.split(re).filter(Boolean).map((t) => ({ text: t, hit: t.toLowerCase() === q.toLowerCase() }));
 }
+
+/** Short forms that stay in capitals when a SHOUTED heading is tidied. */
+const ACRONYMS = new Set("DNA RNA MRNA TRNA ATP ADP NADP NADPH NADH FAD RBC RBCS WBC WBCS HB HBA HBS HBF MCV MCH MCHC ECG EEG MRI CT PET UK EU US USA NHS GP HIV AIDS TB BMI BP HR CO2 O2 H2O PH IQ ADHD OCD PTSD CBT GDP GNI CPI IMF WHO UN NATO EU AI IT CPU RAM PCR ELISA IGG IGM IGA IGE CD4 CD8 MHC HLA ABO RH G6PD PK HDL LDL VLDL ACE ADH ACTH TSH FSH LH GH SI UV IR".split(" "));
+
+/**
+ * Tidy a slide title for use as a heading: drop list numbering ("3)", "1.2", "(a)"),
+ * part markers ("(i)", "(cont.)", "- part 2"), and turn SHOUTED CAPITALS into normal case.
+ */
+export function tidyHeading(raw: string): string {
+  let t = raw.replace(/\s+/g, " ").trim();
+  t = t
+    .replace(/^(?:\(?(?:\d+(?:\.\d+)*|[ivx]{1,4}|[a-h])[.):]|\d+(?:\.\d+)+)\s+/i, "")
+    .replace(/\s*[(\[](?:[ivx]{1,4}|\d{1,2}|[a-h]|cont(?:inued|'d|\.)?|part \d+)[)\]]\s*$/i, "")
+    .replace(/\s*[-–:]\s*(?:part\s*)?(?:\d+|[ivx]{1,4})\s*$/i, "")
+    .replace(/\s+cont(?:inued|'d|\.)?\s*$/i, "")
+    .trim();
+  const letters = t.replace(/[^A-Za-z]/g, "");
+  if (letters.length >= 6 && letters === letters.toUpperCase()) {
+    t = t
+      .split(" ")
+      .map((w, i) => {
+        const bare = w.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        if (ACRONYMS.has(bare) || (bare.length <= 4 && !/[AEIOU]/.test(bare) && /[A-Z]/.test(bare))) return w;
+        const lower = w.toLowerCase();
+        return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+      })
+      .join(" ");
+  }
+  return t;
+}

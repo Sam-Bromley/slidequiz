@@ -2,7 +2,7 @@
  * Turns the included slides into organised study notes: grouped by topic, every line kept,
  * with key terms picked out, sub-points nested and tables laid out. Speaker notes are left out.
  */
-import { extractDefinitions, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
+import { extractDefinitions, tidyHeading, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
 import type { ID, Material, Page, PageImage } from "@/types/models";
 import { REFERENCE_TITLE, stripReferences } from "@/lib/references";
 
@@ -200,13 +200,14 @@ export function buildNotes(m: Material): NoteSection[] {
 
 const GENERIC_TITLE = /^((slide|page|section|part)\s*\d+|continued|cont\.?|untitled|notes?|summary slide|\d+)$/i;
 const cleanTitle = (t: string) =>
-  t
+  tidyHeading(t)
     .replace(/^(lecture|week|topic|unit|chapter|part|section)\s*\d+\s*[:.\-–]\s*/i, "")
     .replace(/^\d+(\.\d+)*[.)]?\s+/, "")
     .replace(/\s*[(\[]?(cont(inued|'d)?\.?|part\s*\d+|\d+\s*of\s*\d+)[)\]]?\s*$/i, "")
     .replace(/\s*[-–:]\s*(part\s*)?\d+$/i, "")
     .replace(/:$/, "")
     .trim();
+const NOT_SUBJECT = /^(it|its|they|them|their|this|that|these|those|there|he|she|we|you|i|which|who|what|one|each|both|such|all|some|most|many|few|several|people|someone|something|and|but|or|so|also|however|here|then|when|if|because|as)\b|\b(and|or|but) (they|it|he|she)\b/i;
 const SUBJECT = /^(.{2,40}?)\s+(is|are|was|were|has|have|holds?|stores?|transfers?|causes?|can|involves?|means|refers|occurs?|takes?|produces?|contains?|includes?|leads?|allows?|helps?)\b/i;
 const sentence = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 /** Lower-case the start unless it's a name or acronym (DNA, Calvin). */
@@ -217,17 +218,19 @@ function giveSubheadings(sec: NoteSection) {
   let prev = "";
   sec.slides.forEach((s, i) => {
     let h = cleanTitle(s.page.title || "");
-    if (!h || GENERIC_TITLE.test(h) || same(h, sec.title)) {
+    if (h && same(h, sec.title)) h = "";
+    else if (!h || GENERIC_TITLE.test(h)) {
       if (i === 0) h = "";
       else {
         // Name the part after what its points are about: "Long-term memory and rehearsal".
         const subjects: string[] = [];
         for (const l of s.lines) {
           const subj = (l.term ?? l.text.match(SUBJECT)?.[1] ?? "").replace(/^(the|a|an)\s+/i, "").trim();
-          if (subj && subj.split(/\s+/).length <= 5 && !same(subj, sec.title) && !subjects.some((x) => same(x, subj))) subjects.push(subj);
+          // Only real things ("Long-term memory"), not "They", "Most people" or half-sentences.
+          if (subj && subj.split(/\s+/).length <= 4 && !NOT_SUBJECT.test(subj) && !same(subj, sec.title) && !subjects.some((x) => same(x, subj))) subjects.push(subj);
         }
-        if (subjects.length && subjects.length <= 3) h = sentence(subjects.map((x, j) => (j ? lowerStart(x) : x)).join(subjects.length === 2 ? " and " : ", ").replace(/, ([^,]*)$/, " and $1"));
-        else h = "More on " + sec.title.toLowerCase();
+        // With nothing clear to name it after, the part simply carries on under the heading above.
+        h = subjects.length && subjects.length <= 2 ? sentence(subjects.map((x, j) => (j ? lowerStart(x) : x)).join(" and ")) : "";
       }
     }
     const empty = !s.lines.length && !s.table && !s.images.length && !s.photo;

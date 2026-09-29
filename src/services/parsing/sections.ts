@@ -1,4 +1,4 @@
-import { jaccard, keywordSet, topKeywords, titleCase, truncate, wordCount } from "@/lib/text";
+import { tidyHeading, jaccard, keywordSet, topKeywords, titleCase, truncate, wordCount } from "@/lib/text";
 
 export interface TopicGroup {
   name: string;
@@ -50,7 +50,7 @@ export function isTopicTitle(raw: string): boolean {
 }
 
 function cleanTitle(t: string) {
-  return t
+  return tidyHeading(t)
     .replace(/^(lecture|week|topic|unit|chapter|part)\s*\d+\s*[:.\-–]\s*/i, "")
     .replace(/\s*\((cont(inued)?\.?|part\s*\d+)\)\s*$/i, "")
     .replace(/\s*[-–:]\s*(part\s*)?\d+\s*$/i, "")
@@ -101,7 +101,8 @@ export function detectTopics(pages: PageLike[]): TopicGroup[] {
       left.idxs.push(...g.idxs);
     } else {
       right.idxs.unshift(...g.idxs);
-      if (g.divider) right.divider = g.divider;
+      // The group now starts with other slides, so its divider heading no longer names it.
+      right.divider = g.divider;
     }
     g.kw.forEach((k) => into.kw.add(k));
     groups.splice(smallest, 1);
@@ -155,7 +156,7 @@ export function nameTopics(topics: { pages: PageLike[]; preferred?: string }[], 
       for (let n = 2; used.has(name.toLowerCase()); n++) name = n === 2 ? `${base} (continued)` : `${base} (part ${n})`;
     }
     used.add(name.toLowerCase());
-    return truncate(name.replace(/[.:…]+$/, ""), 48);
+    return truncate(tidyHeading(name).replace(/[.:…]+$/, ""), 48);
   });
 }
 
