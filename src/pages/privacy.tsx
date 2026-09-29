@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 
-export const CONTACT_EMAIL = "hello@slidequiz.co.uk";
+export const CONTACT_EMAIL = "slidequiz.help@outlook.com";
 const UPDATED = "29 September 2026";
 
 function H({ children }: { children: ReactNode }) {

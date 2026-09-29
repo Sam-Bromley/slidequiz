@@ -211,7 +211,7 @@ export async function deleteAccount() {
   } catch (e) {
     const msg = (e as Error).message;
     if (/reach the server/.test(msg)) throw e;
-    throw new AccountError("Couldn't delete your account here. Email hello@slidequiz.co.uk and we'll do it for you.");
+    throw new AccountError("Couldn't delete your account here. Email slidequiz.help@outlook.com and we'll do it for you.");
   }
   dirty = false;
   const s = getState();
