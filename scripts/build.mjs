@@ -53,6 +53,17 @@ fs.copyFileSync(path.join(root, "public/index.html"), path.join(dist, "index.htm
   fs.writeFileSync(path.join(dist, "embed.html"), (head + body).replace(/\n\s*\n/g, "\n").trim() + "\n");
 }
 for (const f of fs.readdirSync(path.join(root, "public"))) if (f !== "index.html") fs.copyFileSync(path.join(root, "public", f), path.join(dist, f));
+// Information pages (About and search-friendly guides) as plain HTML, plus the sitemap listing them.
+{
+  const { PAGES, renderPage, sitemap } = await import("./pages.mjs");
+  const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
+  const analytics = (html.match(/<!-- Cloudflare Web Analytics -->[\s\S]*?<!-- End Cloudflare Web Analytics -->/) ?? [""])[0];
+  for (const page of PAGES) {
+    fs.mkdirSync(path.join(dist, page.slug), { recursive: true });
+    fs.writeFileSync(path.join(dist, page.slug, "index.html"), renderPage(page, analytics));
+  }
+  fs.writeFileSync(path.join(dist, "sitemap.xml"), sitemap());
+}
 // Re-emit the pdf.js worker with ASCII-only output (some hosts reject raw control bytes in text files).
 // The worker also gets the small fallbacks from src/lib/polyfills.ts (newer Map/Promise features older browsers lack).
 const polyfill = fs.readFileSync(path.join(root, "src/lib/polyfills.ts"), "utf8").match(/POLYFILL_SOURCE = `([\s\S]*?)`;/)[1];

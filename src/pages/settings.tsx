@@ -244,6 +244,10 @@ export function SettingsPage() {
         <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
           Privacy policy
         </Link>
+        <span aria-hidden> · </span>
+        <a href="about/" className="underline-offset-2 hover:text-foreground hover:underline">
+          About
+        </a>
       </p>
       {auth && <AuthDialog initial={auth} onClose={() => setAuth(null)} />}
       {newPw && <NewPasswordDialog onClose={() => { setNewPw(false); clearNotice(); }} />}
