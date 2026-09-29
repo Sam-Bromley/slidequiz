@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,8 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const groupOf = (x: Question) => (mixed ? x.materialId : x.topicId);
   const all = setFor(data);
   const topicQs = topicIds.length ? all.filter((q) => groupOf(q) && topicIds.includes(groupOf(q)!)) : all;
-  const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs));
+  const shuffle = !!data.settings.practiceShuffle;
+  const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs, shuffle));
   const [pos, setPos] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
   const [round, setRound] = useState(0);
@@ -65,12 +66,12 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const nextBtn = useRef<HTMLButtonElement>(null);
 
   // Rebuild the order when the topic filter or the question set changes.
-  const setKey = `${topicIds.join(",")}|${topicQs.map((q) => q.id).join(",")}`;
+  const setKey = `${topicIds.join(",")}|${shuffle}|${topicQs.map((q) => q.id).join(",")}`;
   const lastKey = useRef(setKey);
   useEffect(() => {
     if (lastKey.current === setKey) return;
     lastKey.current = setKey;
-    setQueue(practiceQueue(topicQs));
+    setQueue(practiceQueue(topicQs, shuffle));
     setPos(0);
     setChosen(null);
     setRound((r) => r + 1);
@@ -119,7 +120,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const again = () => {
     const d = getState();
     const qs = setFor(d).filter((x) => !topicIds.length || (groupOf(x) && topicIds.includes(groupOf(x)!)));
-    setQueue(practiceQueue(qs));
+    setQueue(practiceQueue(qs, shuffle));
     setPos(0);
     setChosen(null);
     setRound((r) => r + 1);
@@ -182,6 +183,15 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             );
           })}
         </Pop>
+        <button
+          type="button"
+          aria-pressed={shuffle}
+          title={shuffle ? "Questions in a random order" : "Questions in slide order"}
+          onClick={() => actions.updateSettings({ practiceShuffle: !shuffle })}
+          className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-ring", shuffle ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground")}
+        >
+          <Shuffle className="size-3.5" /> Shuffle
+        </button>
         <Pop label={`${count} options`} title="Answer options" align="right" className="ml-auto">
           <div className="grid grid-cols-4 gap-1 p-1" role="radiogroup" aria-label="Answer options per question">
             {COUNTS.map((n) => (

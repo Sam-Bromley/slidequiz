@@ -65,8 +65,9 @@ export function overallProgress(d: AppData, m: Material) {
  * The order to work through: new questions in slide order, with ones you got wrong
  * mixed back in every few questions, then anything else (oldest answer first).
  */
-export function practiceQueue(qs: Question[]): ID[] {
-  const fresh = qs.filter((q) => !q.stats.attempts);
+export function practiceQueue(qs: Question[], shuffle = false): ID[] {
+  // Shuffled: new questions come in a random order instead of slide order.
+  const fresh = shuffle ? shuffled(qs.filter((q) => !q.stats.attempts)) : qs.filter((q) => !q.stats.attempts);
   const wrong = qs.filter(needsReview).sort((a, b) => (a.stats.lastAnsweredAt ?? "").localeCompare(b.stats.lastAnsweredAt ?? ""));
   const rest = qs.filter((q) => isCovered(q) || (q.stats.attempts && !q.stats.lastResult)).sort((a, b) => (a.stats.lastAnsweredAt ?? "").localeCompare(b.stats.lastAnsweredAt ?? ""));
   const out: ID[] = [];
@@ -76,8 +77,17 @@ export function practiceQueue(qs: Question[]): ID[] {
     if ((i + 1) % 3 === 0 && w < wrong.length) out.push(wrong[w++].id);
   });
   while (w < wrong.length) out.push(wrong[w++].id);
-  rest.forEach((q) => out.push(q.id));
+  (shuffle ? shuffled(rest) : rest).forEach((q) => out.push(q.id));
   return out;
+}
+
+function shuffled<T>(xs: T[]): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 /** Pick the wrong answers to show and shuffle everything, using a fresh random order each time. */

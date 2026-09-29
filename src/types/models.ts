@@ -52,6 +52,8 @@ export interface Settings {
   dailyGoalMinutes: number;
   /** Answer options shown per multiple-choice question (3 to 6). */
   mcqOptions?: number;
+  /** Practice questions in a random order instead of slide order. */
+  practiceShuffle?: boolean;
   /** Show slide images in the notes (off by default). */
   notesImages?: boolean;
   /** Show a quote above the box on Home (on by default). */
