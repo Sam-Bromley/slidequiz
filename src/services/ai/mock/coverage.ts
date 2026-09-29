@@ -11,6 +11,7 @@ import type { ID } from "@/types/models";
 import type { GroundingPage, GroundingTopic, QuestionDraft } from "../types";
 import { buildKnowledge, refOf } from "./knowledge";
 import { concise } from "@/services/notes";
+import { stripAdmin } from "@/lib/admin";
 
 const MAX_WRONG = 7;
 const BLANK = "_____";
@@ -213,7 +214,7 @@ function skipLine(s: string) {
 
 /** The fact-bearing sentences of a page, without speaker notes (those are for the presenter). */
 export function factSentences(page: Pick<GroundingPage, "text">) {
-  const body = page.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
+  const body = stripAdmin(page.text.split(/\n\s*Speaker notes:\s*\n/i)[0]);
   // Same tidy wording as the notes ("are able to" → "can", no "It is important to note that").
   // Lines with web links are pointers to reading, not facts to test.
   const lines = body.split(/\n+/).filter((l) => !/(?:https?:\/\/|www\.)\S+/i.test(l));
@@ -222,7 +223,8 @@ export function factSentences(page: Pick<GroundingPage, "text">) {
 
 export function buildCoverageMcqs(pages: GroundingPage[], topics: GroundingTopic[], subject: string): QuestionDraft[] {
   if (!pages.length) return [];
-  const bodyPages = pages.map((p) => ({ ...p, text: p.text.split(/\n\s*Speaker notes:\s*\n/i)[0] }));
+  // Course admin ("Review Lecture 3…", module details, activities) never becomes a question or an answer option.
+  const bodyPages = pages.map((p) => ({ ...p, text: stripAdmin(p.text.split(/\n\s*Speaker notes:\s*\n/i)[0]) }));
   const k = buildKnowledge(bodyPages);
   const rng = mulberry(hash(pages.map((p) => p.id).join("|")));
   const pool = termPool(bodyPages, k.concepts.map((c) => c.term), k.keyTerms);

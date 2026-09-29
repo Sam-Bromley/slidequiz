@@ -28,8 +28,8 @@ function initial(): AppData {
     } as AppData;
     db.save(migrated);
     // Questions are remade so the slides that were left out get some too.
-    // (v10: reference-list entries no longer become questions, so questions are remade then too.)
-    if (loaded.schemaVersion < 10 && migrated.materials.length)
+    // (v10: no reference-list entries in questions; v12: no course-admin lines. Questions are remade for both.)
+    if (loaded.schemaVersion < 12 && migrated.materials.length)
       setTimeout(() => import("@/services/practice").then((p) => migrated.materials.forEach((m) => p.buildPracticeQuestions(m.id))), 0);
     return migrated;
   }
