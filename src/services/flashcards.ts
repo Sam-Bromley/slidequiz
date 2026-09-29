@@ -5,6 +5,7 @@
  */
 import { getAI } from "@/services/ai";
 import { groundingFor } from "@/services/grounding";
+import { cloudFlashcards } from "@/services/ai/cloud";
 import type { ID, Material } from "@/types/models";
 
 export interface CardDraft {
@@ -18,6 +19,18 @@ export interface CardDraft {
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function cardsFor(m: Material, topicIds: ID[] = []): Promise<CardDraft[]> {
+  // Logged in: the AI writes the cards. Otherwise (or if it can't), the built-in rules do.
+  const ai = await cloudFlashcards(m, topicIds);
+  if (ai) {
+    const seen = new Set<string>();
+    return ai.flatMap((c) => {
+      const k = c.back.trim().toLowerCase();
+      if (seen.has(k)) return [];
+      seen.add(k);
+      const page = m.pages.find((p) => p.id === c.pageId);
+      return [{ materialId: m.id, topicId: page?.topicId ?? null, source: page ? { pageId: page.id, label: page.label } : undefined, front: c.front.trim(), back: c.back.trim() }];
+    });
+  }
   const { pages, topics } = groundingFor([m], topicIds.length ? { topicIds } : {});
   const all = groundingFor([m]).pages.map((p) => p.title + "\n" + p.text).join("\n");
   const count = (t: string) => (all.match(new RegExp(`(?<![\\w-])${esc(t)}(?![\\w-])`, "gi")) ?? []).length;

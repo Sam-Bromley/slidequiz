@@ -5,6 +5,7 @@
 import { extractDefinitions, tidyHeading, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
 import type { ID, Material, Page, PageImage } from "@/types/models";
 import { REFERENCE_TITLE, stripReferences } from "@/lib/references";
+import { aiReady } from "@/services/ai/ai-key";
 
 export interface NoteLine {
   kind: "bullet" | "para" | "sub";
@@ -173,8 +174,38 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
   };
 }
 
-/** The whole material as notes. Every included slide appears, even one that's only a title. */
+/** Notes written by the AI, shaped like the built-in ones so the same screen shows them. */
+function aiNotes(m: Material): NoteSection[] {
+  const byId = new Map(m.pages.map((p) => [p.id, p]));
+  let last = m.pages.find((p) => p.included) ?? m.pages[0];
+  return (m.ai?.notes ?? []).map((s, i) => ({
+    id: `sec-ai-${i}`,
+    topicId: m.topics.find((t) => t.name === s.title)?.id ?? null,
+    title: s.title,
+    terms: [],
+    slides: s.parts.map((part) => {
+      const pages = part.pageIds.map((id) => byId.get(id)).filter((p): p is Page => !!p && p.included);
+      if (pages[0]) last = pages[0];
+      return {
+        page: pages[0] ?? last,
+        title: part.heading ?? null,
+        lines: part.points.map((pt) => ({ kind: "bullet" as const, text: pt.text, term: pt.term || undefined, sep: pt.term ? " – " : undefined, depth: (pt.sub ? 1 : 0) as 0 | 1 })),
+        table: null,
+        images: pages.flatMap((p) => (p.images ?? []).filter((x) => x.included)),
+        photo: pages.find((p) => p.imageDataUrl)?.imageDataUrl,
+      };
+    }),
+  }));
+}
+
+/** The whole material as notes: the AI's when available, otherwise the built-in version. */
 export function buildNotes(m: Material): NoteSection[] {
+  if (aiReady(m)) return aiNotes(m);
+  return ruleNotes(m);
+}
+
+/** Every included slide appears, even one that's only a title. */
+function ruleNotes(m: Material): NoteSection[] {
   const pages = m.pages.filter((p) => p.included);
   const sections: NoteSection[] = [];
   const byTopic = new Map<string, NoteSection>();

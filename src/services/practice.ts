@@ -3,6 +3,7 @@
  * deciding which question comes next, and shuffling the options each time one is shown.
  */
 import { getAI } from "@/services/ai";
+import { aiReady } from "@/services/ai/ai-key";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
@@ -13,6 +14,8 @@ import type { ID, Material, Question } from "@/types/models";
 export async function buildPracticeQuestions(materialId: ID) {
   const m = getState().materials.find((x) => x.id === materialId);
   if (!m) return;
+  // The AI's questions for these exact slides are kept (they're better than the built-in ones).
+  if (m.ai?.questions && aiReady(m)) return;
   const { pages, topics } = groundingFor([m]);
   const drafts = await getAI().mcqSet(pages, topics, m.subject);
   actions.setPracticeQuestions(materialId, drafts);

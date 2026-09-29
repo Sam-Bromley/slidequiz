@@ -151,6 +151,10 @@ async function accessToken(): Promise<string | null> {
   return refreshing;
 }
 
+/** For other parts of the site that call Supabase as the logged-in student (e.g. the AI helper). */
+export const isLoggedIn = () => !!session;
+export const authToken = () => accessToken();
+
 /** Where email links send people back to (this page, whichever address it's on). */
 const redirectTo = () => encodeURIComponent(window.location.origin + window.location.pathname);
 

@@ -35,6 +35,8 @@ export function PrivacyPage() {
         <li>Your study work: the text of your notes, your questions, flashcards, folders, progress and settings, so you can use them on any device.</li>
       </ul>
       <p className="mt-2">We don't keep your original files or the pictures from your slides. Those stay on your device.</p>
+      <H>AI notes and questions</H>
+      <p>When you're logged in, SlideQuiz uses AI to write your notes, practice questions and flashcards, and to answer questions about your notes. To do that, the text of your slides (not the files or pictures) is sent to our AI provider, Anthropic, which processes it and sends back the result. We don't use your content for anything else. Without an account, no AI is used and nothing leaves your device.</p>
       <p className="mt-2">We use this only to run your account. We don't sell it, share it for advertising, or send you marketing emails. The only emails you'll get are ones you ask for, like a password reset.</p>
 
       <H>Visitor numbers</H>
@@ -46,7 +48,8 @@ export function PrivacyPage() {
       <H>Who else handles your data</H>
       <p>We use a few services to run SlideQuiz. They only process data to provide their service to us:</p>
       <ul>
-        <li>Supabase: accounts and saved work.</li>
+        <li>Supabase: accounts, saved work, and passing your slide text to the AI when you're logged in.</li>
+        <li>Anthropic: the AI that writes notes, questions and answers for logged-in students.</li>
         <li>GitHub Pages: hosts the website. Like any web host, it may log visitors' IP addresses for security.</li>
         <li>Cloudflare: visitor numbers (see above).</li>
       </ul>

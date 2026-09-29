@@ -1,4 +1,4 @@
-import { Download, FileText, Layers, MoreHorizontal } from "lucide-react";
+import { Download, FileText, Layers, Loader2, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,6 +15,7 @@ import { Tabs, tabPanelProps } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { Link, useLocation } from "@/lib/router";
 import { notesExportDoc } from "@/services/notes";
+import { enhanceMaterial } from "@/services/ai/cloud";
 import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
@@ -41,6 +42,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
     actions.setLastVisit(`/materials/${m.id}`, `${m.subject} · ${m.title}`);
     // Materials from before the notes/practice update get their questions made on first open.
     if (!practiceSet(data, m.id).length && m.pages.some((p) => p.included && p.text.trim())) buildPracticeQuestions(m.id);
+    enhanceMaterial(m.id);
     // Opened from search or mixed practice: jump to that slide in the notes.
     const target = query.get("p");
     if (target)
@@ -81,6 +83,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
     setChoosing(false);
     await buildPracticeQuestions(m.id);
     toast("Notes and questions updated");
+    enhanceMaterial(m.id);
   };
   const count = Math.min(6, Math.max(3, data.settings.mcqOptions ?? 5));
 
@@ -115,6 +118,12 @@ export function MaterialDetailPage({ id }: { id: string }) {
         }
         className="mb-4 sm:mb-5"
       />
+      {m.ai?.status === "working" && (
+        <p className="-mt-2 mb-4 flex items-center gap-2 text-[13px] text-muted-foreground" aria-live="polite">
+          <Loader2 className="size-3.5 animate-spin" /> {m.ai.notes ? "Writing better questions with AI…" : "Writing your notes with AI…"}
+        </p>
+      )}
+      {m.ai?.status === "limit" && <p className="-mt-2 mb-4 text-[13px] text-muted-foreground">You've used today's AI allowance, so this uses the standard notes. It resets tomorrow.</p>}
       <Tabs
         idPrefix="mat"
         className="mb-6"

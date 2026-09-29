@@ -133,6 +133,29 @@ export interface Material {
   /** Folder in My Materials (null/undefined = top level). */
   folderId?: ID | null;
   noteExtras?: NoteExtra[];
+  /** Notes (and topics/questions) written by the AI for logged-in students. */
+  ai?: MaterialAI;
+}
+
+export interface AINotePoint {
+  term?: string;
+  text: string;
+  sub?: boolean;
+}
+
+export interface AINoteSection {
+  title: string;
+  parts: { heading?: string; pageIds: ID[]; points: AINotePoint[] }[];
+}
+
+export interface MaterialAI {
+  /** Which slides (and their text) the AI worked from; if the slides change, it runs again. */
+  key: string;
+  status: "working" | "done" | "failed" | "limit";
+  notes?: AINoteSection[];
+  /** True once the questions are the AI's. */
+  questions?: boolean;
+  at: string;
 }
 
 export interface Folder {
