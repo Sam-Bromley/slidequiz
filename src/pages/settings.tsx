@@ -1,9 +1,10 @@
-import { Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Download, MessageSquare, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
 import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
+import { CONTACT_EMAIL } from "@/pages/privacy";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +18,15 @@ import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
 import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
 import { SCENE_ORDER } from "@/components/layout/app-background";
 import { sceneLabel } from "@/components/layout/personalise";
+
+/** An email to SlideQuiz with the last page and the device filled in, to make problems easy to follow up. */
+function feedbackLink(lastPage?: string) {
+  const ua = navigator.userAgent;
+  const device = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Other";
+  const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Other";
+  const body = `\n\n\n----\nLast page: ${lastPage || "-"}\nDevice: ${device}, ${browser}`;
+  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("SlideQuiz feedback")}&body=${encodeURIComponent(body)}`;
+}
 
 const STATUS: Record<SyncStatus, string | undefined> = {
   off: undefined,
@@ -133,6 +143,14 @@ export function SettingsPage() {
         )}
       </Section>
 
+
+      <Section title="Feedback">
+        <Row label="Found a problem or have an idea?">
+          <a href={feedbackLink(data.lastVisit?.label)} className={buttonClass("outline")}>
+            <MessageSquare /> Send feedback
+          </a>
+        </Row>
+      </Section>
 
       <Section title="Data">
         <Row label="Back up">
