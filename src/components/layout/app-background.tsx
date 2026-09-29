@@ -117,12 +117,13 @@ function caps(peaks: Peak[], base = 400) {
 const hills = (list: [cx: number, top: number, w: number][], base = 400) =>
   list.map(([cx, top, w]) => `M${cx - w} ${base} C ${cx - w * 0.55} ${top}, ${cx + w * 0.55} ${top}, ${cx + w} ${base} Z`).join(" ");
 
-/** Flat-topped mesas for the canyon, each with a small step on one side. */
+/** Flat-topped mesas for the canyon. */
 const mesas = (list: [cx: number, top: number, w: number][], base = 400) =>
   list
     .map(([cx, top, w]) => {
       const h = base - top;
-      return `M${cx - w} ${base} L${cx - w * 0.82} ${top + h * 0.35} L${cx - w * 0.62} ${top + h * 0.33} L${cx - w * 0.55} ${top} L${cx + w * 0.6} ${top} L${cx + w * 0.72} ${top + h * 0.12} L${cx + w} ${base} Z`;
+      // Flat top, steep cliffs that widen gently towards the ground.
+      return `M${cx - w} ${base} L${cx - w * 0.72} ${top + h * 0.22} L${cx - w * 0.6} ${top} L${cx + w * 0.6} ${top} L${cx + w * 0.72} ${top + h * 0.22} L${cx + w} ${base} Z`;
     })
     .join(" ");
 
@@ -136,8 +137,10 @@ const FRONT_H = [300, 270, 320, 285];
 function forest(w: number, b: string, c: string) {
   const back: string[] = [];
   const front: string[] = [];
-  for (let i = 0, x = 90; x < w + 120; i++, x += 250 + ((i * 37) % 40)) back.push(pine(x, 306, BACK_H[i % BACK_H.length], 150));
-  for (let i = 0, x = 210; x < w + 160; i++, x += 380 + ((i * 53) % 90)) front.push(pine(x, 380, FRONT_H[i % FRONT_H.length], 215));
+  // Evenly spaced; each back tree stands in the gap between two front ones, so none overlap awkwardly.
+  const gap = 420;
+  for (let i = 0, x = 150; x < w + gap; i++, x += gap) front.push(pine(x, 380, FRONT_H[i % FRONT_H.length], 205));
+  for (let i = 0, x = 150 + gap / 2; x < w + gap; i++, x += gap) back.push(pine(x, 306, BACK_H[i % BACK_H.length], 140));
   return (
     <>
       <path d={ground(300, 16, w) + back.join("")} fill={b} />
@@ -189,8 +192,8 @@ function Shapes({ scene, p }: { scene: Exclude<BackgroundScene, "none">; p: Pal 
     case "canyon":
       return (
         <>
-          <path d={mesas([[260, 170, 230], [760, 140, 260], [1230, 180, 240]])} fill={a} />
-          <path d={mesas([[520, 235, 220], [1000, 250, 200], [1440, 230, 200], [30, 245, 170]])} fill={b} />
+          <path d={mesas([[250, 165, 250], [790, 130, 280], [1290, 175, 250]])} fill={a} />
+          <path d={mesas([[40, 250, 190], [540, 235, 230], [1040, 255, 210], [1470, 240, 200]])} fill={b} />
           <path d="M0 330 C 300 310, 600 345, 900 330 S 1300 315, 1440 325 L1440 400 L0 400 Z" fill={c} />
         </>
       );
@@ -338,35 +341,21 @@ function StarField() {
 /** At night every background gets the moon, high on the right. */
 const MOON_SPOT: SunSpot = { left: "80%", top: "10%", size: "11vmin", preview: { left: "78%", top: "12%", size: 9 } };
 
-/** Today's moon, as it looks from England. Checks again every hour so it changes day by day. */
-function Moon() {
+/**
+ * Today's moon, as it looks from England. Checks again every hour so it changes day by day.
+ * The unlit part is solid (the sky's colour, a touch lighter) so stars never show through it.
+ */
+function Moon({ sky }: { sky: string }) {
   const [phase, setPhase] = useState(() => moonPhase());
   useEffect(() => {
     const t = setInterval(() => setPhase(moonPhase()), 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
-  const r = 50;
   return (
     <svg viewBox="0 0 100 100" className="size-full overflow-visible" role="img" aria-label={moonPhaseName(phase)}>
-      <defs>
-        <radialGradient id="moon-lit" cx="40%" cy="38%" r="70%">
-          <stop offset="0%" stopColor="#fbf8ee" />
-          <stop offset="100%" stopColor="#dcd6c4" />
-        </radialGradient>
-      </defs>
-      {/* The dark part is faintly visible, like earthshine. */}
-      <circle cx={r} cy={r} r={r} fill="#ffffff" fillOpacity={0.07} />
-      <path d={moonLitPath(phase, r)} fill="url(#moon-lit)" />
-      {/* A few soft craters, only where it's lit. */}
-      <clipPath id="moon-clip">
-        <path d={moonLitPath(phase, r)} />
-      </clipPath>
-      <g clipPath="url(#moon-clip)" fill="#b9b19b" fillOpacity={0.35}>
-        <circle cx="34" cy="36" r="9" />
-        <circle cx="62" cy="58" r="12" />
-        <circle cx="42" cy="72" r="6" />
-        <circle cx="68" cy="30" r="5" />
-      </g>
+      <circle cx={50} cy={50} r={50} fill={sky} />
+      <circle cx={50} cy={50} r={50} fill="#ffffff" fillOpacity={0.06} />
+      <path d={moonLitPath(phase, 50)} fill="#f3efe2" />
     </svg>
   );
 }
@@ -481,18 +470,18 @@ export function AppBackground({ scene, dark }: { scene: BackgroundScene; dark: b
   const p = dark ? def.dark : def.light;
   const sun = SUN_SPOT[scene];
   return (
-    <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
+    <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden lg:left-[248px]" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
       {p.stars && <StarField />}
       {p.glow && (
         <>
-          <div className="absolute left-[-10%] top-[8%] h-[38vh] w-[70%] rotate-[-8deg] rounded-full opacity-40 blur-3xl" style={{ background: p.glow[0] }} />
-          <div className="absolute right-[-10%] top-[16%] h-[30vh] w-[60%] rotate-[10deg] rounded-full opacity-30 blur-3xl" style={{ background: p.glow[1] }} />
+          <div className={`absolute left-[-5%] top-[14%] h-[12vh] w-[75%] -rotate-6 rounded-full blur-3xl ${p.stars ? "opacity-45" : "opacity-30"}`} style={{ background: `linear-gradient(90deg, transparent, ${p.glow[0]} 30%, ${p.glow[0]} 70%, transparent)` }} />
+          <div className={`absolute right-[-5%] top-[24%] h-[10vh] w-[65%] rotate-3 rounded-full blur-3xl ${p.stars ? "opacity-35" : "opacity-25"}`} style={{ background: `linear-gradient(90deg, transparent, ${p.glow[1]} 30%, ${p.glow[1]} 70%, transparent)` }} />
         </>
       )}
       {/* Keyed by scene: switching to another background and back puts the sun back where it started. */}
       {dark ? (
         <DraggableOrb key={`${scene}-moon`} spot={MOON_SPOT} label="moon" style={{ filter: "drop-shadow(0 0 2.5vmin rgba(255, 248, 225, 0.35))" }}>
-          <Moon />
+          <Moon sky={p.sky[0]} />
         </DraggableOrb>
       ) : (
         sun && p.sun !== "transparent" && <DraggableOrb key={scene} spot={sun} label="sun" style={{ background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }} />
