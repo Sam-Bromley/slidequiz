@@ -166,6 +166,8 @@ export function renderPage(page, analytics) {
 <title>${esc(page.title)} | SlideQuiz</title>
 <meta name="description" content="${esc(page.description)}" />
 <link rel="canonical" href="${url}" />
+<link rel="icon" href="/favicon.ico" sizes="48x48" />
+<link rel="icon" href="/favicon-48.png" type="image/png" sizes="48x48" />
 <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta property="og:title" content="${esc(page.title)}" />
