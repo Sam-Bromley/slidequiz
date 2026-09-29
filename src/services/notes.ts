@@ -95,19 +95,18 @@ export function concise(line: string) {
   let t = stripCitations(line).replace(FILLER_START, "");
   for (const [re, to] of WORDY) t = t.replace(re, to);
   t = t.replace(/\s{2,}/g, " ").replace(/\s+([,.;:])/g, "$1").trim();
-  return t ? t[0].toUpperCase() + t.slice(1) : t;
+  // Capitalise the first letter, but leave web and email addresses as they are.
+  return t && !/^(https?:|www\.|\S+@\S+\.)/i.test(t) ? t[0].toUpperCase() + t.slice(1) : t;
 }
 
 
-const NUMBER_WORDS: Record<string, string> = { one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12" };
 
 /**
- * Note style: a definition becomes "Term – meaning", small numbers become digits,
+ * Note style: a definition becomes "Term – meaning"
  * and the closing full stop goes, so each bullet reads at a glance.
  */
 function noteLine(t: string, defs: ReturnType<typeof extractDefinitions>, sub: boolean): NoteLine {
-  let text = t.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b(?=\s+(?:out of|of|types?|kinds?|stages?|steps?|parts?|main|key|major|different|[a-z]+s\b))/gi, (w) => NUMBER_WORDS[w.toLowerCase()] ?? w);
-  text = text.replace(/(?<![.\d])\.$/, "");
+  const text = t.replace(/(?<![.\d])\.$/, "");
   const line: NoteLine = { kind: "bullet", text, depth: sub ? 1 : 0 };
   const lead = text.match(LEAD);
   if (lead && wordCount(lead[1]) <= 5 && !/[.!?]/.test(lead[1])) {
@@ -215,7 +214,7 @@ function giveSubheadings(sec: NoteSection) {
   sec.slides.forEach((s, i) => {
     let h = cleanTitle(s.page.title || "");
     if (!h || GENERIC_TITLE.test(h) || same(h, sec.title)) {
-      if (i === 0) h = "Overview";
+      if (i === 0) h = "";
       else {
         // Name the part after what its points are about: "Long-term memory and rehearsal".
         const subjects: string[] = [];
@@ -228,8 +227,10 @@ function giveSubheadings(sec: NoteSection) {
       }
     }
     const empty = !s.lines.length && !s.table && !s.images.length && !s.photo;
-    // A slide with nothing but its title still shows, as a heading.
-    s.title = h.toLowerCase() === prev.toLowerCase() && !empty ? null : empty ? s.page.title || s.page.label : h;
+    // The first part of a topic sits straight under the topic heading. A slide with nothing
+    // but its own title still shows, as a heading.
+    if (!h) s.title = null;
+    else s.title = h.toLowerCase() === prev.toLowerCase() && !empty ? null : empty && !same(s.page.title, sec.title) ? s.page.title || s.page.label : h;
     prev = h;
   });
 }

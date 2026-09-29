@@ -133,13 +133,6 @@ export function SettingsPage() {
         )}
       </Section>
 
-      <Section title="Practice">
-        <Row label="Answer options" htmlFor="set-opts">
-          <Select id="set-opts" value={s.mcqOptions ?? 5} onChange={(e) => set({ mcqOptions: Number(e.target.value) })} className="sm:w-48">
-            {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} options (A to {"ABCDEF"[n - 1]})</option>)}
-          </Select>
-        </Row>
-      </Section>
 
       <Section title="Data">
         <Row label="Back up">

@@ -12,7 +12,7 @@ import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { Material, PageImage } from "@/types/models";
 
-const URL_RE = /((?:https?:\/\/|www\.)[^\s)]+[^\s).,;:!?'"])/g;
+const URL_RE = /((?:https?:\/\/|www\.)[^\s)]+[^\s).,;:!?'"]|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/gi;
 
 /** Plain text with any web addresses turned into links that open in a new tab. */
 function linkify(text: string): ReactNode {
@@ -20,8 +20,8 @@ function linkify(text: string): ReactNode {
   if (parts.length === 1) return text;
   return parts.map((part, i) => {
     if (i % 2 === 0) return part;
-    const href = part.startsWith("www.") ? `https://${part}` : part;
-    let shown = part.replace(/^https?:\/\//, "").replace(/^www\./, "");
+    const href = part.includes("@") && !/^https?:/i.test(part) ? `mailto:${part}` : /^www\./i.test(part) ? `https://${part}` : part;
+    let shown = part.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
     if (shown.length > 42) shown = shown.slice(0, 41) + "…";
     return (
       <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="break-words font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground">
@@ -45,7 +45,7 @@ function Line({ l }: { l: NoteLine }) {
   if (l.kind === "para") return <p className="text-foreground/90">{body}</p>;
   return (
     <p className={cn("relative pl-5 text-foreground/90", l.depth === 1 && "ml-5")}>
-      <span className={cn("absolute left-1 top-[0.72em] size-[5px] -translate-y-1/2 rounded-full", l.depth ? "border border-muted-foreground" : "bg-muted-foreground")} aria-hidden />
+      <span className={cn("absolute left-1 top-[0.8em] size-[5px] -translate-y-1/2 rounded-full", l.depth ? "border border-muted-foreground" : "bg-muted-foreground")} aria-hidden />
       {body}
     </p>
   );
@@ -59,7 +59,7 @@ function Figure({ img, label, open, className }: { img: PageImage; label: string
   );
 }
 
-function SlideBlock({ s, showImages, openImage }: { s: NoteSlide; showImages: boolean; openImage: (img: PageImage, label: string) => void }) {
+function SlideBlock({ s, first, showImages, openImage }: { s: NoteSlide; first: boolean; showImages: boolean; openImage: (img: PageImage, label: string) => void }) {
   const hasText = s.lines.length > 0 || !!s.table;
   const imgs = showImages ? s.images : [];
   // One picture sits beside the text like a textbook figure; wide ones or several go underneath.
@@ -92,7 +92,8 @@ function SlideBlock({ s, showImages, openImage }: { s: NoteSlide; showImages: bo
   return (
     <div id={`note-${s.page.id}`} className="scroll-mt-28">
       {s.title && <h3 className="mb-2 mt-7 text-[16px] font-semibold">{s.title}</h3>}
-      <div className={cn(!s.title && "mt-4")}>
+      {/* Without its own heading, a slide carries straight on from the one before. */}
+      <div className={cn(!s.title && (first ? "mt-4" : "mt-1.5"))}>
         {beside ? (
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,40%)] sm:items-start">
             {text}
@@ -183,8 +184,8 @@ export function NotesView({ material }: { material: Material }) {
         {sections.map((sec, si) => (
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
-            {sec.slides.map((s) => (
-              <SlideBlock key={s.page.id} s={s} showImages={showImages} openImage={(img, label) => setBig({ img, label })} />
+            {sec.slides.map((s, i) => (
+              <SlideBlock key={s.page.id} s={s} first={i === 0} showImages={showImages} openImage={(img, label) => setBig({ img, label })} />
             ))}
           </section>
         ))}
