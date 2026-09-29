@@ -109,7 +109,8 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
         return [...qu.slice(0, at), q.id, ...qu.slice(at)];
       });
     }
-    setTimeout(() => nextBtn.current?.focus(), 30);
+    // Ready for Enter / → without scrolling the page.
+    requestAnimationFrame(() => nextBtn.current?.focus({ preventScroll: true }));
   };
 
   const next = () => {
@@ -260,7 +261,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
               </>
             );
           })()}
-          <div className="mt-5 space-y-2" role="radiogroup" aria-label="Answers">
+          <div className="mt-5 space-y-2" role="radiogroup" aria-label="Answers" data-no-bounce>
             {view.options.map((o, i) => {
               const isRight = i === view.correct;
               const isChosen = i === chosen;
@@ -312,7 +313,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                 ) : (
                   <span />
                 )}
-                <Button ref={nextBtn} onClick={next}>
+                <Button ref={nextBtn} onClick={next} data-no-bounce>
                   Next question <ArrowRight />
                 </Button>
               </div>

@@ -44,15 +44,21 @@ const errorListeners = new Set<(msg: string) => void>();
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastError = "";
 
+/** Run when the browser has a spare moment, so saving never interrupts a click or an animation. */
+const whenIdle = (fn: () => void) =>
+  typeof window !== "undefined" && "requestIdleCallback" in window ? window.requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 0);
+
 function persist() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const res = db.save(state);
-    if (!res.ok && res.error !== lastError) {
-      lastError = res.error;
-      errorListeners.forEach((l) => l(res.error));
-    } else if (res.ok) lastError = "";
-  }, 250);
+    whenIdle(() => {
+      const res = db.save(state);
+      if (!res.ok && res.error !== lastError) {
+        lastError = res.error;
+        errorListeners.forEach((l) => l(res.error));
+      } else if (res.ok) lastError = "";
+    });
+  }, 400);
 }
 
 export function getState() {

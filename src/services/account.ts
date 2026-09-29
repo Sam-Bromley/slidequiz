@@ -330,10 +330,14 @@ function schedulePush() {
   timer = setTimeout(() => {
     timer = null;
     if (syncing) return schedulePush();
+    // Upload in a quiet moment so it never makes the page stutter.
+    const idle = (fn: () => void) => ("requestIdleCallback" in window ? window.requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 0));
+    idle(() => {
     set({ status: "syncing" });
     push()
       .then(() => set({ status: "saved" }))
       .catch((e) => set({ status: /reach the server/.test((e as Error).message) ? "offline" : "error" }));
+    });
   }, 2000);
 }
 
