@@ -174,6 +174,7 @@ export function renderPage(page, analytics) {
 <meta property="og:description" content="${esc(page.description)}" />
 <meta property="og:url" content="${url}" />
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="SlideQuiz" />
 <meta name="theme-color" content="#ffffff" />
 <style>${CSS.trim()}</style>
 <script type="application/ld+json">${JSON.stringify(faqLd)}</script>
