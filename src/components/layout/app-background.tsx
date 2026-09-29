@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { BackgroundScene } from "@/types/models";
 import { moonLitPath, moonPhase, moonPhaseName } from "@/lib/moon";
 
@@ -96,21 +96,35 @@ function mountains(peaks: Peak[], base = 400) {
   return peaks
     .map(([cx, top, l, r]) => {
       const h = base - top;
-      return `M${cx - l} ${base} L${cx - l * 0.42} ${top + h * 0.5} L${cx - l * 0.18} ${top + h * 0.2} L${cx} ${top} L${cx + r * 0.25} ${top + h * 0.28} L${cx + r * 0.5} ${top + h * 0.42} L${cx + r} ${base} Z`;
+      // Clean sides with one gentle shoulder each, so edges stay crisp at any size.
+      return `M${cx - l} ${base} L${cx - l * 0.45} ${top + h * 0.42} L${cx} ${top} L${cx + r * 0.4} ${top + h * 0.37} L${cx + r} ${base} Z`;
     })
     .join(" ");
 }
 
-/** Snow caps that follow the same peaks. */
-function caps(peaks: Peak[], base = 400) {
-  return peaks
-    .map(([cx, top, l, r]) => {
-      const h = base - top;
-      const lx = cx - l * 0.14, ly = top + h * 0.16;
-      const rx = cx + r * 0.2, ry = top + h * 0.22;
-      return `M${cx} ${top} L${rx} ${ry} L${cx + r * 0.08} ${top + h * 0.17} L${cx - l * 0.02} ${top + h * 0.22} L${cx - l * 0.08} ${top + h * 0.15} L${lx} ${ly} Z`;
-    })
-    .join(" ");
+/**
+ * Snow on each peak: a zig-zag band cut out by the mountain's own outline,
+ * so the snow's edges line up exactly with the mountain's (no slivers or rough lines).
+ */
+function Caps({ peaks, base = 400, fill, opacity }: { peaks: Peak[]; base?: number; fill: string; opacity: number }) {
+  const id = useId().replace(/:/g, "");
+  return (
+    <g opacity={opacity}>
+      {peaks.map(([cx, top, l, r], i) => {
+        const h = base - top;
+        const s = top + h * 0.2;
+        const zig = `M${cx - l} ${top - 10} L${cx + r} ${top - 10} L${cx + r} ${s} L${cx + r * 0.2} ${s + h * 0.05} L${cx + r * 0.05} ${s - h * 0.02} L${cx - l * 0.1} ${s + h * 0.06} L${cx - l * 0.25} ${s} L${cx - l} ${s + h * 0.02} Z`;
+        return (
+          <g key={i}>
+            <clipPath id={`${id}-c${i}`}>
+              <path d={mountains([[cx, top, l, r]], base)} />
+            </clipPath>
+            <path d={zig} fill={fill} clipPath={`url(#${id}-c${i})`} />
+          </g>
+        );
+      })}
+    </g>
+  );
 }
 
 /** Round, overlapping hills. */
@@ -179,7 +193,7 @@ function Shapes({ scene, p }: { scene: Exclude<BackgroundScene, "none">; p: Pal 
       return (
         <>
           <path d={mountains(LAKE_PEAKS, 300)} fill={a} />
-          <path d={caps(LAKE_PEAKS, 300)} fill="#fff" opacity={p.stars ? 0.14 : 0.8} />
+          <Caps peaks={LAKE_PEAKS} base={300} fill="#fff" opacity={p.stars ? 0.14 : 0.8} />
           <path d={mountains(LAKE_FRONT, 300)} fill={b} />
           <rect x="0" y="300" width="1440" height="100" fill={c} />
           <g transform="translate(0 600) scale(1 -1)" opacity={0.28}>
@@ -201,7 +215,7 @@ function Shapes({ scene, p }: { scene: Exclude<BackgroundScene, "none">; p: Pal 
       return (
         <>
           <path d={mountains(PEAKS_BACK)} fill={a} />
-          <path d={caps(PEAKS_BACK)} fill="#fff" opacity={p.stars ? 0.16 : 0.85} />
+          <Caps peaks={PEAKS_BACK} fill="#fff" opacity={p.stars ? 0.16 : 0.85} />
           <path d={mountains(PEAKS_MID)} fill={b} />
           <path d={mountains(PEAKS_FRONT)} fill={c} />
         </>
@@ -218,9 +232,9 @@ function Shapes({ scene, p }: { scene: Exclude<BackgroundScene, "none">; p: Pal 
       return (
         <>
           <path d={mountains(SNOW_BACK)} fill={a} />
-          <path d={caps(SNOW_BACK)} fill="#fff" opacity={p.stars ? 0.5 : 0.9} />
+          <Caps peaks={SNOW_BACK} fill="#fff" opacity={p.stars ? 0.5 : 0.9} />
           <path d={mountains(SNOW_FRONT)} fill={b} />
-          <path d={caps(SNOW_FRONT)} fill="#fff" opacity={p.stars ? 0.35 : 0.75} />
+          <Caps peaks={SNOW_FRONT} fill="#fff" opacity={p.stars ? 0.35 : 0.75} />
           <path d="M0 360 C 240 330, 480 340, 720 352 S 1200 336, 1440 350 L1440 400 L0 400 Z" fill={c} />
         </>
       );

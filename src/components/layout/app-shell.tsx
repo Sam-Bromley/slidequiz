@@ -1,11 +1,10 @@
-import { Search, Settings, Upload, X } from "lucide-react";
+import { Settings, Upload, X } from "lucide-react";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Link, useLocation } from "@/lib/router";
 import { effectiveTheme, isDarkTheme } from "@/lib/theme";
-import { setUI } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
 import { Logo, LogoMark } from "./logo";
@@ -59,9 +58,6 @@ function MobileTopBar(_: { onMenu: () => void }) {
       <Link to="/" className="mr-auto rounded-md focus-ring" aria-label="SlideQuiz home">
         <Logo />
       </Link>
-      <Button variant="ghost" size="icon" aria-label="Search" onClick={() => setUI({ command: true })}>
-        <Search />
-      </Button>
       <Personalise />
       <SettingsButton />
     </header>
@@ -162,9 +158,6 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       <MobileDrawer open={drawer} onClose={() => setDrawer(false)} />
       <div className="lg:pl-[248px]">
         <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 px-4 lg:flex">
-          <Button variant="ghost" size="icon" aria-label="Search" title="Search (Ctrl K)" onClick={() => setUI({ command: true })}>
-            <Search />
-          </Button>
           <Personalise />
           <SettingsButton />
         </div>
