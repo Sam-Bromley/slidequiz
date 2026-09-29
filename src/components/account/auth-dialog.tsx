@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
+import { Link } from "@/lib/router";
 import { logIn, sendPasswordReset, setNewPassword, signUp } from "@/services/account";
 
 export type AuthMode = "login" | "signup" | "forgot";
@@ -97,6 +98,14 @@ export function AuthDialog({ initial = "login", onClose }: { initial?: AuthMode;
           <Field label="Password" htmlFor="auth-password" hint={mode === "signup" ? "At least 6 characters." : undefined}>
             <Input id="auth-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signup" ? "new-password" : "current-password"} />
           </Field>
+        )}
+        {mode === "signup" && (
+          <p className="text-[12.5px] text-muted-foreground">
+            Your email and study work are saved to your account.{" "}
+            <Link to="/privacy" onClick={onClose} className="underline underline-offset-2 hover:text-foreground">
+              Privacy policy
+            </Link>
+          </p>
         )}
         {error && (
           <p role="alert" className="text-[13.5px] font-medium text-destructive">

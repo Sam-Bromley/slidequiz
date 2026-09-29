@@ -1,7 +1,7 @@
 import { Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
-import { clearNotice, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
+import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/toast";
 import { download } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
+import { Link } from "@/lib/router";
 import { backupName, makeBackup, restoreBackup } from "@/services/backup";
 import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
 import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
@@ -58,6 +59,7 @@ export function SettingsPage() {
   const account = useAccount();
   const [auth, setAuth] = useState<AuthMode | null>(null);
   const [newPw, setNewPw] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   // Messages from email links (confirmed, expired link, choose a new password).
   useEffect(() => {
     if (account.recovering) setNewPw(true);
@@ -182,6 +184,13 @@ export function SettingsPage() {
             <RotateCcw /> Delete history
           </Button>
         </Row>
+        {account.user && (
+          <Row label="Delete account">
+            <Button variant="outline" onClick={() => setDeletingAccount(true)}>
+              <Trash2 /> Delete account
+            </Button>
+          </Row>
+        )}
         <Row label="Delete all data">
           <Button variant="destructive" onClick={() => setConfirm("all")}>
             <Trash2 /> Delete everything
@@ -192,6 +201,27 @@ export function SettingsPage() {
       <ConfirmDialog open={confirm === "materials"} onClose={() => setConfirm(null)} title="Delete all materials?" description="All materials, questions, flashcards, summaries and plans will be removed." onConfirm={() => toast.undo("All materials deleted", actions.deleteAllMaterials())} />
       <ConfirmDialog open={confirm === "history"} onClose={() => setConfirm(null)} title="Delete your study history?" description="Quiz results, streaks and flashcard scheduling will be reset. Your materials and questions stay." onConfirm={() => toast.undo("History deleted", actions.deleteHistory())} />
       <ConfirmDialog open={confirm === "all"} onClose={() => setConfirm(null)} title="Delete all your data?" description="This can't be undone." requireText="delete" confirmLabel="Delete everything" onConfirm={async () => { if (account.user) await deleteCloudData().catch(() => {}); actions.deleteEverything(); toast("All data deleted"); }} />
+      <ConfirmDialog
+        open={deletingAccount}
+        onClose={() => setDeletingAccount(false)}
+        title="Delete your account?"
+        description="Your login, email address and everything saved to your account are deleted. This can't be undone."
+        requireText="delete"
+        confirmLabel="Delete account"
+        onConfirm={async () => {
+          try {
+            await deleteAccount();
+            toast("Account deleted");
+          } catch (err) {
+            toast((err as Error).message);
+          }
+        }}
+      />
+      <p className="mt-2 text-[13px] text-muted-foreground">
+        <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
+          Privacy policy
+        </Link>
+      </p>
       {auth && <AuthDialog initial={auth} onClose={() => setAuth(null)} />}
       {newPw && <NewPasswordDialog onClose={() => { setNewPw(false); clearNotice(); }} />}
       <ConfirmDialog

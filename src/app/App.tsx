@@ -22,6 +22,7 @@ import { SettingsPage } from "@/pages/settings";
 import { StudyPage } from "@/pages/study";
 import { UploadPage } from "@/pages/upload";
 import { MixedPracticePage } from "@/pages/practice";
+import { PrivacyPage } from "@/pages/privacy";
 
 type Route = { pattern: string; render: (p: Record<string, string>) => React.ReactNode; bare?: boolean };
 
@@ -31,6 +32,7 @@ const ROUTES: Route[] = [
   { pattern: "/materials/:id", render: (p) => <MaterialDetailPage id={p.id} /> },
   { pattern: "/upload", render: () => <UploadPage /> },
   { pattern: "/practice", render: () => <MixedPracticePage /> },
+  { pattern: "/privacy", render: () => <PrivacyPage /> },
   { pattern: "/generate", render: () => <GeneratePage /> },
   { pattern: "/questions", render: () => <QuestionBankPage /> },
   { pattern: "/flashcards", render: () => <FlashcardsPage /> },

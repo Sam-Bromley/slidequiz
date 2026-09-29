@@ -203,6 +203,26 @@ export function clearNotice() {
   set({ notice: null });
 }
 
+/** Deletes the login and everything saved to it (a database function; see the setup SQL). */
+export async function deleteAccount() {
+  if (!session) return;
+  try {
+    await call("/rest/v1/rpc/delete_account", { method: "POST", auth: true, body: "{}" });
+  } catch (e) {
+    const msg = (e as Error).message;
+    if (/reach the server/.test(msg)) throw e;
+    throw new AccountError("Couldn't delete your account here. Email hello@slidequiz.co.uk and we'll do it for you.");
+  }
+  dirty = false;
+  const s = getState();
+  setSession(null);
+  meta = null;
+  save(META_KEY, null);
+  applying = true;
+  replaceState({ ...emptyData(s.settings.theme), settings: s.settings, onboarded: true });
+  applying = false;
+}
+
 /** Deletes the account's saved copy (used by "Delete all data"). */
 export async function deleteCloudData() {
   if (!session) return;
