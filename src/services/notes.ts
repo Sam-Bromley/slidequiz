@@ -4,6 +4,7 @@
  */
 import { extractDefinitions, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
 import type { ID, Material, Page, PageImage } from "@/types/models";
+import { REFERENCE_TITLE, stripReferences } from "@/lib/references";
 
 export interface NoteLine {
   kind: "bullet" | "para" | "sub";
@@ -136,7 +137,7 @@ function noteLine(t: string, defs: ReturnType<typeof extractDefinitions>, sub: b
 }
 
 export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
-  const { body } = splitBody(page.text);
+  const body = stripReferences(splitBody(page.text).body);
   const raw = body
     .split(/\n+/)
     .map(clean)
@@ -186,7 +187,10 @@ export function buildNotes(m: Material): NoteSection[] {
       byTopic.set(key, sec);
       sections.push(sec);
     }
-    sec.slides.push(noteSlide(p, sec.title));
+    const slide = noteSlide(p, sec.title);
+    // A references slide with nothing left once the citations are gone isn't worth a heading.
+    if (REFERENCE_TITLE.test(p.title.trim()) && !slide.lines.length && !slide.table && !slide.images.length && !slide.photo) continue;
+    sec.slides.push(slide);
     for (const d of extractDefinitions(splitBody(p.text).body))
       if (!sec.terms.some((t) => t.term.toLowerCase() === d.term.toLowerCase())) sec.terms.push({ term: d.term, definition: stripTrailingPunct(d.definition), label: p.label, pageId: p.id });
   }

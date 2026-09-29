@@ -1,3 +1,4 @@
+import { stripReferences } from "@/lib/references";
 import type { Material } from "@/types/models";
 import type { GroundingPage, GroundingTopic } from "./ai/types";
 
@@ -12,7 +13,8 @@ export function groundingFor(materials: Material[], opts: { includeExcluded?: bo
       if (opts.topicIds && (!p.topicId || !opts.topicIds.includes(p.topicId))) continue;
       if (!p.text.trim()) continue;
       // Materials saved before speaker notes were dropped may still contain them.
-      const text = p.text.split(/\n\s*Speaker notes:\s*\n/i)[0];
+      // Reference-list entries are sources, not facts, so questions and flashcards skip them.
+      const text = stripReferences(p.text.split(/\n\s*Speaker notes:\s*\n/i)[0]);
       pages.push({ id: p.id, materialId: m.id, materialTitle: m.title, label: p.label, title: p.title, text, topicId: p.topicId });
     }
   }
