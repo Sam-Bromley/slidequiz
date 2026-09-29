@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { BackgroundScene } from "@/types/models";
+import { moonLitPath, moonPhase, moonPhaseName } from "@/lib/moon";
 
 type Pal = { sky: [string, string, string]; sun: string; layers: [string, string, string]; stars?: boolean; glow?: [string, string] };
 
@@ -253,6 +254,11 @@ function StarField() {
     const stars = () => Array.from(wrap.current?.querySelectorAll<HTMLElement>("[data-star]") ?? []);
     const hit = (x: number, y: number, target: EventTarget | null) => {
       if ((target as Element | null)?.closest?.(INTERACTIVE)) return null;
+      // The sun or moon gets picked up instead of a star behind it.
+      for (const o of document.querySelectorAll("[data-orb]")) {
+        const r = o.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return null;
+      }
       let best: HTMLElement | null = null;
       let bestD = 18;
       for (const s of stars()) {
@@ -329,11 +335,47 @@ function StarField() {
   );
 }
 
+/** At night every background gets the moon, high on the right. */
+const MOON_SPOT: SunSpot = { left: "80%", top: "10%", size: "11vmin", preview: { left: "78%", top: "12%", size: 9 } };
+
+/** Today's moon, as it looks from England. Checks again every hour so it changes day by day. */
+function Moon() {
+  const [phase, setPhase] = useState(() => moonPhase());
+  useEffect(() => {
+    const t = setInterval(() => setPhase(moonPhase()), 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const r = 50;
+  return (
+    <svg viewBox="0 0 100 100" className="size-full overflow-visible" role="img" aria-label={moonPhaseName(phase)}>
+      <defs>
+        <radialGradient id="moon-lit" cx="40%" cy="38%" r="70%">
+          <stop offset="0%" stopColor="#fbf8ee" />
+          <stop offset="100%" stopColor="#dcd6c4" />
+        </radialGradient>
+      </defs>
+      {/* The dark part is faintly visible, like earthshine. */}
+      <circle cx={r} cy={r} r={r} fill="#ffffff" fillOpacity={0.07} />
+      <path d={moonLitPath(phase, r)} fill="url(#moon-lit)" />
+      {/* A few soft craters, only where it's lit. */}
+      <clipPath id="moon-clip">
+        <path d={moonLitPath(phase, r)} />
+      </clipPath>
+      <g clipPath="url(#moon-clip)" fill="#b9b19b" fillOpacity={0.35}>
+        <circle cx="34" cy="36" r="9" />
+        <circle cx="62" cy="58" r="12" />
+        <circle cx="42" cy="72" r="6" />
+        <circle cx="68" cy="30" r="5" />
+      </g>
+    </svg>
+  );
+}
+
 /**
- * The sun can be dragged anywhere in the sky, including down behind the hills to set it.
+ * The sun (or moon at night) can be dragged anywhere in the sky, including down behind the hills.
  * It stays where it's dropped until the background is changed.
  */
-function DraggableSun({ spot, colour }: { spot: SunSpot; colour: string }) {
+function DraggableOrb({ spot, style, label, children }: { spot: SunSpot; style?: React.CSSProperties; label: string; children?: React.ReactNode }) {
   const el = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const offsetRef = useRef(offset);
@@ -393,6 +435,7 @@ function DraggableSun({ spot, colour }: { spot: SunSpot; colour: string }) {
   return (
     <div
       ref={el}
+      data-orb={label}
       className="absolute max-h-56 max-w-56 rounded-full"
       style={{
         left: spot.left,
@@ -400,10 +443,11 @@ function DraggableSun({ spot, colour }: { spot: SunSpot; colour: string }) {
         width: spot.size,
         height: spot.size,
         transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
-        background: colour,
-        boxShadow: `0 0 0 2vmin ${colour}22, 0 0 12vmin 4vmin ${colour}30`,
+        ...style,
       }}
-    />
+    >
+      {children}
+    </div>
   );
 }
 
@@ -446,7 +490,13 @@ export function AppBackground({ scene, dark }: { scene: BackgroundScene; dark: b
         </>
       )}
       {/* Keyed by scene: switching to another background and back puts the sun back where it started. */}
-      {sun && p.sun !== "transparent" && <DraggableSun key={scene} spot={sun} colour={p.sun} />}
+      {dark ? (
+        <DraggableOrb key={`${scene}-moon`} spot={MOON_SPOT} label="moon" style={{ filter: "drop-shadow(0 0 2.5vmin rgba(255, 248, 225, 0.35))" }}>
+          <Moon />
+        </DraggableOrb>
+      ) : (
+        sun && p.sun !== "transparent" && <DraggableOrb key={scene} spot={sun} label="sun" style={{ background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }} />
+      )}
       {scene === "forest" ? (
         <ForestSvg p={p} />
       ) : (
