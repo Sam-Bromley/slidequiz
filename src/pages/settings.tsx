@@ -1,9 +1,9 @@
-import { Download, MessageSquare, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
 import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { CONTACT_EMAIL } from "@/pages/privacy";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
@@ -18,15 +18,6 @@ import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
 import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
 import { SCENE_ORDER } from "@/components/layout/app-background";
 import { sceneLabel } from "@/components/layout/personalise";
-
-/** An email to SlideQuiz with the last page and the device filled in, to make problems easy to follow up. */
-function feedbackLink(lastPage?: string) {
-  const ua = navigator.userAgent;
-  const device = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Other";
-  const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Other";
-  const body = `\n\n\n----\nLast page: ${lastPage || "-"}\nDevice: ${device}, ${browser}`;
-  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("SlideQuiz feedback")}&body=${encodeURIComponent(body)}`;
-}
 
 const STATUS: Record<SyncStatus, string | undefined> = {
   off: undefined,
@@ -70,6 +61,7 @@ export function SettingsPage() {
   const [auth, setAuth] = useState<AuthMode | null>(null);
   const [newPw, setNewPw] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [copied, setCopied] = useState(false);
   // Messages from email links (confirmed, expired link, choose a new password).
   useEffect(() => {
     if (account.recovering) setNewPw(true);
@@ -145,10 +137,30 @@ export function SettingsPage() {
 
 
       <Section title="Feedback">
-        <Row label="Found a problem or have an idea?">
-          <a href={feedbackLink(data.lastVisit?.label)} className={buttonClass("outline")}>
-            <MessageSquare /> Send feedback
-          </a>
+        <Row label="Found a problem or have an idea?" hint="Email me and I'll reply to each and every message.">
+          <div className="flex items-center gap-2">
+            <span className="select-all rounded-lg border bg-card px-3 py-1.5 text-[14px]">{CONTACT_EMAIL}</span>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(CONTACT_EMAIL);
+                } catch {
+                  // Older browsers: copy from a hidden text box.
+                  const t = document.createElement("textarea");
+                  t.value = CONTACT_EMAIL;
+                  document.body.appendChild(t);
+                  t.select();
+                  document.execCommand("copy");
+                  t.remove();
+                }
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+            >
+              {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
         </Row>
       </Section>
 
