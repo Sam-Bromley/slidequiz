@@ -329,6 +329,84 @@ function StarField() {
   );
 }
 
+/**
+ * The sun can be dragged anywhere in the sky, including down behind the hills to set it.
+ * It stays where it's dropped until the background is changed.
+ */
+function DraggableSun({ spot, colour }: { spot: SunSpot; colour: string }) {
+  const el = useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  useEffect(() => {
+    const onSun = (x: number, y: number, target: EventTarget | null) => {
+      if ((target as Element | null)?.closest?.(INTERACTIVE) || !el.current) return false;
+      const r = el.current.getBoundingClientRect();
+      return Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y) <= r.width / 2 + 6;
+    };
+    let drag: { x: number; y: number; ox: number; oy: number; id: number } | null = null;
+    let hover = false;
+    const setCursor = (c: string) => (document.body.style.cursor = c);
+    const down = (e: PointerEvent) => {
+      if (e.button !== 0 || !onSun(e.clientX, e.clientY, e.target)) return;
+      e.preventDefault();
+      drag = { x: e.clientX, y: e.clientY, ox: offsetRef.current.x, oy: offsetRef.current.y, id: e.pointerId };
+      setCursor("grabbing");
+    };
+    const move = (e: PointerEvent) => {
+      if (drag && e.pointerId === drag.id) {
+        const r = el.current!.getBoundingClientRect();
+        let x = drag.ox + e.clientX - drag.x;
+        let y = drag.oy + e.clientY - drag.y;
+        // Keep it on screen (it may sink below the hills, but not vanish off the edge).
+        const cx = r.left + r.width / 2 - offsetRef.current.x + x;
+        const cy = r.top + r.height / 2 - offsetRef.current.y + y;
+        x += Math.max(0, -cx) - Math.max(0, cx - window.innerWidth);
+        y += Math.max(0, r.height / 2 - cy) - Math.max(0, cy - window.innerHeight);
+        setOffset({ x, y });
+        return;
+      }
+      if (e.pointerType !== "mouse") return;
+      const near = onSun(e.clientX, e.clientY, e.target);
+      if (near !== hover) {
+        hover = near;
+        setCursor(near ? "grab" : "");
+      }
+    };
+    const up = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag = null;
+      setCursor(hover ? "grab" : "");
+    };
+    document.addEventListener("pointerdown", down);
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
+    return () => {
+      document.removeEventListener("pointerdown", down);
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      setCursor("");
+    };
+  }, []);
+  return (
+    <div
+      ref={el}
+      className="absolute max-h-56 max-w-56 rounded-full"
+      style={{
+        left: spot.left,
+        top: spot.top,
+        width: spot.size,
+        height: spot.size,
+        transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
+        background: colour,
+        boxShadow: `0 0 0 2vmin ${colour}22, 0 0 12vmin 4vmin ${colour}30`,
+      }}
+    />
+  );
+}
+
 /** The forest's drawing width follows the screen's shape, so trees are never squashed or cut off. */
 function ForestSvg({ p }: { p: Pal }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -367,12 +445,8 @@ export function AppBackground({ scene, dark }: { scene: BackgroundScene; dark: b
           <div className="absolute right-[-10%] top-[16%] h-[30vh] w-[60%] rotate-[10deg] rounded-full opacity-30 blur-3xl" style={{ background: p.glow[1] }} />
         </>
       )}
-      {sun && p.sun !== "transparent" && (
-        <div
-          className="absolute max-h-56 max-w-56 -translate-x-1/2 rounded-full"
-          style={{ left: sun.left, top: sun.top, width: sun.size, height: sun.size, background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }}
-        />
-      )}
+      {/* Keyed by scene: switching to another background and back puts the sun back where it started. */}
+      {sun && p.sun !== "transparent" && <DraggableSun key={scene} spot={sun} colour={p.sun} />}
       {scene === "forest" ? (
         <ForestSvg p={p} />
       ) : (
