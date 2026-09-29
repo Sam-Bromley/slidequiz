@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from "react";
 import { emptyData, SCHEMA_VERSION } from "./defaults";
 import { db } from "@/services/db/local";
+import { nameTopics } from "@/services/parsing/sections";
 import type { AppData } from "@/services/db/types";
 
 function initial(): AppData {
@@ -17,7 +18,12 @@ function initial(): AppData {
       ...loaded,
       schemaVersion: SCHEMA_VERSION,
       folders: loaded.folders ?? [],
-      materials: loaded.materials.map((m) => ({ ...m, pages: m.pages.map((p) => ({ ...p, included: true, images: p.images?.map((i) => ({ ...i, included: true })) })) })),
+      materials: loaded.materials.map((m) => {
+        // v8: every slide and picture included. v9: better topic names (same topics, so progress is kept).
+        const pages = loaded.schemaVersion < 8 ? m.pages.map((p) => ({ ...p, included: true, images: p.images?.map((i) => ({ ...i, included: true })) })) : m.pages;
+        const names = nameTopics(m.topics.map((t) => ({ pages: t.pageIds.map((id) => pages.find((p) => p.id === id)).filter((p) => !!p) })), pages.find((p) => p.index === 1));
+        return { ...m, pages, topics: m.topics.map((t, i) => ({ ...t, name: names[i] })) };
+      }),
       settings: { ...loaded.settings, theme: loaded.settings.theme === "warm" ? "warm" : "light", scene: loaded.settings.scene ?? "none" },
     } as AppData;
     db.save(migrated);
