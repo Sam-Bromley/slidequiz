@@ -132,9 +132,13 @@ function firstLine(text: string) {
 
 /* ------------------------------------------------------------------ PPTX */
 
+/** Let the page redraw between slides so the progress bar keeps moving on big files. */
+const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export const pptxParser: DocumentParser = {
   type: "pptx",
   async parse(file, onProgress) {
+    onProgress(0.02, "Opening slides…");
     const { default: JSZip } = await import("jszip");
     let zip: InstanceType<typeof JSZip>;
     try {
@@ -215,6 +219,7 @@ export const pptxParser: DocumentParser = {
       }
       pages.push({ title: truncate(title, 120), text, images });
       onProgress((i + 1) / ordered.length, `Reading slide ${i + 1} of ${ordered.length}`);
+      await breathe();
     }
     const warnings = pages.filter((p) => !p.text).length > pages.length / 2 ? ["Many slides contain little text. Images and diagrams can't be read yet."] : [];
     return { fileType: "pptx", title: baseName(file.name), unit: "slides", pages, warnings };
@@ -243,6 +248,7 @@ async function slideOrder(zip: import("jszip")): Promise<string[]> {
 export const pdfParser: DocumentParser = {
   type: "pdf",
   async parse(file, onProgress) {
+    onProgress(0.02, "Opening PDF…");
     const pdfjs = await import("pdfjs-dist");
     pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdf.worker.min.mjs", document.baseURI).href;
     let doc: Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>;
@@ -287,6 +293,7 @@ export const pdfParser: DocumentParser = {
       const images = await pdfImages(pdfjs, page, n).catch(() => [] as ParsedImage[]);
       pages.push({ title, text, needsText: !text && !heading && !images.length, images });
       onProgress(n / doc.numPages, `Reading page ${n} of ${doc.numPages}`);
+      await breathe();
     }
     const empty = pages.filter((p) => p.needsText).length;
     const warnings = empty ? [`${empty} page${empty === 1 ? "" : "s"} had no selectable text (scanned pages need OCR).`] : [];
@@ -381,6 +388,7 @@ function joinWrapped(lines: string[]) {
 export const docxParser: DocumentParser = {
   type: "docx",
   async parse(file, onProgress) {
+    onProgress(0.05, "Opening document…");
     const { default: JSZip } = await import("jszip");
     let docXml: string;
     let zip: InstanceType<typeof JSZip>;

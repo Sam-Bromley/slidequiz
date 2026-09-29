@@ -47,7 +47,7 @@ fs.copyFileSync(path.join(root, "public/index.html"), path.join(dist, "index.htm
 // Body-only variant for hosts that supply their own document skeleton (e.g. a claude.ai artifact).
 {
   const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
-  const head = html.slice(html.indexOf("<head>") + 6, html.indexOf("</head>")).replace(/<meta charset[^>]*>|<meta name="viewport"[^>]*>|<link rel="icon"[^>]*>/g, "");
+  const head = html.slice(html.indexOf("<head>") + 6, html.indexOf("</head>")).replace(/<meta charset[^>]*>|<meta name="viewport"[^>]*>|<link rel="(icon|manifest|apple-touch-icon|canonical)"[^>]*>|<meta (name="(apple-mobile-web-app-[a-z-]+|mobile-web-app-capable)"|property="og:[a-z]+")[^>]*>/g, "");
   // Analytics only runs on the real website, not in embedded previews.
   const body = html.slice(html.indexOf("<body>") + 6, html.indexOf("</body>")).replace(/<!-- Cloudflare Web Analytics -->[\s\S]*?<!-- End Cloudflare Web Analytics -->/, "");
   fs.writeFileSync(path.join(dist, "embed.html"), (head + body).replace(/\n\s*\n/g, "\n").trim() + "\n");

@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, ChevronDown, Layers, List, MoreHorizontal, Pencil, Plus, Shuffle, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
 import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
@@ -284,12 +284,50 @@ function CardEditor({ c, onDone }: { c?: Flashcard; onDone: (front: string, back
   );
 }
 
-/** The card itself: click (or Space) to flip. */
-function FlipCard({ card, flipped, onFlip }: { card: Flashcard; flipped: boolean; onFlip: () => void }) {
+/** The card itself: click, tap or Space to flip. On touch screens, swipe left or right for the next or previous card. */
+function FlipCard({ card, flipped, onFlip, onSwipe }: { card: Flashcard; flipped: boolean; onFlip: () => void; onSwipe?: (dir: 1 | -1) => void }) {
+  const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const swiped = useRef(false);
+  const [dx, setDx] = useState(0);
   return (
     <button
       type="button"
-      onClick={onFlip}
+      onClick={() => {
+        // A swipe ends with a click on some phones; that shouldn't also flip the card.
+        if (swiped.current) {
+          swiped.current = false;
+          return;
+        }
+        onFlip();
+      }}
+      onPointerDown={(e) => {
+        if (e.pointerType === "mouse" || !onSwipe) return;
+        start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+        swiped.current = false;
+      }}
+      onPointerMove={(e) => {
+        const s0 = start.current;
+        if (!s0 || e.pointerId !== s0.id) return;
+        const x = e.clientX - s0.x;
+        if (Math.abs(x) > Math.abs(e.clientY - s0.y)) setDx(x);
+      }}
+      onPointerUp={(e) => {
+        const s0 = start.current;
+        start.current = null;
+        setDx(0);
+        if (!s0 || e.pointerId !== s0.id) return;
+        const x = e.clientX - s0.x;
+        if (Math.abs(x) > 60 && Math.abs(x) > Math.abs(e.clientY - s0.y) * 1.5) {
+          swiped.current = true;
+          onSwipe?.(x < 0 ? 1 : -1);
+          setTimeout(() => (swiped.current = false), 400);
+        }
+      }}
+      onPointerCancel={() => {
+        start.current = null;
+        setDx(0);
+      }}
+      style={{ transform: dx ? `translateX(${dx * 0.6}px) rotate(${dx * 0.02}deg)` : undefined, transition: dx ? "none" : "transform 200ms ease-out", touchAction: "pan-y" }}
       className="group block w-full [perspective:1400px] focus-ring rounded-2xl"
       aria-label={flipped ? "Show front" : "Show answer"}
     >
@@ -297,7 +335,10 @@ function FlipCard({ card, flipped, onFlip }: { card: Flashcard; flipped: boolean
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden]">
           <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Front</span>
           <p className="whitespace-pre-line text-[20px] font-semibold leading-snug sm:text-[22px]">{card.front}</p>
-          <span className="absolute bottom-4 text-[12px] text-muted-foreground">Click to flip</span>
+          <span className="absolute bottom-4 text-[12px] text-muted-foreground">
+            <span className="[@media(pointer:coarse)]:hidden">Click to flip</span>
+            <span className="hidden [@media(pointer:coarse)]:inline">Tap to flip · swipe for next</span>
+          </span>
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Back</span>
@@ -384,7 +425,7 @@ export function DeckPage({ id }: { id: string }) {
 
       {card ? (
         <section aria-label="Study">
-          <FlipCard card={card} flipped={flipped} onFlip={() => setFlipped((f) => !f)} />
+          <FlipCard card={card} flipped={flipped} onFlip={() => setFlipped((f) => !f)} onSwipe={go} />
           <div className="mt-5 flex items-center justify-center gap-3">
             <Button variant="outline" size="icon" className="rounded-full" onClick={() => go(-1)} aria-label="Previous card">
               <ArrowLeft />

@@ -1,4 +1,4 @@
-import { Check, Copy, Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Download, LogIn, MonitorDown, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
 import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { download } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
+import { promptInstall, useInstallState } from "@/lib/install";
 import { Link } from "@/lib/router";
 import { backupName, makeBackup, restoreBackup } from "@/services/backup";
 import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
@@ -62,6 +63,7 @@ export function SettingsPage() {
   const [newPw, setNewPw] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [copied, setCopied] = useState(false);
+  const install = useInstallState();
   // Messages from email links (confirmed, expired link, choose a new password).
   useEffect(() => {
     if (account.recovering) setNewPw(true);
@@ -135,6 +137,22 @@ export function SettingsPage() {
         )}
       </Section>
 
+
+      {install !== "unavailable" && (
+        <Section title="App">
+          <Row
+            label={install === "installed" ? "SlideQuiz is installed" : "Install SlideQuiz"}
+            hint={install === "ios" ? "In Safari, tap the Share button, then Add to Home Screen." : install === "manual" ? "Open your browser's menu and choose Install app or Add to Home screen." : undefined}
+          >
+            {install === "prompt" && (
+              <Button variant="outline" onClick={() => promptInstall()}>
+                <MonitorDown /> Install
+              </Button>
+            )}
+            {install === "installed" && <Check className="size-5 text-success" aria-hidden />}
+          </Row>
+        </Section>
+      )}
 
       <Section title="Feedback">
         <Row label="Found a problem or have an idea?" hint="Email me and I'll reply to each and every message.">

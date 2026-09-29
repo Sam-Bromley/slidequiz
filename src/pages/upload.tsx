@@ -26,6 +26,14 @@ interface Item {
   material?: Material;
 }
 
+/** "Reading page 12 of 80 · about 20 seconds left", once there's enough to estimate from. */
+function withTimeLeft(label: string, done: number, elapsedMs: number) {
+  if (done < 0.08 || done >= 0.98 || elapsedMs < 2000) return label;
+  const left = Math.round(((elapsedMs / done) * (1 - done)) / 1000);
+  if (left < 3) return `${label} · almost done`;
+  return `${label} · about ${left < 60 ? `${Math.max(5, Math.round(left / 5) * 5)} seconds` : `${Math.round(left / 60)} minute${Math.round(left / 60) === 1 ? "" : "s"}`} left`;
+}
+
 export function UploadPage() {
   const { query } = useLocation();
   const [items, setItems] = useState<Item[]>([]);
@@ -34,6 +42,7 @@ export function UploadPage() {
   const [pasteTitle, setPasteTitle] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState("");
   const input = useRef<HTMLInputElement>(null);
 
   const patch = (id: string, p: Partial<Item>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -45,7 +54,8 @@ export function UploadPage() {
       return;
     }
     try {
-      const doc = await parseFile(file, (f, label) => patch(id, { progress: f, label: label ?? "Reading…" }));
+      const started = Date.now();
+      const doc = await parseFile(file, (f, label) => patch(id, { progress: f, label: withTimeLeft(label ?? "Reading…", f, Date.now() - started) }));
       const material = buildMaterial(doc, file);
       patch(id, { status: "ready", progress: 1, label: `${doc.pages.length} ${doc.unit}`, material });
     } catch (e) {
@@ -103,12 +113,18 @@ export function UploadPage() {
     }
     setSaving(true);
     try {
+      setStep("Saving pictures…");
       await persistPendingImages(mats.flatMap((m) => m.pages.flatMap((p) => (p.images ?? []).map((i) => i.id))));
       actions.addMaterials(mats);
-      for (const m of mats) await buildPracticeQuestions(m.id);
+      for (const [i, m] of mats.entries()) {
+        setStep(mats.length > 1 ? `Making notes and questions (${i + 1} of ${mats.length})…` : "Making notes and questions…");
+        await new Promise((r) => setTimeout(r, 0));
+        await buildPracticeQuestions(m.id);
+      }
       navigate(mats.length === 1 ? `/materials/${mats[0].id}` : "/materials");
     } finally {
       setSaving(false);
+      setStep("");
     }
   };
 
@@ -175,10 +191,15 @@ export function UploadPage() {
       )}
 
       {items.length > 0 && (
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex flex-col items-center gap-2">
           <Button size="lg" onClick={save} disabled={busy || !ready.length} loading={saving} className="min-w-44 rounded-full">
             {busy ? "Reading…" : "Generate"}
           </Button>
+          {saving && step && (
+            <p className="text-[13px] text-muted-foreground" aria-live="polite">
+              {step}
+            </p>
+          )}
         </div>
       )}
     </div>
