@@ -69,7 +69,7 @@ export interface Settings {
   showQuote?: boolean;
 }
 
-export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text";
+export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text" | "audio" | "video" | "youtube";
 
 /** A single uploaded file. Binary content lives in FileStorage; only metadata is kept here. */
 export interface SourceFile {

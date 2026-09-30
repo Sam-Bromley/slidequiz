@@ -1,4 +1,4 @@
-import { AlertCircle, ClipboardPaste, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { AlertCircle, CirclePlay, ClipboardPaste, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { buildPracticeQuestions } from "@/services/practice";
 import { persistPendingImages } from "@/services/storage/images";
 import { enhanceMaterial } from "@/services/ai/cloud";
 import { AllowanceNote } from "@/components/ai/allowance-note";
+import { transcribeFile, youtubeDocument } from "@/services/media";
+import { hasPlus, usePlan } from "@/services/plus";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material } from "@/types/models";
@@ -43,6 +45,9 @@ export function UploadPage() {
   const [paste, setPaste] = useState(false);
   const [pasteTitle, setPasteTitle] = useState("");
   const [pasteText, setPasteText] = useState("");
+  const [yt, setYt] = useState(false);
+  const [ytUrl, setYtUrl] = useState("");
+  const pro = usePlan().plus;
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -57,6 +62,17 @@ export function UploadPage() {
     }
     try {
       const started = Date.now();
+      // Pro: recordings are listened to and turned into text first.
+      if (v.type === "audio" || v.type === "video") {
+        if (!hasPlus()) {
+          patch(id, { status: "error", progress: 0, error: "Lecture recordings and videos are part of SlideQuiz Pro." });
+          return;
+        }
+        const doc = await transcribeFile(file, (f, label) => patch(id, { progress: f, label: withTimeLeft(label ?? "Listening…", f, Date.now() - started) }));
+        const material = buildMaterial(doc, file);
+        patch(id, { status: "ready", progress: 1, label: `${doc.pages.length} sections`, material });
+        return;
+      }
       const doc = await parseFile(file, (f, label) => patch(id, { progress: f, label: withTimeLeft(label ?? "Reading…", f, Date.now() - started) }));
       const material = buildMaterial(doc, file);
       patch(id, { status: "ready", progress: 1, label: `${doc.pages.length} ${doc.unit}`, material });
@@ -71,6 +87,26 @@ export function UploadPage() {
     const newItems: Item[] = list.map((f) => ({ id: uid("up"), name: f.name, size: f.size, status: "reading", progress: 0.02, label: detectType(f.name) ? `Reading ${FILE_TYPE_LABEL[detectType(f.name)!]}…` : "Reading…" }));
     setItems((xs) => [...xs, ...newItems]);
     newItems.forEach((it, i) => process(list[i], it.id));
+  };
+
+  const addYoutube = async () => {
+    const url = ytUrl.trim();
+    if (!url) return;
+    setYt(false);
+    setYtUrl("");
+    const id = uid("up");
+    setItems((xs) => [...xs, { id, name: url, size: 0, status: "reading", progress: 0.3, label: "Reading the video's captions…" }]);
+    try {
+      const doc = await youtubeDocument(url);
+      const material = buildMaterial(doc, { name: doc.title, size: 0 });
+      patch(id, { name: doc.title, status: "ready", progress: 1, label: `YouTube · ${doc.pages.length} sections`, material });
+    } catch (e) {
+      patch(id, {
+        status: "error",
+        progress: 0,
+        error: `${e instanceof ParseError ? e.userMessage : "Couldn't read that video."} You can copy the transcript from YouTube (… → Show transcript) and use Paste text instead.`,
+      });
+    }
   };
 
   const addPasted = (text = pasteText, title = pasteTitle) => {
@@ -155,11 +191,40 @@ export function UploadPage() {
       </div>
 
 
-      {!paste ? (
-        <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground" onClick={() => setPaste(true)}>
-          <ClipboardPaste /> Paste text instead
-        </Button>
-      ) : (
+      {!paste && !yt && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setPaste(true)}>
+            <ClipboardPaste /> Paste text instead
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => {
+              if (pro) setYt(true);
+              else {
+                toast("YouTube videos are part of SlideQuiz Pro");
+                navigate("/pro");
+              }
+            }}
+          >
+            <CirclePlay /> Add a YouTube video
+            {!pro && <span className="rounded-full bg-foreground px-1.5 py-px text-[10px] font-semibold text-background">Pro</span>}
+          </Button>
+        </div>
+      )}
+      {yt && (
+        <div className="mt-3 animate-fade-up space-y-3 rounded-xl border bg-card p-4">
+          <Field label="YouTube link" htmlFor="yt-url" hint="The video needs captions (most lectures and talks have them).">
+            <Input id="yt-url" autoFocus value={ytUrl} onChange={(e) => setYtUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addYoutube()} placeholder="https://www.youtube.com/watch?v=…" />
+          </Field>
+          <div className="flex gap-2">
+            <Button onClick={addYoutube} disabled={!ytUrl.trim()}>Add video</Button>
+            <Button variant="ghost" onClick={() => setYt(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+      {!paste ? null : (
         <div className="mt-3 animate-fade-up space-y-3 rounded-xl border bg-card p-4">
           <Field label="Title" htmlFor="paste-title">
             <Input id="paste-title" value={pasteTitle} onChange={(e) => setPasteTitle(e.target.value)} placeholder="e.g. Chemistry bonding notes" />
@@ -182,7 +247,7 @@ export function UploadPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium">{it.material?.title ?? it.name}</p>
                   <p className="text-[12.5px] text-muted-foreground">
-                    {formatBytes(it.size)} · {it.status === "error" ? <span className="font-medium text-destructive">{it.error}</span> : it.label}
+                    {it.size ? `${formatBytes(it.size)} · ` : ""}{it.status === "error" ? <span className="font-medium text-destructive">{it.error}</span> : it.label}
                   </p>
                   {it.status === "reading" && <Progress value={it.progress} size="sm" className="mt-2 max-w-xs" label={`${it.name} progress`} />}
                 </div>

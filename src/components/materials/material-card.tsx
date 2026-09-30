@@ -1,4 +1,4 @@
-import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2 } from "lucide-react";
+import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2, AudioLines, Video, CirclePlay } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +17,7 @@ import { overallProgress } from "@/services/practice";
 import { ResizeEdge } from "@/components/ui/resizable";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
-const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage };
+const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage, audio: AudioLines, video: Video, youtube: CirclePlay };
 
 
 export function MaterialIcon({ m, className }: { m: Material; className?: string }) {
