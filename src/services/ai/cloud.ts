@@ -1,6 +1,8 @@
 /**
- * Real AI for logged-in students, through the SlideQuiz helper in Supabase (supabase/functions/ai).
- * Everything here falls back to the built-in rules if the AI is unavailable, so the site always works.
+ * Real AI for everyone, through the SlideQuiz helper in Supabase (supabase/functions/ai).
+ * Logged-in students use their account; everyone else gets a hidden guest pass (a Supabase
+ * anonymous sign-in) used only for AI, so each browser has its own daily allowance.
+ * Everything falls back to the built-in rules if the AI is unavailable, so the site always works.
  */
 import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL } from "@/services/account";
 import { groundingFor } from "@/services/grounding";
@@ -26,9 +28,58 @@ export class AIError extends Error {
 
 type CloudPage = { id: ID; label: string; title: string; text: string };
 
+/* ---------------------------------------------------------------- guest pass for AI */
+
+const GUEST_KEY = "slidequiz:ai-guest";
+type Guest = { access_token: string; refresh_token: string; expires_at: number };
+let guestUnavailable = false;
+let guestJob: Promise<string | null> | null = null;
+
+function loadGuest(): Guest | null {
+  try {
+    return JSON.parse(localStorage.getItem(GUEST_KEY) ?? "null");
+  } catch {
+    return null;
+  }
+}
+function saveGuest(g: Guest | null) {
+  try {
+    if (g) localStorage.setItem(GUEST_KEY, JSON.stringify(g));
+    else localStorage.removeItem(GUEST_KEY);
+  } catch {
+    /* storage blocked */
+  }
+}
+
+async function auth(path: string, body: unknown): Promise<Guest | null> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/${path}`, { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) return null;
+    const t = await r.json();
+    return t.access_token ? { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: t.expires_at ?? Math.floor(Date.now() / 1000) + (t.expires_in ?? 3600) } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A token for the AI helper: the student's own login, or a guest pass. Null if neither is possible. */
+async function aiToken(): Promise<string | null> {
+  if (isLoggedIn()) return authToken();
+  if (guestUnavailable) return null;
+  guestJob ??= (async () => {
+    let g = loadGuest();
+    if (g && g.expires_at - 60 < Date.now() / 1000) g = await auth("token?grant_type=refresh_token", { refresh_token: g.refresh_token });
+    if (!g) g = await auth("signup", {}); // anonymous sign-in
+    saveGuest(g);
+    if (!g) guestUnavailable = true; // guest passes switched off in Supabase: use the built-in notes
+    return g?.access_token ?? null;
+  })().finally(() => (guestJob = null));
+  return guestJob;
+}
+
 async function call<T>(task: string, body: Record<string, unknown>): Promise<T> {
-  const token = await authToken();
-  if (!token) throw new AIError("Log in to use AI.");
+  const token = await aiToken();
+  if (!token) throw new AIError("AI isn't available right now.");
   let res: Response;
   try {
     res = await fetch(AI_ENDPOINT, {
@@ -72,10 +123,9 @@ const running = new Map<ID, Promise<void>>();
 
 /**
  * Has the AI write the notes, choose the topics and write the questions for a material.
- * Does nothing if not logged in, or if it's already done for these slides.
+ * Does nothing if it's already done for these slides, or if AI isn't available.
  */
 export function enhanceMaterial(id: ID): Promise<void> {
-  if (!isLoggedIn()) return Promise.resolve();
   const m0 = getState().materials.find((x) => x.id === id);
   if (!m0 || !m0.pages.some((p) => p.included && p.text.trim())) return Promise.resolve();
   const key = aiKey(m0);
@@ -189,7 +239,6 @@ function toDraft(q: CloudQuestion, m: Material, topicOf: Map<ID, ID | null>, lab
 
 /** Flashcards written by the AI, or null to use the built-in ones. */
 export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ front: string; back: string; pageId: ID }[] | null> {
-  if (!isLoggedIn()) return null;
   try {
     const pages = cloudPages(m, topicIds);
     if (!pages.length) return null;
@@ -203,7 +252,6 @@ export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ fr
 
 /** An answer about the lecture, or null to use the built-in helper. */
 export async function cloudChat(m: Material, history: { role: string; content: string }[], message: string): Promise<{ answer: string; pageIds: ID[] } | null> {
-  if (!isLoggedIn()) return null;
   try {
     const pages = cloudPages(m);
     // Long lectures: send the slides that share the most words with the question.

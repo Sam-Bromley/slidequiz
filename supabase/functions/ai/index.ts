@@ -93,9 +93,9 @@ Deno.serve(async (req) => {
   const base = Deno.env.get("SUPABASE_URL")!;
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  // 1. Only logged-in students.
+  // 1. Only SlideQuiz users: a logged-in student or a guest pass from the website.
   const who = await fetch(`${base}/auth/v1/user`, { headers: { apikey: anon, Authorization: auth } });
-  if (!who.ok) return json({ error: "Log in to use AI." }, 401, origin);
+  if (!who.ok) return json({ error: "Not allowed." }, 401, origin);
 
   let body: any;
   try {
@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
   });
   const left = use.ok ? await use.json() : null;
   if (left === null) return json({ error: "Couldn't check your AI allowance." }, 500, origin);
+  if (left === -2) return json({ error: "SlideQuiz has used today's AI allowance. It resets tomorrow.", limit: true }, 429, origin);
   if (left < 0) return json({ error: "You've used today's AI allowance. It resets tomorrow.", limit: true }, 429, origin);
 
   // 3. Ask Claude.

@@ -12,7 +12,6 @@ import { ACCEPT_ATTR, buildMaterial, detectType, FILE_TYPE_LABEL, ParseError, pa
 import { buildPracticeQuestions } from "@/services/practice";
 import { persistPendingImages } from "@/services/storage/images";
 import { enhanceMaterial } from "@/services/ai/cloud";
-import { useAccount } from "@/services/account";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material } from "@/types/models";
@@ -45,7 +44,6 @@ export function UploadPage() {
   const [pasteText, setPasteText] = useState("");
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState("");
-  const account = useAccount();
   const input = useRef<HTMLInputElement>(null);
 
   const patch = (id: string, p: Partial<Item>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -153,7 +151,7 @@ export function UploadPage() {
         <input ref={input} type="file" multiple accept={ACCEPT_ATTR} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
       </div>
 
-      {account.user && <p className="mt-2 text-[12.5px] text-muted-foreground">You're logged in, so AI will write your notes and questions. The text of your slides is sent to our AI provider (not the files or pictures).</p>}
+      <p className="mt-2 text-[12.5px] text-muted-foreground">AI writes your notes and questions. The text of your slides is sent to our AI provider; your files and pictures stay on your device.</p>
 
       {!paste ? (
         <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground" onClick={() => setPaste(true)}>
