@@ -154,7 +154,6 @@ export function UploadPage() {
         <input ref={input} type="file" multiple accept={ACCEPT_ATTR} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
       </div>
 
-      <p className="mt-2 text-[12.5px] text-muted-foreground">AI writes your notes and questions. The text of your slides is sent to our AI provider; your files and pictures stay on your device.</p>
 
       {!paste ? (
         <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground" onClick={() => setPaste(true)}>

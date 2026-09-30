@@ -46,18 +46,14 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
   );
 }
 
-/** Under the files on the upload page: how many AI lectures these will use, and how many are left. */
+/** Under the files on the upload page: shown only when there aren't enough AI lectures left. */
 export function AllowanceNote({ materials }: { materials: Material[] }) {
   const a = useAllowance();
   if (!a || !materials.length) return null;
   const chars = materials.reduce((n, m) => n + textSize(m), 0);
   const need = lecturesFor(chars, a);
-  if (fits(chars, a))
-    return (
-      <p className="text-center text-[13px] text-muted-foreground">
-        Uses {lecturesText(need)} · {leftText(a)}
-      </p>
-    );
+  // Nothing to say until they've run out.
+  if (fits(chars, a)) return null;
   return (
     <p className="max-w-md text-center text-[13px] text-muted-foreground" role="status">
       <span className="font-medium text-foreground">
