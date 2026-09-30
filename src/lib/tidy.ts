@@ -25,6 +25,28 @@ function balance(t: string): string {
   return t;
 }
 
+const SLIDE = String.raw`(?:the|this|these|that)\s+(?:lecture\s+)?(?:slides?|lectures?|notes?|material|presentation|text)`;
+const TALK_VERB = String.raw`(?:defines?|describes?|explains?|states?|says?|notes?|mentions?|shows?|lists?|highlights?|emphasi[sz]es?|points? out|indicates?|suggests?|introduces?|presents?|covers?|discusses?|outlines?)`;
+
+/**
+ * Takes out talk about the slides themselves, so only the fact is left:
+ * "The slide defines X as Y" → "X is Y", "According to the lecture, X…" → "X…".
+ */
+export function dropSlideTalk(t: string): string {
+  const cap = (s: string) => (/^[a-z]/.test(s) && !/^[a-z]+[A-Z]/.test(s) ? s[0].toUpperCase() + s.slice(1) : s);
+  let s = t;
+  // "The slide defines X as Y" → "X is Y"
+  s = s.replace(new RegExp(String.raw`^${SLIDE}\s+defines?\s+(.+?)\s+as\s+(.+)$`, "is"), "$1 is $2");
+  // "The slide states that X" / "The lecture explains X" → "X"
+  s = s.replace(new RegExp(String.raw`^${SLIDE}\s+(?:also\s+)?${TALK_VERB}\s+(?:that\s+|how\s+)?`, "i"), "");
+  // "According to the slides, X" / "As the slide says, X" / "On this slide, X" / "In the lecture, X"
+  s = s.replace(new RegExp(String.raw`^(?:according to|as (?:stated|shown|described|explained|noted|mentioned) (?:in|on)|as|on|in|from)\s+${SLIDE}(?:\s+${TALK_VERB})?\s*,\s*`, "i"), "");
+  // Trailing or middle asides: ", as the slide explains", "(according to the slides)", "as stated on the slide"
+  s = s.replace(new RegExp(String.raw`\s*[,(]?\s*(?:according to|as (?:stated|shown|described|explained|noted|mentioned|defined) (?:in|on|by)|as)\s+${SLIDE}(?:\s+${TALK_VERB})?\s*\)?(?=[,.;:!?]|$)`, "gi"), "");
+  s = s.replace(new RegExp(String.raw`\s+(?:in|on|from)\s+${SLIDE}(?=[.?!]?$)`, "i"), "");
+  return cap(s.trim());
+}
+
 function common(raw: string): string {
   let t = String(raw ?? "")
     .replace(/[​-‍﻿]/g, "")
@@ -47,7 +69,7 @@ function common(raw: string): string {
     .replace(/^[,;:.\s]+/, "") // leading punctuation
     .replace(/\s{2,}/g, " ")
     .trim();
-  return balance(t).trim();
+  return dropSlideTalk(balance(t).trim());
 }
 
 /** A line in the notes: tidy, no trailing comma/semicolon/colon or dangling dash. */
