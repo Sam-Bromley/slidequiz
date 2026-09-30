@@ -34,6 +34,7 @@ const ROUTES: Route[] = [
   { pattern: "/upload", render: () => <UploadPage /> },
   { pattern: "/practice", render: () => <MixedPracticePage /> },
   { pattern: "/privacy", render: () => <PrivacyPage /> },
+  { pattern: "/pro", render: () => <PlusPage /> },
   { pattern: "/plus", render: () => <PlusPage /> },
   { pattern: "/generate", render: () => <GeneratePage /> },
   { pattern: "/questions", render: () => <QuestionBankPage /> },
@@ -97,7 +98,7 @@ function pageTitle(path: string, query: URLSearchParams, data: ReturnType<typeof
   if (first === "materials") return data.folders.find((f) => f.id === query.get("f"))?.name ?? "My Materials";
   if (first === "flashcards" && id) return (data.decks ?? []).find((d) => d.id === id)?.name ?? "Flashcards";
   if (first === "practice") return `Practise ${data.folders.find((f) => f.id === query.get("f"))?.name ?? ""}`.trim();
-  const names: Record<string, string> = { upload: "Add material", flashcards: "Flashcards", settings: "Settings", privacy: "Privacy policy", plus: "SlideQuiz Plus", generate: "Make questions", history: "History", ask: "Ask" };
+  const names: Record<string, string> = { upload: "Add material", flashcards: "Flashcards", settings: "Settings", privacy: "Privacy policy", plus: "SlideQuiz Pro", pro: "SlideQuiz Pro", generate: "Make questions", history: "History", ask: "Ask" };
   return names[first] ?? "";
 }
 

@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
   try {
     const plan = await getPlan(user.id);
     if (body.action === "checkout") {
-      if (plan?.plus_until && new Date(plan.plus_until) > new Date() && !plan.cancel_at_period_end) return json({ error: "You already have Plus." }, 400, origin);
+      if (plan?.plus_until && new Date(plan.plus_until) > new Date() && !plan.cancel_at_period_end) return json({ error: "You already have Pro." }, 400, origin);
       const session = await stripe("checkout/sessions", {
         mode: "subscription",
         line_items: { 0: { price: env("STRIPE_PRICE_ID"), quantity: 1 } },
@@ -157,14 +157,14 @@ Deno.serve(async (req) => {
         allow_promotion_codes: true,
         // Stripe is the seller of record: it charges and pays VAT, and handles fraud and disputes.
         ...(env("STRIPE_MANAGED") === "off" ? {} : { managed_payments: { enabled: true } }),
-        success_url: `${site}/#/plus?done=1`,
-        cancel_url: `${site}/#/plus`,
+        success_url: `${site}/#/pro?done=1`,
+        cancel_url: `${site}/#/pro`,
       });
       return json({ url: session.url }, 200, origin);
     }
     if (body.action === "portal") {
       if (!plan?.stripe_customer) return json({ error: "You don't have a subscription yet." }, 400, origin);
-      const portal = await stripe("billing_portal/sessions", { customer: plan.stripe_customer, return_url: `${site}/#/plus` });
+      const portal = await stripe("billing_portal/sessions", { customer: plan.stripe_customer, return_url: `${site}/#/pro` });
       return json({ url: portal.url }, 200, origin);
     }
     return json({ error: "Unknown action" }, 400, origin);

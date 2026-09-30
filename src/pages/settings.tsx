@@ -125,7 +125,7 @@ export function SettingsPage() {
         )}
         {(PLUS_ON || plan.plus) && (
         <Row
-            label={plan.plus ? "SlideQuiz Plus" : "Get more with Plus"}
+            label={plan.plus ? "SlideQuiz Pro" : "Get more with Pro"}
             hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} credits a month, ${PLUS.price} a ${PLUS.period}`}
           >
             {plan.plus ? (
@@ -133,8 +133,8 @@ export function SettingsPage() {
                 Manage or cancel
               </Button>
             ) : (
-              <Link to="/plus" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-accent focus-ring">
-                <Sparkles className="size-4" /> See Plus
+              <Link to="/pro" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-accent focus-ring">
+                <Sparkles className="size-4" /> See Pro
               </Link>
             )}
           </Row>
@@ -267,12 +267,12 @@ export function SettingsPage() {
         open={deletingAccount}
         onClose={() => setDeletingAccount(false)}
         title="Delete your account?"
-        description={plan.plus && !plan.cancelling ? "You still have Plus. Cancel it first with Settings → Manage or cancel, or you'll keep being charged. Then delete your account." : "Your login, email address and everything saved to your account are deleted. This can't be undone."}
+        description={plan.plus && !plan.cancelling ? "You still have Pro. Cancel it first with Settings → Manage or cancel, or you'll keep being charged. Then delete your account." : "Your login, email address and everything saved to your account are deleted. This can't be undone."}
         requireText="delete"
         confirmLabel="Delete account"
         onConfirm={async () => {
           if (plan.plus && !plan.cancelling) {
-            toast("Cancel Plus first, then delete your account.");
+            toast("Cancel Pro first, then delete your account.");
             return;
           }
           try {

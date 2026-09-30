@@ -37,7 +37,7 @@ export function PlusPage() {
   const [busy, setBusy] = useState(false);
   const [auth, setAuth] = useState(false);
   const done = query.get("done") === "1";
-  // Private testing before Plus is live: /#/plus?test=1 (and ?test=0 to stop).
+  // Private testing before Plus is live: /#/pro?test=1 (and ?test=0 to stop).
   useEffect(() => {
     const t = query.get("test");
     if (t === "1" || t === "0") setPlusTesting(t === "1");
@@ -57,8 +57,8 @@ export function PlusPage() {
       if (stop) return;
       if (s.plus) {
         setWaiting(false);
-        toast("Welcome to Plus! Thank you for supporting SlideQuiz.");
-        navigate("/plus", { replace: true });
+        toast("Welcome to Pro! Thank you for supporting SlideQuiz.");
+        navigate("/pro", { replace: true });
       } else if (++tries < 10) setTimeout(tick, 2000);
       else setWaiting(false);
     };
@@ -93,37 +93,37 @@ export function PlusPage() {
         <Button className="w-full" disabled>
           Coming soon
         </Button>
-        <p className="text-center text-[12.5px] text-muted-foreground">Plus isn't available yet. Check back soon.</p>
+        <p className="text-center text-[12.5px] text-muted-foreground">Pro isn't available yet. Check back soon.</p>
       </div>
     );
   } else if (!account.user) {
     action = (
       <Button className="w-full" onClick={() => setAuth(true)}>
-        Make an account to get Plus
+        Make an account to get Pro
       </Button>
     );
   } else if (waiting) {
-    action = <p className="text-[13.5px] text-muted-foreground">Setting up your Plus…</p>;
+    action = <p className="text-[13.5px] text-muted-foreground">Setting up your Pro…</p>;
   } else if (plan.plus) {
     action = (
       <div className="space-y-2">
-        <p className="text-[13.5px] text-muted-foreground">{plan.cancelling ? `You have Plus until ${date(plan.until)}. It won't renew.` : "You have Plus. Thank you!"}</p>
+        <p className="text-[13.5px] text-muted-foreground">{plan.cancelling ? `You have Pro until ${date(plan.until)}. It won't renew.` : "You have Pro. Thank you!"}</p>
         <Button variant="outline" className="w-full" loading={busy} onClick={() => go(openBilling)}>
-          {plan.cancelling ? "Renew Plus" : "Manage or cancel"}
+          {plan.cancelling ? "Renew Pro" : "Manage or cancel"}
         </Button>
       </div>
     );
   } else {
     action = (
       <Button className="w-full" loading={busy} onClick={() => go(startCheckout)}>
-        Get Plus
+        Get Pro
       </Button>
     );
   }
 
   return (
     <div className="max-w-3xl">
-      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Plus" description="More credits every month, and you help keep SlideQuiz free for everyone." />
+      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Pro" description="More credits every month, and you help keep SlideQuiz free for everyone." />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Plan
@@ -137,7 +137,7 @@ export function PlusPage() {
           ]}
         />
         <Plan
-          name="Plus"
+          name="Pro"
           price={`${PLUS.price} a ${PLUS.period}`}
           highlight
           points={[
@@ -154,7 +154,7 @@ export function PlusPage() {
       <div className="mt-8 space-y-3 text-[13.5px] text-muted-foreground">
         <p>Payments are handled securely by Stripe. SlideQuiz never sees your card details.</p>
         <p>
-          Plus renews every {PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Plus); you keep Plus until the end of the {PLUS.period} you've paid for. Credits reset on the 1st of each month. One credit covers up to about 5,000 words of slide text (a normal 50–60 slide lecture); longer files use more.
+          Pro renews every {PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Pro); you keep Pro until the end of the {PLUS.period} you've paid for. Credits reset on the 1st of each month. One credit covers up to about 5,000 words of slide text (a normal 50–60 slide lecture); longer files use more.
         </p>
         <p>
           Something wrong with a payment? Email <a className="font-medium underline underline-offset-2" href="mailto:slidequiz.help@outlook.com">slidequiz.help@outlook.com</a>.

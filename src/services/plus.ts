@@ -10,7 +10,7 @@ import { authToken, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/ac
 /**
  * Set PLUS_LIVE to true once payments are set up (Stripe + the "plus" helper in Supabase).
  * While false, Plus shows as "Coming soon" and nothing offers it, except on a browser that has
- * opened slidequiz.co.uk/#/plus?test=1 (private testing; ?test=0 turns it off again).
+ * opened slidequiz.co.uk/#/pro?test=1 (private testing; ?test=0 turns it off again).
  */
 const PLUS_LIVE = false;
 const TEST_KEY = "slidequiz:plus-test";
@@ -32,7 +32,7 @@ export function setPlusTesting(on: boolean): boolean {
   } catch {
     return false;
   }
-  location.replace(location.pathname + "#/plus");
+  location.replace(location.pathname + "#/pro");
   location.reload();
   return true;
 }

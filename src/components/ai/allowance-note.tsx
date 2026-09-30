@@ -40,8 +40,8 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
     return (
       <>
         {fewer && "Choose fewer slides, or "}
-        <Link to="/plus" className={link}>
-          {fewer ? "get" : "Get"} Plus
+        <Link to="/pro" className={link}>
+          {fewer ? "get" : "Get"} Pro
         </Link>{" "}
         for 150 a month. Free credits reset on {resetDate(a)}.
       </>
