@@ -14,6 +14,7 @@ import { materialCounts, unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
 import type { Folder, Material, SourceFileType } from "@/types/models";
 import { overallProgress } from "@/services/practice";
+import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
 const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage };
 
@@ -163,7 +164,7 @@ export function MaterialCard({ m, selectable, selected, onSelect }: { m: Materia
           <MaterialIcon m={m} />
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-medium text-muted-foreground">{m.subject}</p>
+          <p className="text-[12px] font-medium text-muted-foreground">{aiReady(m) || usesBuiltIn(m) ? m.subject : "\u00a0"}</p>
           <h3 className="mt-0.5 font-sans text-[15px] font-semibold leading-snug">
             <Link to={`/materials/${m.id}`} className="rounded after:absolute after:inset-0 after:rounded-xl focus-ring">
               {m.title}

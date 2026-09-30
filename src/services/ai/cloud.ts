@@ -1,8 +1,12 @@
 /**
- * Real AI for everyone, through the SlideQuiz helper in Supabase (supabase/functions/ai).
- * Logged-in students use their account; everyone else gets a hidden guest pass (a Supabase
- * anonymous sign-in) used only for AI, so each browser has its own daily allowance.
- * Everything falls back to the built-in rules if the AI is unavailable, so the site always works.
+ * The AI that writes everything students see from their slides: notes, topics, practice
+ * questions, flashcards and answers. It runs through the SlideQuiz helper in Supabase
+ * (supabase/functions/ai). Logged-in students use their account; everyone else gets a hidden
+ * guest pass (a Supabase anonymous sign-in) used only for AI, so each browser has its own allowance.
+ *
+ * If the AI is busy, fails or the daily allowance is used up, the student is told and it tries
+ * again later; nothing is made up by rules instead. The one exception is when the AI helper
+ * isn't set up at all ("off"), where the built-in notes keep the site usable.
  */
 import { hasPlus } from "@/services/plus";
 import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL } from "@/services/account";
@@ -13,7 +17,7 @@ import { nowISO, uid } from "@/lib/utils";
 import type { AINoteSection, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
-export { aiKey, aiReady } from "./ai-key";
+export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
 
 export const AI_ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
 const CHUNK = 45_000;
@@ -22,6 +26,8 @@ export class AIError extends Error {
   constructor(
     message: string,
     public limit = false,
+    /** The AI helper isn't set up (not deployed, or guest passes switched off). */
+    public off = false,
   ) {
     super(message);
   }
@@ -80,7 +86,7 @@ async function aiToken(): Promise<string | null> {
 
 async function call<T>(task: string, body: Record<string, unknown>): Promise<T> {
   const token = await aiToken();
-  if (!token) throw new AIError("AI isn't available right now.");
+  if (!token) throw new AIError("AI isn't available right now.", false, !isLoggedIn());
   let res: Response;
   try {
     res = await fetch(AI_ENDPOINT, {
@@ -92,6 +98,7 @@ async function call<T>(task: string, body: Record<string, unknown>): Promise<T> 
     throw new AIError("Couldn't reach the AI.");
   }
   const data = await res.json().catch(() => ({}));
+  if (res.status === 404) throw new AIError("AI isn't set up yet.", false, true);
   if (!res.ok) throw new AIError(data?.error ?? "The AI couldn't help this time.", !!data?.limit);
   return data as T;
 }
@@ -139,10 +146,12 @@ export function enhanceMaterial(id: ID): Promise<void> {
     try {
       const pages = cloudPages(m0);
       // 1. Notes and topics.
-      const parts = await Promise.all(chunks(pages).map((c) => call<{ sections: AINoteSection[] }>("notes", { title: m0.title, pages: c })));
+      const parts = await Promise.all(chunks(pages).map((c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c })));
       const sections = mergeSections(parts.flatMap((p) => p.sections ?? []), pages);
       if (!sections.length) throw new AIError("No notes came back.");
       applyTopics(id, sections);
+      const subject = parts.map((p) => String(p.subject ?? "").trim()).find((s) => s && s.length <= 40);
+      if (subject) actions.updateMaterial(id, { subject });
       actions.updateMaterial(id, { ai: { key, status: "working", notes: sections, at: nowISO() } });
       // 2. Questions, now the topics are set.
       const m1 = getState().materials.find((x) => x.id === id);
@@ -155,7 +164,11 @@ export function enhanceMaterial(id: ID): Promise<void> {
       actions.updateMaterial(id, { ai: { key, status: "done", notes: sections, questions: drafts.length > 0, at: nowISO() } });
     } catch (e) {
       const cur = getState().materials.find((x) => x.id === id);
-      actions.updateMaterial(id, { ai: { key, status: e instanceof AIError && e.limit ? "limit" : "failed", notes: cur?.ai?.notes, at: nowISO() } });
+      const err = e instanceof AIError ? e : null;
+      const status = err?.off ? "off" : err?.limit ? "limit" : "failed";
+      actions.updateMaterial(id, { ai: { key, status, notes: cur?.ai?.notes, questions: cur?.ai?.questions, at: nowISO() } });
+      // AI not set up at all: make the built-in questions so there's something to practise.
+      if (status === "off") (await import("@/services/practice")).buildPracticeQuestions(id);
     } finally {
       running.delete(id);
     }
@@ -240,22 +253,17 @@ function toDraft(q: CloudQuestion, m: Material, topicOf: Map<ID, ID | null>, lab
   ];
 }
 
-/** Flashcards written by the AI, or null to use the built-in ones. */
-export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ front: string; back: string; pageId: ID }[] | null> {
-  try {
-    const pages = cloudPages(m, topicIds);
-    if (!pages.length) return null;
-    const res = await runLimited(chunks(pages), 2, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>("flashcards", { title: m.title, pages: c }));
-    const cards = res.flatMap((r) => r.cards ?? []).filter((c) => c.front?.trim() && c.back?.trim());
-    return cards.length ? cards : null;
-  } catch {
-    return null;
-  }
+/** Flashcards written by the AI. Throws an AIError if it can't. */
+export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ front: string; back: string; pageId: ID }[]> {
+  const pages = cloudPages(m, topicIds);
+  if (!pages.length) return [];
+  const res = await runLimited(chunks(pages), 2, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>("flashcards", { title: m.title, pages: c }));
+  return res.flatMap((r) => r.cards ?? []).filter((c) => c.front?.trim() && c.back?.trim());
 }
 
-/** An answer about the lecture, or null to use the built-in helper. */
-export async function cloudChat(m: Material, history: { role: string; content: string }[], message: string): Promise<{ answer: string; pageIds: ID[] } | null> {
-  try {
+/** An answer about the lecture. Throws an AIError if it can't. */
+export async function cloudChat(m: Material, history: { role: string; content: string }[], message: string): Promise<{ answer: string; pageIds: ID[] }> {
+  {
     const pages = cloudPages(m);
     // Long lectures: send the slides that share the most words with the question.
     const words = new Set(message.toLowerCase().match(/[a-z]{4,}/g) ?? []);
@@ -263,7 +271,5 @@ export async function cloudChat(m: Material, history: { role: string; content: s
     let chosen = pages;
     if (pages.reduce((n, p) => n + p.text.length, 0) > CHUNK) chosen = [...pages].sort((a, b) => score(b) - score(a)).slice(0, 30).sort((a, b) => pages.indexOf(a) - pages.indexOf(b));
     return await call<{ answer: string; pageIds: ID[] }>("chat", { title: m.title, pages: chosen, history: history.slice(-8), message });
-  } catch {
-    return null;
   }
 }

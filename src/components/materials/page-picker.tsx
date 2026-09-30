@@ -10,6 +10,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { highlightParts, truncate } from "@/lib/text";
 import { cn, parseRange } from "@/lib/utils";
 import type { Material, Page } from "@/types/models";
+import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
 function Highlight({ text, q }: { text: string; q: string }) {
   return (
@@ -91,7 +92,8 @@ export function PagePicker({ material, onToggle, onSetText, focusPageId }: PageP
       </div>
 
       {/* Topics */}
-      {material.topics.length > 1 && (
+      {/* Topic names are shown once the AI has named them. */}
+      {material.topics.length > 1 && (aiReady(material) || usesBuiltIn(material)) && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-[13px] font-medium">
             Sections & topics
@@ -170,7 +172,7 @@ export function PagePicker({ material, onToggle, onSetText, focusPageId }: PageP
       {/* Pages */}
       <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((p) => {
-          const topic = material.topics.find((t) => t.id === p.topicId);
+          const topic = aiReady(material) || usesBuiltIn(material) ? material.topics.find((t) => t.id === p.topicId) : undefined;
           return (
             <li key={p.id} id={`page-${p.id}`}>
               <div

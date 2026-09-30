@@ -37,8 +37,9 @@ ${pages}
 Write revision notes grouped into 2–10 topics in lecture order. Each topic has short parts, each with a clear heading (a few words) and bullet points.
 Keep every fact, figure and definition; drop filler words. A definition becomes {"term": "…", "text": "…"}. Sub-points use "sub": true.
 List the ids of the slides each part comes from, in order, and every slide id must be used at least once.
+Also give the subject in one or two words (e.g. "Biology", "Psychology", "Modern History").
 Reply with JSON only:
-{"sections":[{"title":"…","parts":[{"heading":"…","pageIds":["…"],"points":[{"term":"optional","text":"…","sub":false}]}]}]}`,
+{"subject":"…","sections":[{"title":"…","parts":[{"heading":"…","pageIds":["…"],"points":[{"term":"optional","text":"…","sub":false}]}]}]}`,
   },
   questions: {
     maxTokens: 12000,

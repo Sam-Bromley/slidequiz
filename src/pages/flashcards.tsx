@@ -12,6 +12,7 @@ import { Link, navigate } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { tidySentence } from "@/lib/tidy";
 import { cardsFor } from "@/services/flashcards";
+import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { Deck, Flashcard, ID } from "@/types/models";
@@ -65,6 +66,8 @@ function CreateDialog({ onClose }: { onClose: () => void }) {
       toast(`${plural(cards.length, "flashcard")} made`);
       onClose();
       navigate(`/flashcards/${id}`);
+    } catch (e) {
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -98,7 +101,9 @@ function CreateDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-4">
           <ul className="max-h-[50vh] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
             {mats.map((m) => {
-              const topicIds = m.topics.filter((t) => m.pages.some((p) => p.included && p.topicId === t.id)).map((t) => t.id);
+              // Topics can be picked once the AI has named them; until then it's the whole lecture.
+              const named = aiReady(m) || usesBuiltIn(m);
+              const topicIds = named ? m.topics.filter((t) => m.pages.some((p) => p.included && p.topicId === t.id)).map((t) => t.id) : [];
               const sel = picked[m.id];
               const expanded = open === m.id;
               return (
@@ -108,7 +113,7 @@ function CreateDialog({ onClose }: { onClose: () => void }) {
                     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setOpen(expanded ? null : m.id)}>
                       <span className="block truncate text-[14px] font-medium">{m.title}</span>
                       <span className="block text-[12px] text-muted-foreground">
-                        {sel && sel !== "all" ? `${sel.length} of ${plural(topicIds.length, "topic")}` : plural(topicIds.length, "topic")}
+                        {!named ? "Whole lecture" : sel && sel !== "all" ? `${sel.length} of ${plural(topicIds.length, "topic")}` : plural(topicIds.length, "topic")}
                       </span>
                     </button>
                     {topicIds.length > 1 && (

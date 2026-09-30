@@ -15,7 +15,7 @@ import { Tabs, tabPanelProps } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { Link, useLocation } from "@/lib/router";
 import { notesExportDoc } from "@/services/notes";
-import { enhanceMaterial } from "@/services/ai/cloud";
+import { aiQuestionsReady, aiReady, enhanceMaterial, usesBuiltIn } from "@/services/ai/cloud";
 import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
@@ -91,9 +91,9 @@ export function MaterialDetailPage({ id }: { id: string }) {
     <div>
       <PageHeader
         back={{ to: "/materials", label: "My Materials" }}
-        eyebrow={m.subject}
+        eyebrow={aiReady(m) || usesBuiltIn(m) ? m.subject : undefined}
         title={m.title}
-        description={`${included} of ${m.pages.length} ${unitWord(m)} · ${prog.total} questions · ${prog.pct}% covered`}
+        description={prog.total ? `${included} of ${m.pages.length} ${unitWord(m)} · ${prog.total} questions · ${prog.pct}% covered` : `${included} of ${m.pages.length} ${unitWord(m)}`}
         actions={
           <>
             <Button
@@ -118,18 +118,9 @@ export function MaterialDetailPage({ id }: { id: string }) {
         }
         className="mb-4 sm:mb-5"
       />
-      {m.ai?.status === "working" && (
+      {m.ai?.status === "working" && aiReady(m) && !aiQuestionsReady(m) && (
         <p className="-mt-2 mb-4 flex items-center gap-2 text-[13px] text-muted-foreground" aria-live="polite">
-          <Loader2 className="size-3.5 animate-spin" /> {m.ai.notes ? "Writing better questions with AI…" : "Writing your notes with AI…"}
-        </p>
-      )}
-      {m.ai?.status === "limit" && (
-        <p className="-mt-2 mb-4 text-[13px] text-muted-foreground">
-          You've used today's AI allowance, so this uses the standard notes. It resets tomorrow, or{" "}
-          <Link to="/plus" className="font-medium text-foreground underline underline-offset-2">
-            get Plus
-          </Link>{" "}
-          for more.
+          <Loader2 className="size-3.5 animate-spin" /> Writing your practice questions…
         </p>
       )}
       <Tabs

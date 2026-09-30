@@ -1,11 +1,11 @@
 /**
- * Flashcards made from materials. Only facts with a single short answer become cards:
- * a definition asks for the term ("The green pigment that absorbs light energy" → Chlorophyll),
- * and a fill-the-gap card is kept only when the missing word is a real key term or a figure.
+ * Flashcards made from materials, written by the AI. Only if the AI helper isn't set up at all
+ * do the built-in rules make them: a definition asks for the term, and a fill-the-gap card is
+ * kept only when the missing word is a real key term or a figure.
  */
 import { getAI } from "@/services/ai";
 import { groundingFor } from "@/services/grounding";
-import { cloudFlashcards } from "@/services/ai/cloud";
+import { AIError, cloudFlashcards } from "@/services/ai/cloud";
 import type { ID, Material } from "@/types/models";
 
 export interface CardDraft {
@@ -19,8 +19,13 @@ export interface CardDraft {
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function cardsFor(m: Material, topicIds: ID[] = []): Promise<CardDraft[]> {
-  // Logged in: the AI writes the cards. Otherwise (or if it can't), the built-in rules do.
-  const ai = await cloudFlashcards(m, topicIds);
+  let ai: Awaited<ReturnType<typeof cloudFlashcards>> | null = null;
+  try {
+    ai = await cloudFlashcards(m, topicIds);
+  } catch (e) {
+    const err = e instanceof AIError ? e : null;
+    if (!err?.off) throw new Error(err?.limit ? "You've used today's AI allowance. It resets tomorrow, or get Plus for more." : "The AI couldn't make your flashcards just now. Try again in a minute.");
+  }
   if (ai) {
     const seen = new Set<string>();
     return ai.flatMap((c) => {

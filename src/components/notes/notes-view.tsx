@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
 import { ChatPanel } from "@/components/tutor/chat-panel";
+import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -138,6 +139,7 @@ export function NotesView({ material }: { material: Material }) {
     return () => document.removeEventListener("keydown", k);
   }, [asking]);
 
+  if (!sections.length && hasText(material)) return <AIWaiting material={material} what="notes" />;
   if (!sections.length)
     return (
       <div className="rounded-2xl border border-dashed py-14 text-center">

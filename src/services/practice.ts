@@ -3,7 +3,7 @@
  * deciding which question comes next, and shuffling the options each time one is shown.
  */
 import { getAI } from "@/services/ai";
-import { aiReady } from "@/services/ai/ai-key";
+import { aiQuestionsReady, usesBuiltIn } from "@/services/ai/ai-key";
 import { tidyOption } from "@/lib/tidy";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
@@ -11,19 +11,22 @@ import { getState } from "@/store/store";
 import type { AppData } from "@/services/db/types";
 import type { ID, Material, Question } from "@/types/models";
 
-/** (Re)build a material's multiple-choice questions from its included slides. */
+/**
+ * Built-in questions, used only while the AI helper isn't set up at all. Normally the AI writes
+ * every question (see enhanceMaterial), so this does nothing.
+ */
 export async function buildPracticeQuestions(materialId: ID) {
   const m = getState().materials.find((x) => x.id === materialId);
-  if (!m) return;
-  // The AI's questions for these exact slides are kept (they're better than the built-in ones).
-  if (m.ai?.questions && aiReady(m)) return;
+  if (!m || !usesBuiltIn(m)) return;
   const { pages, topics } = groundingFor([m]);
   const drafts = await getAI().mcqSet(pages, topics, m.subject);
   actions.setPracticeQuestions(materialId, drafts);
 }
 
+/** The questions to practise: the AI's for the slides as they are now (none while it's writing them). */
 export function practiceSet(d: AppData, materialId: ID): Question[] {
   const m = d.materials.find((x) => x.id === materialId);
+  if (m && !aiQuestionsReady(m) && !usesBuiltIn(m)) return [];
   const order = new Map(m?.pages.map((p) => [p.id, p.index]) ?? []);
   return d.questions
     .filter((q) => q.materialId === materialId && q.pool)

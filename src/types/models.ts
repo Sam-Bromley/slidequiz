@@ -151,7 +151,8 @@ export interface AINoteSection {
 export interface MaterialAI {
   /** Which slides (and their text) the AI worked from; if the slides change, it runs again. */
   key: string;
-  status: "working" | "done" | "failed" | "limit";
+  /** "off": the AI helper isn't set up yet, so the built-in notes and questions are used. */
+  status: "working" | "done" | "failed" | "limit" | "off";
   notes?: AINoteSection[];
   /** True once the questions are the AI's. */
   questions?: boolean;

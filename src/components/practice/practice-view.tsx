@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
+import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
@@ -272,7 +273,9 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
         </div>
       </div>
 
-      {!all.length ? (
+      {!all.length && !mixed && hasText(material) && material.ai?.status !== "done" ? (
+        <AIWaiting material={material} what="questions" />
+      ) : !all.length ? (
         <div className="rounded-2xl border border-dashed py-14 text-center">
           <p className="font-medium">No questions yet</p>
           <p className="mt-1 text-[14px] text-muted-foreground">Questions are made from the facts in your slides. Include slides with some text to get started.</p>

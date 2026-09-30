@@ -6,7 +6,7 @@ import { extractDefinitions, tidyHeading, splitSentences, stripTrailingPunct, wo
 import type { ID, Material, Page, PageImage } from "@/types/models";
 import { REFERENCE_TITLE, stripReferences } from "@/lib/references";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
-import { aiReady } from "@/services/ai/ai-key";
+import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
 export interface NoteLine {
   kind: "bullet" | "para" | "sub";
@@ -199,10 +199,14 @@ function aiNotes(m: Material): NoteSection[] {
   }));
 }
 
-/** The whole material as notes: the AI's when available, otherwise the built-in version. */
+/**
+ * The whole material as notes, written by the AI. Empty while the AI is still writing them
+ * (the page shows that instead). The built-in version is only used if the AI isn't set up at all.
+ */
 export function buildNotes(m: Material): NoteSection[] {
   if (aiReady(m)) return aiNotes(m);
-  return ruleNotes(m);
+  if (usesBuiltIn(m)) return ruleNotes(m);
+  return [];
 }
 
 /** Every included slide appears, even one that's only a title. */
