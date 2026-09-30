@@ -12,7 +12,7 @@ import { authToken, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/ac
  * While false, Plus shows as "Coming soon" and nothing offers it, except on a browser that has
  * opened slidequiz.co.uk/#/pro?test=1 (private testing; ?test=0 turns it off again).
  */
-const PLUS_LIVE = false;
+const PLUS_LIVE = true;
 const TEST_KEY = "slidequiz:plus-test";
 const testing = (() => {
   try {
