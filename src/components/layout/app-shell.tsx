@@ -18,11 +18,12 @@ import { NAV } from "./nav";
 
 const SB_DEFAULT = 248;
 const SB_MIN = 68;
-const SB_MAX = 360;
+/** It never gets wider than the normal size. */
+const SB_MAX = SB_DEFAULT;
 /** Below this width the sidebar shows icons only. */
-const SB_COMPACT = 170;
+const SB_COMPACT = 150;
 /** How close (px) the edge has to come to the normal size before it clicks onto it. */
-const SB_SNAP = 28;
+const SB_SNAP = 14;
 
 /** Magnet: near the normal size it clicks onto it; narrow enough and it clicks to icons only. */
 const snapWidth = (w: number) => (Math.abs(w - SB_DEFAULT) <= SB_SNAP ? SB_DEFAULT : w < SB_COMPACT ? SB_MIN : w);
@@ -31,7 +32,7 @@ function Sidebar() {
   const { path } = useLocation();
   const data = useData();
   const pro = usePlanQuiet().plus;
-  const saved = data.settings.sidebarWidth ?? SB_DEFAULT;
+  const saved = Math.min(SB_MAX, data.settings.sidebarWidth ?? SB_DEFAULT);
   const [live, setLive] = useState<number | null>(null);
   const width = live ?? saved;
   const compact = width < SB_COMPACT;
@@ -44,25 +45,25 @@ function Sidebar() {
     document.documentElement.classList.add("sb-dragging");
     document.body.style.cursor = "ew-resize";
     let last = w0;
-    let glide = 0;
+    let frame = 0;
     const move = (ev: PointerEvent) => {
-      const next = snapWidth(Math.round(Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0))));
-      if (next !== last) {
-        // Let the width glide when it clicks into place, and follow the pointer otherwise.
-        const snapping = next === SB_DEFAULT || next === SB_MIN || last === SB_DEFAULT || last === SB_MIN;
-        document.documentElement.classList.toggle("sb-dragging", !snapping);
-        if (snapping) clearTimeout(glide), (glide = window.setTimeout(() => document.documentElement.classList.add("sb-dragging"), 160));
-      }
+      // Follows the pointer smoothly; clicks onto the normal size and onto icons only.
+      const next = snapWidth(Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0)));
+      if (next === last) return;
       last = next;
-      setLive(last);
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setLive(last);
+      });
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       document.documentElement.classList.remove("sb-dragging");
       document.body.style.cursor = "";
-      clearTimeout(glide);
-      const final = snapWidth(last);
+      cancelAnimationFrame(frame);
+      const final = Math.round(snapWidth(last));
       actions.updateSettings({ sidebarWidth: final });
       setLive(null);
     };
@@ -91,7 +92,7 @@ function Sidebar() {
     <aside className="sb-anim fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-background/45 backdrop-blur-xl lg:flex" style={{ width }} aria-label="Sidebar">
       <div className={cn("group/sb flex h-14 items-center", compact ? "justify-center px-2" : "justify-between px-4")}>
         <Link to="/" className="rounded-md focus-ring" aria-label="SlideQuiz home">
-          {compact ? <LogoMark className="size-7" /> : <Logo pro={pro} />}
+          {compact ? <LogoMark className="size-7" /> : <Logo pro={pro && width >= 196} />}
         </Link>
         {!compact && (
           <button
