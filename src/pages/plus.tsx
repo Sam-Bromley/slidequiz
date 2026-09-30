@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { navigate, useLocation } from "@/lib/router";
 import { useAccount } from "@/services/account";
-import { openBilling, PLUS, PLUS_ON, refreshPlan, startCheckout, usePlan } from "@/services/plus";
+import { openBilling, PLUS, PLUS_ON, refreshPlan, setPlusTesting, startCheckout, usePlan } from "@/services/plus";
 
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
 
@@ -37,6 +37,11 @@ export function PlusPage() {
   const [busy, setBusy] = useState(false);
   const [auth, setAuth] = useState(false);
   const done = query.get("done") === "1";
+  // Private testing before Plus is live: /#/plus?test=1 (and ?test=0 to stop).
+  useEffect(() => {
+    const t = query.get("test");
+    if (t === "1" || t === "0") setPlusTesting(t === "1");
+  }, [query]);
   const [waiting, setWaiting] = useState(done);
   useEffect(() => {
     if (done) setWaiting(true);

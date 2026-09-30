@@ -8,10 +8,34 @@ import { authToken, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/ac
 
 /** Shown on the Plus page. Keep in step with the Stripe price and the limits in ai-setup.sql. */
 /**
- * Set to true once payments are set up (Stripe + the "plus" helper in Supabase).
- * While false, Plus shows as "Coming soon" and nothing offers it.
+ * Set PLUS_LIVE to true once payments are set up (Stripe + the "plus" helper in Supabase).
+ * While false, Plus shows as "Coming soon" and nothing offers it, except on a browser that has
+ * opened slidequiz.co.uk/#/plus?test=1 (private testing; ?test=0 turns it off again).
  */
-export const PLUS_ON = false;
+const PLUS_LIVE = false;
+const TEST_KEY = "slidequiz:plus-test";
+const testing = (() => {
+  try {
+    return localStorage.getItem(TEST_KEY) === "1";
+  } catch {
+    return false;
+  }
+})();
+export const PLUS_ON = PLUS_LIVE || testing;
+
+/** Handles ?test=1 / ?test=0 on the Plus page. Returns true if the page is reloading. */
+export function setPlusTesting(on: boolean): boolean {
+  if (on === testing) return false;
+  try {
+    if (on) localStorage.setItem(TEST_KEY, "1");
+    else localStorage.removeItem(TEST_KEY);
+  } catch {
+    return false;
+  }
+  location.replace(location.pathname + "#/plus");
+  location.reload();
+  return true;
+}
 
 export const PLUS = {
   price: "£3.99",
