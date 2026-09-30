@@ -12,11 +12,12 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, pro }: { className?: string; pro?: boolean }) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <LogoMark className="size-6" />
-      <span className="text-[15.5px] font-semibold tracking-[-0.02em]">SlideQuiz</span>
+      <span className="text-[16px] font-bold tracking-[-0.025em] text-foreground">SlideQuiz</span>
+      {pro && <span className="rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground">Pro</span>}
     </span>
   );
 }

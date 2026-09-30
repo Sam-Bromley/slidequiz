@@ -1,5 +1,5 @@
 import { emptyData } from "./defaults";
-import { nowISO, uid } from "@/lib/utils";
+import { nowISO, uid, dayKey } from "@/lib/utils";
 import type { FlashcardDraft, QuestionDraft } from "@/services/ai/types";
 import type { AppData } from "@/services/db/types";
 import { newSrs, schedule } from "@/services/study/srs";
@@ -28,7 +28,11 @@ type Undo = () => void;
 const XP = { correct: 10, partial: 4, card: 2, quiz: 25 };
 
 function addXp(s: AppData, n: number): AppData {
-  return { ...s, user: { ...s.user, xp: Math.max(0, s.user.xp + n) } };
+  // Also notes today as a study day, for the streak.
+  const today = dayKey(new Date());
+  const days = s.user.studyDays ?? [];
+  const studyDays = days[days.length - 1] === today ? days : [...days, today].slice(-400);
+  return { ...s, user: { ...s.user, xp: Math.max(0, s.user.xp + n), studyDays } };
 }
 
 /** Folders keep the order the student dragged them into; new ones go at the end. */

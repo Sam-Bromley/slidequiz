@@ -15,6 +15,15 @@ import { SCENE_ORDER, SCENES, ScenePreview } from "./app-background";
 
 export const sceneLabel = (s: BackgroundScene) => (s === "none" ? "Plain" : SCENES[s].label);
 
+const ACCENTS = [
+  { key: "default", label: "Default", swatch: "hsl(var(--foreground))" },
+  { key: "blue", label: "Blue", swatch: "#2563eb" },
+  { key: "green", label: "Green", swatch: "#16a34a" },
+  { key: "purple", label: "Purple", swatch: "#8b5cf6" },
+  { key: "pink", label: "Pink", swatch: "#ec4899" },
+  { key: "orange", label: "Orange", swatch: "#f97316" },
+] as const;
+
 /** Top-right personalise panel: theme + background preset. */
 export function Personalise() {
   const data = useData();
@@ -76,6 +85,36 @@ export function Personalise() {
                 {t.label}
               </button>
             ))}
+          </div>
+          <p className="flex items-center gap-1.5 px-1 pb-2 pt-4 text-[12px] font-medium text-muted-foreground">
+            Accent colour
+            {!plan.plus && <span className="rounded-full bg-foreground px-1.5 py-px text-[10px] font-semibold text-background">Pro</span>}
+          </p>
+          <div className="flex flex-wrap gap-2 px-1" role="radiogroup" aria-label="Accent colour">
+            {ACCENTS.map((a) => {
+              const on = plan.plus ? (data.settings.accent ?? "default") === a.key : a.key === "default";
+              return (
+                <button
+                  key={a.key}
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={a.label}
+                  title={a.label}
+                  onClick={() => {
+                    if (plan.plus) actions.updateSettings({ accent: a.key });
+                    else if (a.key !== "default") {
+                      setOpen(false);
+                      toast("Accent colours are part of SlideQuiz Pro");
+                      navigate("/pro");
+                    }
+                  }}
+                  className={cn("grid size-7 place-items-center rounded-full border-2 transition-transform hover:scale-110 focus-ring", on ? "border-foreground" : "border-transparent")}
+                  style={{ background: a.swatch }}
+                >
+                  {on && <Check className={cn("size-3.5", a.key === "default" ? "text-background" : "text-white")} strokeWidth={3} />}
+                </button>
+              );
+            })}
           </div>
           <p className="px-1 pb-2 pt-4 text-[12px] font-medium text-muted-foreground">Background</p>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Background">

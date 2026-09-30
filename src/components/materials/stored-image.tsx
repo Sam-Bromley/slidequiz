@@ -13,7 +13,7 @@ export function StoredImage({ id, alt, className }: { id: string; alt: string; c
       live = false;
     };
   }, [id]);
-  if (src === undefined) return <span className={cn("block animate-pulse bg-muted", className)} aria-hidden />;
+  if (src === undefined) return <span className={cn("shimmer block", className)} aria-hidden />;
   if (!src)
     return (
       <span className={cn("grid place-items-center bg-muted text-muted-foreground", className)} role="img" aria-label={`${alt} (not available on this device)`}>

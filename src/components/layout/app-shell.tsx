@@ -1,7 +1,8 @@
 import { Settings, Upload, X } from "lucide-react";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
-import { usePlan } from "@/services/plus";
+import { StreakFlame } from "./streak";
+import { usePlan, usePlanQuiet } from "@/services/plus";
 import { useBackgroundPhotoUrl } from "@/services/background-photo";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -18,7 +19,7 @@ function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r bg-background/45 backdrop-blur-xl lg:flex" aria-label="Sidebar">
       <div className="flex h-14 items-center px-4">
         <Link to="/" className="rounded-md focus-ring" aria-label="SlideQuiz home">
-          <Logo />
+          <Logo pro={usePlanQuiet().plus} />
         </Link>
       </div>
       <nav className="px-2.5" aria-label="Main" data-no-bounce>
@@ -58,9 +59,10 @@ function MobileTopBar(_: { onMenu: () => void }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-1 bg-background/40 px-3 backdrop-blur-xl lg:hidden" style={{ top: "env(safe-area-inset-top, 0px)" }}>
       <Link to="/" className="mr-auto rounded-md focus-ring" aria-label="SlideQuiz home">
-        <Logo />
+        <Logo pro={usePlanQuiet().plus} />
       </Link>
-      <Personalise />
+      <StreakFlame />
+          <Personalise />
       <SettingsButton />
     </header>
   );
@@ -144,6 +146,18 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
   // Pro members' own photo (only while they have Pro, and only on the device it was added on).
   const plan = usePlan();
   const photoUrl = useBackgroundPhotoUrl(plan.plus && data.settings.bgPhotoOn ? data.settings.bgPhoto : undefined);
+  // Pro accent colour on the whole page (only while they have Pro).
+  const accent = plan.plus && data.settings.accent && data.settings.accent !== "default" ? data.settings.accent : null;
+  useEffect(() => {
+    const cl = document.documentElement.classList;
+    for (const c of [...cl]) if (c.startsWith("accent-")) cl.remove(c);
+    if (accent) cl.add(`accent-${accent}`);
+    try {
+      localStorage.setItem("slidequiz:accent", accent ?? "");
+    } catch {
+      /* storage blocked */
+    }
+  }, [accent]);
   const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} photo={photoUrl} />;
   if (bare)
     return (
@@ -163,6 +177,7 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       <MobileDrawer open={drawer} onClose={() => setDrawer(false)} />
       <div className="lg:pl-[248px]">
         <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 px-4 lg:flex">
+          <StreakFlame />
           <Personalise />
           <SettingsButton />
         </div>

@@ -135,6 +135,17 @@
     color-scheme: light;
   }
   .warmlight img { filter: sepia(0.25) saturate(0.9); }
+
+  /* "Brand" colour for progress rings and highlights: the text colour, unless a Pro accent is picked. */
+  :root { --brand: var(--foreground); }
+
+  /* Loading placeholder: a soft light sweeping across. */
+  .shimmer {
+    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--accent)) 50%, hsl(var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .shimmer { animation: none; } }
   .warmlight .scene-root { filter: sepia(0.4) saturate(0.85); }
   .warm img { filter: sepia(0.35) saturate(0.85) brightness(0.9); }
   .warm .scene-root { filter: sepia(0.55) saturate(0.8) brightness(0.8); }
@@ -172,3 +183,16 @@
   body { background: #fff !important; color: #000 !important; }
   .no-print { display: none !important; }
 }
+
+/* Outside @layer so the build keeps them (the class names are made in code: accent-${colour}). */
+/* Pro accent colours: buttons, focus rings and highlights. */
+html.accent-blue { --primary: 221 83% 53%; --primary-foreground: 0 0% 100%; --ring: 221 83% 53%; --brand: 221 83% 53%; }
+html.accent-green { --primary: 152 60% 36%; --primary-foreground: 0 0% 100%; --ring: 152 60% 36%; --brand: 152 60% 36%; }
+html.accent-purple { --primary: 262 70% 58%; --primary-foreground: 0 0% 100%; --ring: 262 70% 58%; --brand: 262 70% 58%; }
+html.accent-pink { --primary: 330 75% 55%; --primary-foreground: 0 0% 100%; --ring: 330 75% 55%; --brand: 330 75% 55%; }
+html.accent-orange { --primary: 24 90% 50%; --primary-foreground: 0 0% 100%; --ring: 24 90% 50%; --brand: 24 90% 50%; }
+html.dark.accent-blue { --primary: 217 91% 65%; --primary-foreground: 222 50% 10%; --ring: 217 91% 65%; --brand: 217 91% 65%; }
+html.dark.accent-green { --primary: 150 55% 52%; --primary-foreground: 150 60% 8%; --ring: 150 55% 52%; --brand: 150 55% 52%; }
+html.dark.accent-purple { --primary: 262 85% 72%; --primary-foreground: 262 50% 12%; --ring: 262 85% 72%; --brand: 262 85% 72%; }
+html.dark.accent-pink { --primary: 330 85% 70%; --primary-foreground: 330 50% 12%; --ring: 330 85% 70%; --brand: 330 85% 70%; }
+html.dark.accent-orange { --primary: 28 95% 62%; --primary-foreground: 28 60% 10%; --ring: 28 95% 62%; --brand: 28 95% 62%; }

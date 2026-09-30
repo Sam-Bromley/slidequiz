@@ -15,6 +15,7 @@ import { useData } from "@/store/store";
 import type { Folder, Material, SourceFileType } from "@/types/models";
 import { overallProgress } from "@/services/practice";
 import { ResizeEdge } from "@/components/ui/resizable";
+import { ProgressRing } from "@/components/ui/progress-ring";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
 const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage, audio: AudioLines, video: Video, youtube: CirclePlay };
@@ -174,16 +175,13 @@ export function MaterialCard({ m, selectable, selected, onSelect, drag, width, o
           <Menu label={`${m.title} actions`} items={items} trigger={(p) => <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${m.title}`} {...p}><MoreHorizontal /></Button>} />
         </div>
       </div>
-      <div className="mt-4">
-        <div className="mb-1.5 flex items-center justify-between text-[12.5px] text-muted-foreground">
-          <span>{prog.total ? `${prog.covered} of ${prog.total} covered` : `${c.included} of ${c.pages} ${unitWord(m)}`}</span>
-          <span className="font-medium tabular-nums text-foreground">{prog.pct}%</span>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div className="min-w-0 text-[12.5px] text-muted-foreground">
+          <p>{prog.total ? `${prog.covered} of ${prog.total} covered` : `${c.included} of ${c.pages} ${unitWord(m)}`}</p>
+          <p className="mt-0.5 text-[12px]">{m.lastStudiedAt ? `Practised ${relativeTime(m.lastStudiedAt)}` : `Added ${relativeTime(m.createdAt)}`}</p>
         </div>
-        <div className="h-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-foreground" style={{ width: `${prog.pct}%` }} />
-        </div>
+        <ProgressRing pct={prog.pct} />
       </div>
-      <p className="mt-3 text-[12px] text-muted-foreground">{m.lastStudiedAt ? `Practised ${relativeTime(m.lastStudiedAt)}` : `Added ${relativeTime(m.createdAt)}`}</p>
       {onResizeStart && <ResizeEdge onPointerDown={onResizeStart} label="Drag to resize" />}
       {dialogs}
     </article>

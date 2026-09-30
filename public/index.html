@@ -40,6 +40,10 @@
         c.toggle("dark", !light);
         c.toggle("warm", t === "warm");
         c.toggle("warmlight", t === "warmlight");
+        try {
+          var ac = localStorage.getItem("slidequiz:accent");
+          if (ac) c.add("accent-" + ac);
+        } catch (e) {}
       })();
     </script>
     <link rel="stylesheet" href="app.css" />

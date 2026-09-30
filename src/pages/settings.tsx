@@ -10,8 +10,9 @@ import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
-import { download } from "@/lib/utils";
+import { cn, download } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import { Link } from "@/lib/router";
@@ -60,10 +61,10 @@ function AllowanceRow() {
   const pct = a ? Math.max(0, Math.min(100, Math.round(((a.allowance - a.used) / a.allowance) * 100))) : 0;
   return (
     <div className="flex items-center gap-3">
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Credits left">
-        <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${pct}%` }} />
+      <div className={cn("h-2 flex-1 overflow-hidden rounded-full", a ? "bg-muted" : "shimmer")} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Credits left">
+        <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
-      <span className="shrink-0 text-[13.5px] font-medium tabular-nums">{a ? `${left}/${total} left` : "…"}</span>
+      {a ? <span className="shrink-0 text-[13.5px] font-medium tabular-nums">{`${left}/${total} left`}</span> : <Shimmer className="h-4 w-16" />}
     </div>
   );
 }

@@ -367,6 +367,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                     "flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
                     !sAnswered && "hover:border-foreground/40 hover:bg-accent",
                     sAnswered && isRight && "border-success bg-success-soft",
+                    !rev && sAnswered && isRight && isChosen && "animate-correct-glow",
                     sAnswered && isChosen && !isRight && "border-destructive bg-destructive-soft",
                     sAnswered && !isRight && !isChosen && "opacity-60",
                   )}
@@ -377,7 +378,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                       sAnswered && isRight ? "border-success bg-success text-success-foreground" : sAnswered && isChosen ? "border-destructive bg-destructive text-destructive-foreground" : "text-muted-foreground",
                     )}
                   >
-                    {sAnswered && isRight ? <Check className="size-3.5" strokeWidth={3} /> : sAnswered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
+                    {sAnswered && isRight ? <Check className={cn("size-3.5", !rev && isChosen && "animate-tick-pop")} strokeWidth={3} /> : sAnswered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
                   </span>
                   <span className="pt-0.5">{tidyOption(o)}</span>
                 </button>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AuthDialog } from "@/components/account/auth-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
 import { navigate, useLocation } from "@/lib/router";
 import { useAccount } from "@/services/account";
@@ -87,7 +88,9 @@ export function PlusPage() {
   };
 
   let action: React.ReactNode;
-  if (!PLUS_ON && !plan.plus) {
+  if (account.user && !plan.loaded) {
+    action = <Shimmer className="h-9 w-full rounded-lg" />;
+  } else if (!PLUS_ON && !plan.plus) {
     action = (
       <div className="space-y-2">
         <Button className="w-full" disabled>
@@ -146,7 +149,7 @@ export function PlusPage() {
             "Everything in Free",
             `${PLUS.plusLectures} credits a month`,
             "Notes from lecture recordings (audio and video) and YouTube videos",
-            "Use your own photo as the background",
+            "Your own photo as the background, accent colours and coloured folders",
             "Never held up when SlideQuiz is busy",
             "Cancel any time",
           ]}

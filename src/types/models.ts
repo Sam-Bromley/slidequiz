@@ -32,6 +32,8 @@ export interface User {
   level: AcademicLevel;
   createdAt: ISODate;
   xp: number;
+  /** Days (YYYY-MM-DD, local) on which the student practised or revised: for the streak. */
+  studyDays?: string[];
 }
 
 /** "warmlight" is only ever automatic: night light on top of the Light theme. */
@@ -50,6 +52,8 @@ export interface Settings {
   nightEnd?: string;
   /** Decorative background preset. */
   scene?: BackgroundScene;
+  /** Pro: accent colour for buttons and highlights. */
+  accent?: "default" | "blue" | "green" | "purple" | "pink" | "orange";
   /** Pro: the student's own background photo (an id in the on-device image store). */
   bgPhoto?: string;
   /** Pro: show that photo instead of the chosen scene. */

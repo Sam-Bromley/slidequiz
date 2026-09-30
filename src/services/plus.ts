@@ -91,6 +91,15 @@ export async function refreshPlan(userId: string | null): Promise<PlanState> {
   return state;
 }
 
+/** The plan as last fetched, without fetching again (for small things like badges and colours). */
+export function usePlanQuiet(): PlanState {
+  return useSyncExternalStore(
+    (l) => (listeners.add(l), () => listeners.delete(l)),
+    () => state,
+    () => state,
+  );
+}
+
 /** The student's plan, kept up to date as they log in and out. */
 export function usePlan(): PlanState {
   const account = useAccount();

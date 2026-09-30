@@ -13,6 +13,7 @@ import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { actions, folderOrder } from "@/store/actions";
 import { useDragReorder } from "@/components/ui/drag-reorder";
+import { usePlanQuiet } from "@/services/plus";
 import { highlightParts, searchNotes } from "@/services/search";
 import { daysUntil, examLabel, folderCoverage, materialsIn } from "@/services/folders";
 import { useData } from "@/store/store";
@@ -145,7 +146,9 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: {
   // Each folder has its own width; drag its right edge to change it.
   const { width, start: onResizeStart } = useResizableWidth(f.width, otherWidths, (w) => actions.setFolderWidth(f.id, w));
   const [colouring, setColouring] = useState(false);
-  const hex = colourOf(f.color);
+  // Folder colours are a Pro feature.
+  const pro = usePlanQuiet().plus;
+  const hex = pro ? colourOf(f.color) : undefined;
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [dating, setDating] = useState(false);
@@ -184,7 +187,17 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: {
           label={`${f.name} actions`}
           items={[
             { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
-            { label: "Colour", icon: Palette, onSelect: () => setColouring(true) },
+            {
+              label: pro ? "Colour" : "Colour (Pro)",
+              icon: Palette,
+              onSelect: () => {
+                if (pro) setColouring(true);
+                else {
+                  toast("Folder colours are part of SlideQuiz Pro");
+                  navigate("/pro");
+                }
+              },
+            },
             { label: f.examDate ? "Change exam date" : "Add exam date", icon: CalendarDays, onSelect: () => setDating(true) },
             { label: "Delete folder", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
           ]}

@@ -46,7 +46,7 @@ export function AIWaiting({ material, what }: { material: Material; what: "notes
       <p className="mt-1 text-[13.5px] text-muted-foreground">This usually takes under a minute. You can look around while you wait.</p>
       <div className="mt-6 space-y-3" aria-hidden>
         {[92, 78, 85, 60, 88, 70].map((w, i) => (
-          <div key={i} className="h-3 animate-pulse rounded-full bg-muted" style={{ width: `${w}%`, animationDelay: `${i * 120}ms` }} />
+          <div key={i} className="shimmer h-3 rounded-full" style={{ width: `${w}%`, animationDelay: `${i * 120}ms` }} />
         ))}
       </div>
     </div>
