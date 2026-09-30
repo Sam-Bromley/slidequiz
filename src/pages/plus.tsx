@@ -108,9 +108,11 @@ export function PlusPage() {
     action = (
       <div className="space-y-2">
         <p className="text-[13.5px] text-muted-foreground">{plan.cancelling ? `You have Pro until ${date(plan.until)}. It won't renew.` : "You have Pro. Thank you!"}</p>
-        <Button variant="outline" className="w-full" loading={busy} onClick={() => go(openBilling)}>
-          {plan.cancelling ? "Renew Pro" : "Manage or cancel"}
-        </Button>
+        {plan.customer && (
+          <Button variant="outline" className="w-full" loading={busy} onClick={() => go(openBilling)}>
+            {plan.cancelling ? "Renew Pro" : "Manage or cancel"}
+          </Button>
+        )}
       </div>
     );
   } else {

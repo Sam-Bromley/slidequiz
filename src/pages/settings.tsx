@@ -128,7 +128,9 @@ export function SettingsPage() {
             label={plan.plus ? "SlideQuiz Pro" : "Get more with Pro"}
             hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} credits a month, ${PLUS.price} a ${PLUS.period}`}
           >
-            {plan.plus ? (
+            {plan.plus && !plan.customer ? (
+              <span />
+            ) : plan.plus ? (
               <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
                 Manage or cancel
               </Button>
@@ -267,11 +269,11 @@ export function SettingsPage() {
         open={deletingAccount}
         onClose={() => setDeletingAccount(false)}
         title="Delete your account?"
-        description={plan.plus && !plan.cancelling ? "You still have Pro. Cancel it first with Settings → Manage or cancel, or you'll keep being charged. Then delete your account." : "Your login, email address and everything saved to your account are deleted. This can't be undone."}
+        description={plan.plus && plan.customer && !plan.cancelling ? "You still have Pro. Cancel it first with Settings → Manage or cancel, or you'll keep being charged. Then delete your account." : "Your login, email address and everything saved to your account are deleted. This can't be undone."}
         requireText="delete"
         confirmLabel="Delete account"
         onConfirm={async () => {
-          if (plan.plus && !plan.cancelling) {
+          if (plan.plus && plan.customer && !plan.cancelling) {
             toast("Cancel Pro first, then delete your account.");
             return;
           }
