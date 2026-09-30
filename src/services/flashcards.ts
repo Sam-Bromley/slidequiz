@@ -24,7 +24,7 @@ export async function cardsFor(m: Material, topicIds: ID[] = []): Promise<CardDr
     ai = await cloudFlashcards(m, topicIds);
   } catch (e) {
     const err = e instanceof AIError ? e : null;
-    if (!err?.off) throw new Error(err?.limit ? "You've used today's AI allowance. It resets tomorrow, or get Plus for more." : "The AI couldn't make your flashcards just now. Try again in a minute.");
+    if (!err?.off) throw new Error(err?.limit ? "You've reached today's limit for making flashcards. It resets tomorrow." : "Couldn't make your flashcards just now. Try again in a minute.");
   }
   if (ai) {
     const seen = new Set<string>();

@@ -68,7 +68,7 @@ function AllowanceRow() {
           {a.resets ? ` · resets ${new Date(a.resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : ""}
         </span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={100 - pct} aria-valuemin={0} aria-valuemax={100} aria-label="AI lectures left">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={100 - pct} aria-valuemin={0} aria-valuemax={100} aria-label="Lectures left">
         <div className="h-full rounded-full bg-foreground" style={{ width: `${100 - pct}%` }} />
       </div>
       {a.plan !== "plus" && (
@@ -137,8 +137,8 @@ export function SettingsPage() {
         )}
         {(PLUS_ON || plan.plus) && (
         <Row
-            label={plan.plus ? "SlideQuiz Plus" : "Get more AI with Plus"}
-            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} AI lectures a month, ${PLUS.price} a ${PLUS.period}`}
+            label={plan.plus ? "SlideQuiz Plus" : "Get more with Plus"}
+            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} lectures a month, ${PLUS.price} a ${PLUS.period}`}
           >
             {plan.plus ? (
               <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
@@ -153,7 +153,7 @@ export function SettingsPage() {
         )}
       </Section>
 
-      <Section title="AI lectures" description="Each upload uses AI lectures to write its notes and questions. One is a normal lecture of up to about 5,000 words.">
+      <Section title="Lectures" description="Each upload uses lectures from your allowance. One is a normal lecture of up to about 5,000 words; longer files count as more.">
         <AllowanceRow />
       </Section>
 

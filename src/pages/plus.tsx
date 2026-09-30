@@ -118,15 +118,15 @@ export function PlusPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Plus" description="More AI notes and questions every month, and you help keep SlideQuiz free for everyone." />
+      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Plus" description="More lectures every month, and you help keep SlideQuiz free for everyone." />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Plan
           name="Free"
           price="£0"
           points={[
-            "Upload as many lectures as you like",
-            `AI notes and questions for ${PLUS.freeLectures} lectures a month with a free account (${PLUS.guestLectures} to try without one)`,
+            `${PLUS.freeLectures} lectures a month with a free account (${PLUS.guestLectures} to try without one)`,
+            "Notes, practice questions and flashcards for each one",
             "Everything you've made stays yours to revise from",
             "Practice, flashcards and everything else",
           ]}
@@ -137,7 +137,7 @@ export function PlusPage() {
           highlight
           points={[
             "Everything in Free",
-            `AI notes and questions for ${PLUS.plusLectures} lectures a month`,
+            `${PLUS.plusLectures} lectures a month`,
             "Never held up when SlideQuiz is busy",
             "Cancel any time",
           ]}
@@ -149,7 +149,7 @@ export function PlusPage() {
       <div className="mt-8 space-y-3 text-[13.5px] text-muted-foreground">
         <p>Payments are handled securely by Stripe. SlideQuiz never sees your card details.</p>
         <p>
-          Plus renews every {PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Plus); you keep Plus until the end of the {PLUS.period} you've paid for. AI lectures reset on the 1st of each month. One AI lecture is up to about 5,000 words of slide text (a normal 50–60 slide lecture); longer files count as more than one.
+          Plus renews every {PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Plus); you keep Plus until the end of the {PLUS.period} you've paid for. Lectures reset on the 1st of each month. One lecture is up to about 5,000 words of slide text (a normal 50–60 slide lecture); longer files count as more than one.
         </p>
         <p>
           Something wrong with a payment? Email <a className="font-medium underline underline-offset-2" href="mailto:slidequiz.help@outlook.com">slidequiz.help@outlook.com</a>.

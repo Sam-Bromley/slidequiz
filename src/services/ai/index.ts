@@ -35,7 +35,7 @@ class HybridProvider extends MockAIProvider {
     } catch (e) {
       const err = e instanceof AIError ? e : null;
       if (err?.off) return super.chat(req);
-      return { content: err?.limit ? "You've used today's AI allowance, so I can't answer right now. It resets tomorrow, or get Plus for more." : "Sorry, I couldn't answer that just now. Check your internet connection and try again.", citations: [] };
+      return { content: err?.limit ? "You've reached today's limit for questions, so I can't answer right now. It resets tomorrow." : "Sorry, I couldn't answer that just now. Check your internet connection and try again.", citations: [] };
     }
   }
 }

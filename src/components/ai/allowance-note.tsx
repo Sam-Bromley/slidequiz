@@ -11,8 +11,8 @@ const resetDate = (a: Allowance) => (a.resets ? new Date(a.resets).toLocaleDateS
 /** "Where it's from" for the lectures left: to try, this month, or this month on Plus. */
 export function leftText(a: Allowance) {
   const left = lecturesLeft(a);
-  if (a.plan === "guest") return `${plural(left, "AI lecture")} left to try`;
-  return `${plural(left, "AI lecture")} left this month`;
+  if (a.plan === "guest") return `${plural(left, "lecture")} left to try`;
+  return `${plural(left, "lecture")} left this month`;
 }
 
 /** What to do when there aren't enough lectures left. `fewer`: also suggest choosing fewer slides. */
@@ -64,7 +64,7 @@ export function AllowanceNote({ materials }: { materials: Material[] }) {
   return (
     <p className="max-w-md text-center text-[13px] text-muted-foreground" role="status">
       <span className="font-medium text-foreground">
-        {lecturesLeft(a) ? `This needs ${lecturesText(need)} but you have ${lecturesLeft(a) === 1 ? "about 1" : `about ${lecturesLeft(a)}`} left.` : `You've used your ${a.plan === "guest" ? "free" : "AI"} lectures${a.plan === "guest" ? "" : " for this month"}.`}
+        {lecturesLeft(a) ? `This needs ${lecturesText(need)} but you have ${lecturesLeft(a) === 1 ? "about 1" : `about ${lecturesLeft(a)}`} left.` : `You've used your ${a.plan === "guest" ? "free lectures" : "lectures for this month"}.`}
       </span>{" "}
       <UpgradeHint a={a} fewer />
     </p>

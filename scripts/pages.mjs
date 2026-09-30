@@ -11,8 +11,8 @@ const STEPS = [
 ];
 
 const COMMON_FAQ = [
-  ["Is SlideQuiz free?", "Yes. You can upload as many lectures as you like and make notes, practise questions and use flashcards for free, with AI notes and questions for 10 lectures a month on a free account (2 to try without one)."],
-  ["Are my files uploaded anywhere?", "Your files are read on your own device and never uploaded. To write your notes, questions and flashcards, the text of your slides is sent to our AI provider. If you make an account, your notes and progress are also saved to it so you can use them on other devices. Your original files and slide pictures always stay on your device."],
+  ["Is SlideQuiz free?", "Yes. With a free account you get notes, practice questions and flashcards for 10 lectures a month, and you can try 2 without an account. Everything you make stays yours to revise from."],
+  ["Are my files uploaded anywhere?", "Your files are read on your own device and never uploaded. To write your notes, questions and flashcards, the text of your slides is sent securely to our service provider (see the privacy policy). If you make an account, your notes and progress are also saved to it so you can use them on other devices. Your original files and slide pictures always stay on your device."],
   ["Do I need an account?", "No. Everything works without one. An account just lets you pick up your work on another device."],
   ["What files can I use?", "PowerPoint (.pptx), PDF, Word (.docx) and plain text. You can also paste notes straight in. Scanned pages and photos of slides can't be read yet, because there's no text in them to use."],
   ["Does it work on my phone?", "Yes. It works in any modern browser, and you can add it to your home screen so it opens like an app, even offline."],

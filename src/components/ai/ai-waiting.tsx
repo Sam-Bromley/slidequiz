@@ -23,7 +23,7 @@ export function AIWaiting({ material, what }: { material: Material; what: "notes
       );
     const need = lecturesFor(textSize(material), a);
     const left = a ? lecturesLeft(a) : 0;
-    const title = a && left > 0 ? `This needs ${lecturesText(need)}, and you have about ${left} left` : a?.plan === "guest" ? "You've used your free AI lectures" : "You've used this month's AI lectures";
+    const title = a && left > 0 ? `This needs ${lecturesText(need)}, and you have about ${left} left` : a?.plan === "guest" ? "You've used your free lectures" : "You've used this month's lectures";
     return (
       <Panel icon={<Clock className="size-5" />} title={title} action={<Button variant="outline" onClick={() => enhanceMaterial(material.id)}><RotateCcw /> Try again</Button>}>
         {a ? <UpgradeHint a={a} fewer={left > 0} /> : "Your allowance resets soon."}
@@ -34,8 +34,7 @@ export function AIWaiting({ material, what }: { material: Material; what: "notes
   if (status === "failed")
     return (
       <Panel icon={<TriangleAlert className="size-5" />} title={`Couldn't write your ${noun}`} action={<Button variant="outline" onClick={() => enhanceMaterial(material.id)}><RotateCcw /> Try again</Button>}>
-        The AI is busy or your connection dropped. Try again in a moment.
-        {material.ai?.error && <span className="mt-2 block text-[12px] opacity-70">Reason: {material.ai.error}</span>}
+        The server is busy or your connection dropped. Try again in a moment.
       </Panel>
     );
 
