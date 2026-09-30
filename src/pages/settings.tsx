@@ -17,7 +17,7 @@ import { useData } from "@/store/store";
 import { Link } from "@/lib/router";
 import { backupName, makeBackup, restoreBackup } from "@/services/backup";
 import type { BackgroundScene, Settings, ThemeName } from "@/types/models";
-import { DEFAULT_NIGHT, THEMES } from "@/lib/theme";
+import { baseTheme, DEFAULT_NIGHT } from "@/lib/theme";
 import { SCENE_ORDER } from "@/components/layout/app-background";
 import { sceneLabel } from "@/components/layout/personalise";
 
@@ -147,8 +147,9 @@ export function SettingsPage() {
 
       <Section title="Appearance">
         <Row label="Theme" htmlFor="set-theme">
-          <Select id="set-theme" value={THEMES.some((t) => t.value === s.theme) ? s.theme : "light"} onChange={(e) => actions.updateSettings({ theme: e.target.value as ThemeName })} className="sm:w-48">
-            {THEMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          <Select id="set-theme" value={baseTheme(s)} onChange={(e) => actions.updateSettings({ theme: e.target.value as ThemeName, ...(s.theme === "warm" ? { nightLight: true } : {}) })} className="sm:w-48">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
           </Select>
         </Row>
         <Row label="Background" htmlFor="set-scene">
@@ -159,8 +160,8 @@ export function SettingsPage() {
         <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>
-        <Row label="Night light" htmlFor="set-night" inline>
-          <Switch id="set-night" checked={!!s.nightLightAuto} onChange={(v) => set({ nightLightAuto: v })} label="Night light" />
+        <Row label="Night light at night" hint="Warms the colours automatically between the times you choose" htmlFor="set-night" inline>
+          <Switch id="set-night" checked={!!s.nightLightAuto} onChange={(v) => set({ nightLightAuto: v })} label="Night light at night" />
         </Row>
         {s.nightLightAuto && (
           <Row label="Night light times">

@@ -38,6 +38,8 @@ export interface User {
 export type ThemeName = "dark" | "light" | "warm" | "warmlight";
 
 export interface Settings {
+  /** Night light switched on by hand: warms whichever theme is chosen (light stays light). */
+  nightLight?: boolean;
   /** How My Materials is sorted. */
   materialsSort?: "custom" | "recent" | "name";
   theme: ThemeName | "system";

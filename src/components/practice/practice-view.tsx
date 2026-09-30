@@ -48,7 +48,8 @@ function Pop({ label, title, children, align = "left", className }: { label: str
   );
 }
 
-type PastAnswer = { qid: ID; view: { options: string[]; correct: number }; chosen: number };
+/** `chosen` is null for a question that was skipped. */
+type PastAnswer = { qid: ID; view: { options: string[]; correct: number }; chosen: number | null };
 /** Answer history per material (or folder), for as long as the site is open. */
 const HISTORY = new Map<string, PastAnswer[]>();
 
@@ -108,7 +109,9 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const sq = rev ? all.find((x) => x.id === rev.qid) : q;
   const sView = rev ? rev.view : view;
   const sChosen = rev ? rev.chosen : chosen;
-  const sAnswered = rev ? true : answered;
+  const sAnswered = rev ? rev.chosen !== null : answered;
+  /** Looking back at a question that was skipped: it can still be answered here. */
+  const revSkipped = !!rev && rev.chosen === null;
   const sCorrect = sAnswered && sView ? sChosen === sView.correct : false;
   const currentInPast = answered && past.length > 0 && past[past.length - 1].qid === qid;
   const canGoBack = viewIdx !== null ? viewIdx > 0 : past.length - (currentInPast ? 1 : 0) > 0;
@@ -120,7 +123,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
       return n >= past.length || (currentInPast && n === past.length - 1) ? null : n;
     });
   // How it went last time (only shown before answering the current question).
-  const before = !rev && q && !answered ? q.stats.lastResult : undefined;
+  const before = sq && !sAnswered ? sq.stats.lastResult : undefined;
   const qMaterial = sq ? (mixed ? mixed.find((m) => m.id === sq.materialId) : material) : undefined;
   const page = sq ? qMaterial?.pages.find((p) => p.id === sq.sources[0]?.pageId) : undefined;
   const topicName = sq ? (mixed ? qMaterial?.title : material.topics.find((t) => t.id === sq.topicId)?.name) : undefined;
@@ -153,9 +156,25 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setPos((p) => p + 1);
   };
 
-  /** Skip this one for now: it comes back at the end of the round. */
+  /** Answering a skipped question after going back to it. */
+  const answerPast = (i: number) => {
+    if (viewIdx === null || !rev || rev.chosen !== null || !sq) return;
+    const ok = i === rev.view.correct;
+    setPast((ps) => ps.map((p, k) => (k === viewIdx ? { ...p, chosen: i } : p)));
+    actions.answerPractice(sq.id, ok);
+    setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
+    // Got it right: no need for it to come back at the end of the round.
+    if (ok)
+      setQueue((qu) => {
+        const at = qu.lastIndexOf(sq.id);
+        return at > pos ? [...qu.slice(0, at), ...qu.slice(at + 1)] : qu;
+      });
+  };
+
+  /** Skip this one for now: it comes back at the end of the round (and Back can still reach it). */
   const skip = () => {
-    if (!q) return;
+    if (!q || !view) return;
+    setPast((ps) => [...ps, { qid: q.id, view, chosen: null }]);
     setQueue((qu) => (pos + 1 < qu.length ? [...qu.slice(0, pos + 1), ...qu.slice(pos + 1), q.id] : qu));
     setChosen(null);
     setViewIdx(null);
@@ -185,6 +204,15 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
         return;
       }
       if (rev) {
+        if (revSkipped) {
+          const k = e.key.toUpperCase();
+          const i = /^[1-6]$/.test(k) ? Number(k) - 1 : LETTERS.indexOf(k);
+          if (i >= 0 && i < rev.view.options.length) {
+            e.preventDefault();
+            answerPast(i);
+            return;
+          }
+        }
         if (e.key === "Enter" || e.key === "ArrowRight") {
           e.preventDefault();
           goForward();
@@ -312,12 +340,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             )}
             {before === "incorrect" && <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning">You got this wrong before</span>}
             {before === "correct" && <span className="rounded-full bg-success-soft px-2 py-0.5 font-medium text-success">You got this right before</span>}
-            {rev && <span className="rounded-full bg-muted px-2 py-0.5 font-medium">Looking back</span>}
-            {canGoBack && (
-              <button type="button" onClick={goBack} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-accent hover:text-foreground focus-ring" aria-label="Previous question">
-                <ArrowLeft className="size-3.5" /> Previous
-              </button>
-            )}
+            {rev && <span className="rounded-full bg-muted px-2 py-0.5 font-medium">{revSkipped ? "Skipped" : "Looking back"}</span>}
           </p>
           {(() => {
             const p = splitPrompt(sq!.prompt);
@@ -339,7 +362,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                   role="radio"
                   aria-checked={isChosen}
                   disabled={sAnswered}
-                  onClick={() => !rev && answer(i)}
+                  onClick={() => (rev ? answerPast(i) : answer(i))}
                   className={cn(
                     "flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
                     !sAnswered && "hover:border-foreground/40 hover:bg-accent",
@@ -362,11 +385,20 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             })}
           </div>
 
-          {!rev && !answered && (
-            <div className="mt-4 flex justify-end">
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={skip} data-no-bounce>
-                Skip <ArrowRight />
+          {!sAnswered && (
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={goBack} disabled={!canGoBack} data-no-bounce>
+                <ArrowLeft /> Back
               </Button>
+              {rev ? (
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={goForward} data-no-bounce>
+                  {viewIdx !== null && (viewIdx + 1 >= past.length || (currentInPast && viewIdx + 1 === past.length - 1)) ? "Back to current question" : "Next"} <ArrowRight />
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={skip} data-no-bounce>
+                  Skip <ArrowRight />
+                </Button>
+              )}
             </div>
           )}
           {!rev && view && view.options.length < frozen.current && !answered && (
@@ -387,6 +419,12 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                 ) : (
                   <span />
                 )}
+                <div className="flex items-center gap-2">
+                {canGoBack && (
+                  <Button variant="ghost" className="text-muted-foreground" onClick={goBack} data-no-bounce>
+                    <ArrowLeft /> Back
+                  </Button>
+                )}
                 {rev ? (
                   <Button onClick={goForward} data-no-bounce>
                     {viewIdx !== null && (viewIdx + 1 >= past.length || (currentInPast && viewIdx + 1 === past.length - 1)) ? "Back to current question" : "Next"} <ArrowRight />
@@ -396,6 +434,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                     Next question <ArrowRight />
                   </Button>
                 )}
+                </div>
               </div>
             </div>
           )}

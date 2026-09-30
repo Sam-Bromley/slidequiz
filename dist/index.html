@@ -34,7 +34,7 @@
         var m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(times) || [0, 21, 0, 6, 0];
         var d = new Date(), now = d.getHours() * 60 + d.getMinutes(), a = m[1] * 60 + +m[2], b = m[3] * 60 + +m[4];
         // Night light keeps a light theme light (just warmer); a dark theme goes warm and dark.
-        if (auto && a !== b && (a < b ? now >= a && now < b : now >= a || now < b)) t = t === "light" ? "warmlight" : "warm";
+        if (auto && a !== b && (a < b ? now >= a && now < b : now >= a || now < b)) t = t === "light" || t === "warmlight" ? "warmlight" : "warm";
         var light = t === "light" || t === "warmlight";
         var c = document.documentElement.classList;
         c.toggle("dark", !light);

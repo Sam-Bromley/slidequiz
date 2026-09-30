@@ -34,7 +34,7 @@ export function CommandMenu() {
     const act: Item[] = [
       { id: "a-upload", group: "Actions", label: "Upload material", icon: Upload, run: () => navigate("/upload"), keywords: "add file pdf pptx" },
       { id: "a-theme", group: "Actions", label: "Toggle dark mode", icon: Moon, run: () => actions.updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }), keywords: "theme light" },
-      { id: "a-night", group: "Actions", label: "Night light (warm colours)", icon: Sunset, run: () => actions.updateSettings({ theme: "warm" }), keywords: "theme blue light late night warm" },
+      { id: "a-night", group: "Actions", label: "Night light (warm colours)", icon: Sunset, run: () => actions.updateSettings({ nightLight: true }), keywords: "theme blue light late night warm" },
       { id: "a-keys", group: "Actions", label: "Keyboard shortcuts", icon: Keyboard, run: () => setUI({ shortcuts: true }) },
     ];
     const mats: Item[] = data.materials.map((m) => ({ id: m.id, group: "Materials", label: `${m.subject} · ${m.title}`, sub: `${m.pages.length} ${m.unit}`, icon: FileText, run: () => navigate(`/materials/${m.id}`), keywords: m.topics.map((t) => t.name).join(" ") }));

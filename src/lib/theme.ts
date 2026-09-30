@@ -33,15 +33,20 @@ export function isNightHours(s?: Pick<Settings, "nightStart" | "nightEnd">, d = 
   return a < b ? now >= a && now < b : now >= a || now < b;
 }
 
-type ThemeInput = Pick<Settings, "theme" | "nightLightAuto" | "nightStart" | "nightEnd">;
+type ThemeInput = Pick<Settings, "theme" | "nightLight" | "nightLightAuto" | "nightStart" | "nightEnd">;
+
+/** Light or dark underneath (the old "Night light" theme counts as dark). */
+export const baseTheme = (s: Pick<Settings, "theme">): "light" | "dark" => (s.theme === "dark" || s.theme === "warm" ? "dark" : "light");
+/** Is night light on right now (by hand, the old Night light theme, or the schedule)? */
+export const nightLightOn = (s: ThemeInput) => s.theme === "warm" || !!s.nightLight || (!!s.nightLightAuto && isNightHours(s));
 
 /**
  * The theme actually shown. With automatic night light, during the chosen hours a light theme
  * turns warm but stays light ("warmlight"), and a dark theme turns warm and dark ("warm").
  */
 export function effectiveTheme(s: ThemeInput): ThemeName {
-  const base: ThemeName = THEMES.some((t) => t.value === s.theme) ? (s.theme as ThemeName) : "light";
-  if (s.nightLightAuto && isNightHours(s)) return base === "light" ? "warmlight" : "warm";
+  const base = baseTheme(s);
+  if (nightLightOn(s)) return base === "light" ? "warmlight" : "warm";
   return base;
 }
 
@@ -73,5 +78,5 @@ export function useThemeSync(s: ThemeInput) {
       tick((n) => n + 1);
     }, 30_000);
     return () => clearInterval(t);
-  }, [s.theme, s.nightLightAuto, s.nightStart, s.nightEnd]);
+  }, [s.theme, s.nightLight, s.nightLightAuto, s.nightStart, s.nightEnd]);
 }

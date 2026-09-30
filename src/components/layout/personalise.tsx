@@ -1,9 +1,8 @@
 import { Check, Moon, Palette, Sun, Sunset } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { effectiveTheme, isDarkTheme, THEMES } from "@/lib/theme";
+import { baseTheme, effectiveTheme, isDarkTheme } from "@/lib/theme";
 
-const THEME_ICON = { light: Sun, dark: Moon, warm: Sunset } as const;
 import { cn } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
@@ -19,6 +18,8 @@ export function Personalise() {
   const wrap = useRef<HTMLDivElement>(null);
   const current = effectiveTheme(data.settings);
   const dark = isDarkTheme(current);
+  const base = baseTheme(data.settings);
+  const night = data.settings.theme === "warm" || !!data.settings.nightLight;
   const saved = data.settings.scene ?? "none";
   const scene = SCENE_ORDER.includes(saved) ? saved : "none";
 
@@ -43,25 +44,29 @@ export function Personalise() {
         <div role="dialog" aria-label="Personalise" className="absolute right-0 top-full z-50 mt-2 w-[296px] animate-scale-in rounded-2xl border bg-popover p-3 text-popover-foreground shadow-pop">
           <p className="px-1 pb-2 text-[12px] font-medium text-muted-foreground">Theme</p>
           <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Theme">
-            {THEMES.map((t) => {
-              // At night, a light theme shows as warm light: it still counts as Light.
-              const on = current === t.value || (current === "warmlight" && t.value === "light");
-              return (
-                <button
-                  key={t.value}
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => actions.updateSettings({ theme: t.value })}
-                  className={cn("flex flex-col items-center gap-1.5 rounded-xl border py-2.5 text-[12.5px] transition-colors focus-ring", on ? "border-foreground/40 bg-accent" : "hover:bg-accent")}
-                >
-                  {(() => {
-                    const Icon = THEME_ICON[t.value as keyof typeof THEME_ICON];
-                    return <Icon className="size-4" />;
-                  })()}
-                  {t.label}
-                </button>
-              );
-            })}
+            {([
+              { key: "light", label: "Light", Icon: Sun, on: base === "light", set: () => actions.updateSettings({ theme: "light" }) },
+              { key: "dark", label: "Dark", Icon: Moon, on: base === "dark", set: () => actions.updateSettings({ theme: "dark" }) },
+              {
+                key: "night",
+                label: "Night light",
+                Icon: Sunset,
+                on: night,
+                // Warms whatever you're on: from Light it stays light (no moon and stars).
+                set: () => actions.updateSettings(data.settings.theme === "warm" ? { theme: "dark", nightLight: false } : { nightLight: !night }),
+              },
+            ] as const).map((t) => (
+              <button
+                key={t.key}
+                role={t.key === "night" ? "switch" : "radio"}
+                aria-checked={t.on}
+                onClick={t.set}
+                className={cn("flex flex-col items-center gap-1.5 rounded-xl border py-2.5 text-[12.5px] transition-colors focus-ring", t.on ? "border-foreground/40 bg-accent" : "hover:bg-accent")}
+              >
+                <t.Icon className="size-4" />
+                {t.label}
+              </button>
+            ))}
           </div>
           <p className="px-1 pb-2 pt-4 text-[12px] font-medium text-muted-foreground">Background</p>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Background">
