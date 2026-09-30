@@ -10,6 +10,7 @@ import { Menu } from "@/components/ui/menu";
 import { toast } from "@/components/ui/toast";
 import { Link, navigate } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
+import { tidySentence } from "@/lib/tidy";
 import { cardsFor } from "@/services/flashcards";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
@@ -334,7 +335,7 @@ function FlipCard({ card, flipped, onFlip, onSwipe }: { card: Flashcard; flipped
       <div className={cn("relative min-h-[260px] w-full transition-transform duration-500 [transform-style:preserve-3d] sm:min-h-[300px]", flipped && "[transform:rotateY(180deg)]")}>
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden]">
           <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Front</span>
-          <p className="whitespace-pre-line text-[20px] font-semibold leading-snug sm:text-[22px]">{card.front}</p>
+          <p className="whitespace-pre-line text-[20px] font-semibold leading-snug sm:text-[22px]">{tidySentence(card.front)}</p>
           <span className="absolute bottom-4 text-[12px] text-muted-foreground">
             <span className="[@media(pointer:coarse)]:hidden">Click to flip</span>
             <span className="hidden [@media(pointer:coarse)]:inline">Tap to flip · swipe for next</span>
@@ -342,7 +343,7 @@ function FlipCard({ card, flipped, onFlip, onSwipe }: { card: Flashcard; flipped
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <span className="absolute left-5 top-4 text-[12px] text-muted-foreground">Back</span>
-          <p className="whitespace-pre-line text-[18px] leading-relaxed sm:text-[19px]">{card.back}</p>
+          <p className="whitespace-pre-line text-[18px] leading-relaxed sm:text-[19px]">{tidySentence(card.back)}</p>
         </div>
       </div>
     </button>
@@ -501,8 +502,8 @@ export function DeckPage({ id }: { id: string }) {
               ) : (
                 <div className="flex items-start gap-3">
                   <div className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-4">
-                    <p className="text-[14px] font-medium">{c.front}</p>
-                    <p className="text-[14px] text-foreground/80">{c.back}</p>
+                    <p className="text-[14px] font-medium">{tidySentence(c.front)}</p>
+                    <p className="text-[14px] text-foreground/80">{tidySentence(c.back)}</p>
                   </div>
                   <div className="flex shrink-0 gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                     <Button variant="ghost" size="icon-sm" aria-label="Edit card" onClick={() => setEditing(c.id)}>

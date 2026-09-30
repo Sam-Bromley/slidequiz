@@ -4,6 +4,7 @@
  */
 import { getAI } from "@/services/ai";
 import { aiReady } from "@/services/ai/ai-key";
+import { tidyOption } from "@/lib/tidy";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
@@ -97,7 +98,14 @@ function shuffled<T>(xs: T[]): T[] {
 export function shuffleOptions(q: Question, count: number): { options: string[]; correct: number } {
   const correctText = q.pool ? q.options![0] : q.options![q.correctIndex ?? 0];
   const wrongPool = q.pool ? q.options!.slice(1) : q.options!.filter((_, i) => i !== q.correctIndex);
-  const wrong = [...wrongPool];
+  // Two options that read the same once tidied ("memory" / "Memory.") would give the answer away.
+  const seen = new Set([tidyOption(correctText).toLowerCase()]);
+  const wrong = wrongPool.filter((w) => {
+    const k = tidyOption(w).toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   for (let i = wrong.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [wrong[i], wrong[j]] = [wrong[j], wrong[i]];

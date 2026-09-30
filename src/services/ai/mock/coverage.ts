@@ -12,6 +12,7 @@ import type { GroundingPage, GroundingTopic, QuestionDraft } from "../types";
 import { buildKnowledge, refOf } from "./knowledge";
 import { concise } from "@/services/notes";
 import { stripAdmin } from "@/lib/admin";
+import { shortenOption } from "@/lib/tidy";
 
 const MAX_WRONG = 7;
 const BLANK = "_____";
@@ -64,6 +65,15 @@ const URLS = /(?:https?:\/\/|www\.)\S+/gi;
 /** Common verbs and adjectives that make poor answer options. */
 const NOT_NOUN = /^(cause|causes|caused|speed|speeds|keep|keeps|make|makes|take|takes|give|gives|show|shows|help|helps|need|needs|form|forms|lead|leads|allow|allows|become|becomes|remain|remains|produce|produces|contain|contains|include|includes|increase|increases|decrease|decreases|occur|occurs|happen|happens|read|more|less|high|higher|lower|same|such|each|other|both|many|much|most|some|very|also|than|then|when|where|which|while|about|after|before|again|alive|able|large|small|big|good|great|main|major|minor|long|short|full|free|true|false|whole|real|like|just|only|even|well)$/;
 
+/** Common verbs and describing words: never an answer option on their own ("Carry", "Round", "Maintains"). */
+const VERB_OR_ADJ = /^(maintain|carr(y|ies)|transport|bind|release|absorb|convert|split|fix|fixes|use|require|reduce|store|transfer|regulate|control|protect|prevent|support|provide|move|enter|leave|pass|passes|break|build|change|create|detect|destroy|activate|inhibit|stimulate|trigger|cross|crosses|work|works|start|starts|stop|stops|found|seen|known|called|named|round|mature|immature|normal|abnormal|red|white|blue|green|black|yellow|old|young|new|low|strong|weak|fast|slow|early|late|common|rare|simple|complex|stable|unstable|active|inactive|high|wide|narrow|thick|thin|light|dark|heavy|hard|soft|open|closed|single|double|total|average|important|possible|similar|various|certain|specific|general|typical|usual|likely|present|absent|available|visible|responsible|essential|necessary|part|piece|thing|way|kind|type|form|side|area|amount|number|level)s?$/;
+/** Words used like verbs somewhere ("cells that carry…", "to maintain…"). */
+function verbLike(all: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of all.matchAll(/\b(?:to|that|which|who|can|could|will|would|may|might|must|does|do|did|not|also|then)\s+([a-z]{4,})\b/g)) out.add(m[1]);
+  return out;
+}
+
 function termPool(pages: GroundingPage[], conceptTerms: string[], keyTerms: string[]): Term[] {
   const all = pages.map((p) => p.title + ".\n" + p.text).join("\n").replace(URLS, " ");
   const out: Term[] = [];
@@ -113,16 +123,17 @@ function termPool(pages: GroundingPage[], conceptTerms: string[], keyTerms: stri
   // Plain nouns from the slides, as a last resort so every fact can still get a question.
   // Only words used like nouns somewhere ("the …", "of …", "different …"), so verbs like "excites" stay out.
   const vocab = new Map<string, number>();
+  const verbs = verbLike(all);
   const NOUN_CTX = /\b(?:[Tt]he|[Aa]n?|of|and|or|in|on|at|from|with|by|for|every|each|different|some|many|these|those|their|its|two|three|several)[ \t]+(?=([a-z]{5,})\b)/g;
   for (const m of all.matchAll(NOUN_CTX)) {
     const lw = m[1];
-    if (GENERIC.has(lw) || NOT_NOUN.test(lw) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|ate|est)$/.test(lw) || /^(every|these|those|their|several|three|different)$/.test(lw) || !contentWords(lw).length || alwaysPaired(lw)) continue;
+    if (GENERIC.has(lw) || NOT_NOUN.test(lw) || VERB_OR_ADJ.test(lw) || verbs.has(lw) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|ate|est)$/.test(lw) || /^(every|these|those|their|several|three|different)$/.test(lw) || !contentWords(lw).length || alwaysPaired(lw)) continue;
     vocab.set(lw, (vocab.get(lw) ?? 0) + 1);
   }
   // Short materials don't give many nouns that way, so widen to any meaningful word (not common verbs).
   if (vocab.size < 16) {
     for (const w of all.match(/\b[a-z]{4,}\b/g) ?? []) {
-      if (GENERIC.has(w) || NOT_NOUN.test(w) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|est)$/.test(w) || !contentWords(w).length || alwaysPaired(w)) continue;
+      if (GENERIC.has(w) || NOT_NOUN.test(w) || VERB_OR_ADJ.test(w) || verbs.has(w) || /(ed|ing|ly|ous|ive|al|ful|less|able|ise|ize|est|ic)$/.test(w) || !contentWords(w).length || alwaysPaired(w)) continue;
       vocab.set(w, (vocab.get(w) ?? 0) + 1);
     }
   }
@@ -247,14 +258,14 @@ export function buildCoverageMcqs(pages: GroundingPage[], topics: GroundingTopic
       const c = k.concepts.find((x) => x.term.toLowerCase() === d.term.toLowerCase() && x.page.id === page.id);
       if (!c) continue;
       const others = k.concepts.filter((x) => x.id !== c.id && !wordRe(c.term).test(x.definition));
-      const def = truncate(stripTrailingPunct(c.definition), 170);
+      const def = shortenOption(stripTrailingPunct(c.definition));
       let q: QuestionDraft | null = null;
       if (others.length >= 3) {
         const wrong = others
           .map((x) => ({ x, s: (x.topicId === c.topicId ? 2 : 0) - Math.abs(x.definition.length - c.definition.length) / 120 + rng() }))
           .sort((a, b) => b.s - a.s)
           .slice(0, MAX_WRONG)
-          .map(({ x }) => truncate(stripTrailingPunct(x.definition), 170));
+          .map(({ x }) => shortenOption(stripTrailingPunct(x.definition)));
         const opts = [def, ...wrong.filter((w, i, a) => w !== def && a.indexOf(w) === i)];
         if (opts.length >= 3)
           q = {

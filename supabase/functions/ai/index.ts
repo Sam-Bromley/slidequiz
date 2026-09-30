@@ -22,6 +22,7 @@ type Page = { id: string; label: string; title: string; text: string };
 
 const STYLE = `You write for UK students revising from their own lecture slides.
 Use UK spelling. Be accurate: only use what the slides say (you may fix obvious typos and join text broken across lines).
+Write tidily: plain text only, no bullet characters, numbering, markdown or stray symbols; no doubled or dangling punctuation; no unfinished brackets.
 Leave out course admin (module codes, lecturer names, reading lists, learning outcomes, activities, "next week" sign-posting) and reference-list entries or citations.`;
 
 const TASKS: Record<string, { system: string; maxTokens: number; prompt: (b: any, pages: string) => string }> = {
@@ -47,7 +48,7 @@ You write multiple-choice revision questions that test understanding, not just r
 Slides (each starts with [id]):
 ${pages}
 
-Write about ${b.count ?? 1} question(s) per slide that has real content, covering every important fact. Each has ONE correct answer and 4 wrong answers that are believable (same kind of thing, similar length, drawn from the same subject) but clearly wrong to someone who knows the material. Never use "all of the above" or "none of the above". Keep options under 20 words.
+Write about ${b.count ?? 1} question(s) per slide that has real content, covering every important fact. Each has ONE correct answer and 4 wrong answers that are believable (same kind of thing, similar length, drawn from the same subject) but clearly wrong to someone who knows the material. Never use "all of the above" or "none of the above". Keep options under 20 words. Every option starts with a capital letter, has no full stop at the end, and is written in the same style and length as the others so the right one doesn't stand out.
 Reply with JSON only:
 {"questions":[{"pageId":"…","question":"…","correct":"…","wrong":["…","…","…","…"],"explanation":"one or two sentences on why the answer is right"}]}`,
   },

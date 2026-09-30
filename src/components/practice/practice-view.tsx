@@ -2,6 +2,7 @@ import { ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-re
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
@@ -257,7 +258,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             return (
               <>
                 {p.kicker && <p className="mb-1 text-[13px] font-medium text-muted-foreground">{p.kicker}</p>}
-                <h2 className="text-[19px] font-semibold leading-snug sm:text-[20px]">{p.text}</h2>
+                <h2 className="text-[19px] font-semibold leading-snug sm:text-[20px]">{tidyQuestion(p.text)}</h2>
               </>
             );
           })()}
@@ -289,7 +290,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                   >
                     {answered && isRight ? <Check className="size-3.5" strokeWidth={3} /> : answered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
                   </span>
-                  <span className="pt-0.5">{o}</span>
+                  <span className="pt-0.5">{tidyOption(o)}</span>
                 </button>
               );
             })}
@@ -303,7 +304,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
               <p className={cn("text-[15px] font-semibold", correct ? "text-success" : "text-destructive")}>
                 {correct ? "Correct" : `Not quite. The answer is ${LETTERS[view.correct]}.`}
               </p>
-              <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{q.explanation}</p>
+              <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(q.explanation)}</p>
               {!correct && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
               <div className="mt-5 flex items-center justify-between gap-3">
                 {page ? (

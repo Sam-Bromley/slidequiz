@@ -6,6 +6,7 @@ import { ChatPanel } from "@/components/tutor/chat-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { tidyLine, tidyTerm } from "@/lib/tidy";
 import { buildNotes, notesExportDoc, type NoteLine, type NoteSlide } from "@/services/notes";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { actions } from "@/store/actions";
@@ -32,16 +33,19 @@ function linkify(text: string): ReactNode {
 }
 
 function Line({ l }: { l: NoteLine }) {
-  const body: ReactNode = l.term ? (
+  const text = tidyLine(l.text);
+  const term = l.term ? tidyTerm(l.term) : "";
+  if (!text && !term) return null;
+  const body: ReactNode = term ? (
     <>
-      <strong className="font-semibold text-foreground">{l.term}</strong>
-      {l.sep ?? ": "}
-      {linkify(l.text)}
+      <strong className="font-semibold text-foreground">{term}</strong>
+      {text && (l.sep ?? ": ")}
+      {linkify(text)}
     </>
   ) : (
-    linkify(l.text)
+    linkify(text)
   );
-  if (l.kind === "sub") return <p className="mt-3 font-semibold text-foreground">{linkify(l.text)}</p>;
+  if (l.kind === "sub") return <p className="mt-3 font-semibold text-foreground">{linkify(text)}</p>;
   if (l.kind === "para") return <p className="text-foreground/90">{body}</p>;
   return (
     <p className={cn("relative pl-5 text-foreground/90", l.depth === 1 && "ml-5")}>

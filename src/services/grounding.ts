@@ -14,7 +14,11 @@ export function groundingFor(materials: Material[], opts: { includeExcluded?: bo
       if (!p.text.trim()) continue;
       // Materials saved before speaker notes were dropped may still contain them.
       // Reference-list entries are sources, not facts, so questions and flashcards skip them.
-      const text = stripReferences(p.text.split(/\n\s*Speaker notes:\s*\n/i)[0]);
+      const text = stripReferences(p.text.split(/\n\s*Speaker notes:\s*\n/i)[0])
+        .split("\n")
+        // Bullets and list numbering ("2)", "(b)", "iv.") aren't part of the content.
+        .map((l) => l.replace(/^[\s•●○■□▪◦·➢➤►▶✓✔*>–—-]+/, "").replace(/^(?:\(?\d{1,2}[.)]|\(?[a-h][.)]|\(?(?:i{1,3}|iv|v|vi{0,3}|ix|x)[.)])\s+/i, ""))
+        .join("\n");
       pages.push({ id: p.id, materialId: m.id, materialTitle: m.title, label: p.label, title: p.title, text, topicId: p.topicId });
     }
   }

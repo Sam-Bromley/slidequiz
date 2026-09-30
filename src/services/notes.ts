@@ -5,6 +5,7 @@
 import { extractDefinitions, tidyHeading, splitSentences, stripTrailingPunct, wordCount } from "@/lib/text";
 import type { ID, Material, Page, PageImage } from "@/types/models";
 import { REFERENCE_TITLE, stripReferences } from "@/lib/references";
+import { tidyLine, tidyTerm } from "@/lib/tidy";
 import { aiReady } from "@/services/ai/ai-key";
 
 export interface NoteLine {
@@ -280,7 +281,7 @@ export function notesExportDoc(m: Material): import("@/services/export").ExportD
     blocks.push({ kind: "h2", text: sec.title });
     for (const s of sec.slides) {
       if (s.title) blocks.push({ kind: "p", text: s.title.toUpperCase() });
-      const items = s.lines.map((l) => (l.term ? `${l.term}${l.sep ?? ": "}${l.text}` : l.text));
+      const items = s.lines.map((l) => (l.term ? `${tidyTerm(l.term)}${l.sep ?? ": "}${tidyLine(l.text)}` : tidyLine(l.text))).filter(Boolean);
       if (s.table) items.push(...s.table.map((r) => r.join(" | ")));
       if (items.length) blocks.push({ kind: "list", items });
     }
