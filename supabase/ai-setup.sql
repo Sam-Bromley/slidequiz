@@ -8,7 +8,7 @@
 --   and "Try again" after a failure is free).
 --     without an account: 2 lectures to try (in total, not monthly)
 --     free account:      10 lectures a month
---     Plus:             150 lectures a month
+--     Pro:               60 lectures a month
 --   Safety net: all free students together can use up to 2,000,000 characters of new text a day
 --   (roughly 70–100 lectures, a few pounds). Plus students aren't limited by it.
 --
@@ -72,7 +72,7 @@ as $$
 declare
   p text := public.sq_plan();
   lecture integer := 30000;
-  allowance integer := (case p when 'plus' then 150 when 'guest' then 2 else 10 end) * lecture;
+  allowance integer := (case p when 'plus' then 60 when 'guest' then 2 else 10 end) * lecture;
   used integer;
 begin
   select coalesce(sum(chars), 0) into used
