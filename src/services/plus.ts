@@ -42,7 +42,7 @@ export const PLUS = {
   period: "month",
   guestLectures: "2",
   freeLectures: "10",
-  plusLectures: "60",
+  plusLectures: "100",
 };
 
 export interface PlanState {

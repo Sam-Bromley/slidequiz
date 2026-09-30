@@ -43,7 +43,7 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
         <Link to="/pro" className={link}>
           {fewer ? "get" : "Get"} Pro
         </Link>{" "}
-        for 60 a month. Free credits reset on {resetDate(a)}.
+        for 100 a month. Free credits reset on {resetDate(a)}.
       </>
     );
   return (
