@@ -1,4 +1,5 @@
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { WeeklyRecap } from "@/components/home/weekly-recap";
 import { dayKey } from "@/lib/utils";
 import { useData } from "@/store/store";
 import { cn } from "@/lib/utils";
@@ -24,12 +25,33 @@ export function StreakFlame() {
   // Study days, plus older practice history from before streaks were recorded.
   const days = [...(data.user.studyDays ?? []), ...data.questions.flatMap((q) => (q.stats.lastAnsweredAt ? [dayKey(q.stats.lastAnsweredAt)] : [])), ...data.sessions.map((s) => dayKey(s.startedAt))];
   const { count, today } = streakDays(days);
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
   if (!count) return null;
   const tier = count >= 14 ? 3 : count >= 7 ? 2 : count >= 3 ? 1 : 0;
   const size = [20, 22, 24, 26][tier];
   const title = today ? `${count} ${count === 1 ? "day" : "days"} in a row. Nice!` : `${count} ${count === 1 ? "day" : "days"} in a row. Practise today to keep it going!`;
   return (
-    <span className={cn("inline-flex h-9 items-center gap-1 rounded-full px-2 text-[15px] font-bold tabular-nums", today ? "text-foreground" : "text-muted-foreground")} title={title} aria-label={title}>
+    <div ref={wrap} className="relative">
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      aria-expanded={open}
+      className={cn("inline-flex h-9 items-center gap-1 rounded-full px-2 text-[15px] font-bold tabular-nums transition-colors hover:bg-accent focus-ring", today ? "text-foreground" : "text-muted-foreground")}
+      title={`${title} Tap to see your week.`}
+      aria-label={title}
+    >
       <svg
         viewBox="0 0 24 24"
         width={size}
@@ -49,6 +71,12 @@ export function StreakFlame() {
         <path fill="#fde68a" d="M12.3 13.2c.2 1.2-.3 2-.9 2.7-.5.6-1 1.2-1 2.1 0 1.2.8 2.2 1.9 2.2 1.3 0 2.2-1 2.2-2.3 0-1.1-.6-2-1.3-2.7-.1.6-.4 1-.8 1.2 0-1.2-.1-2.2-.1-3.2Z" />
       </svg>
       {count}
-    </span>
+    </button>
+      {open && (
+        <div role="dialog" aria-label="Your week" className="absolute right-0 top-full z-50 mt-2 w-[min(400px,calc(100vw-24px))] animate-scale-in">
+          <WeeklyRecap popover />
+        </div>
+      )}
+    </div>
   );
 }

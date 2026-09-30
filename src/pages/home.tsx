@@ -7,7 +7,6 @@ import { quoteOfTheDay } from "@/lib/quotes";
 import { useData } from "@/store/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { ACCEPT_ATTR } from "@/services/parsing";
-import { WeeklyRecap } from "@/components/home/weekly-recap";
 
 /** Home: one quiet box in the middle. Drop files or paste notes, press go. */
 export function HomePage() {
@@ -102,7 +101,6 @@ export function HomePage() {
             }}
           />
         </div>
-        <WeeklyRecap />
       </div>
     </div>
   );

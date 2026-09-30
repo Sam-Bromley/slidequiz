@@ -21,6 +21,11 @@ const SB_MIN = 68;
 const SB_MAX = 360;
 /** Below this width the sidebar shows icons only. */
 const SB_COMPACT = 170;
+/** How close (px) the edge has to come to the normal size before it clicks onto it. */
+const SB_SNAP = 28;
+
+/** Magnet: near the normal size it clicks onto it; narrow enough and it clicks to icons only. */
+const snapWidth = (w: number) => (Math.abs(w - SB_DEFAULT) <= SB_SNAP ? SB_DEFAULT : w < SB_COMPACT ? SB_MIN : w);
 
 function Sidebar() {
   const { path } = useLocation();
@@ -39,8 +44,16 @@ function Sidebar() {
     document.documentElement.classList.add("sb-dragging");
     document.body.style.cursor = "ew-resize";
     let last = w0;
+    let glide = 0;
     const move = (ev: PointerEvent) => {
-      last = Math.round(Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0)));
+      const next = snapWidth(Math.round(Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0))));
+      if (next !== last) {
+        // Let the width glide when it clicks into place, and follow the pointer otherwise.
+        const snapping = next === SB_DEFAULT || next === SB_MIN || last === SB_DEFAULT || last === SB_MIN;
+        document.documentElement.classList.toggle("sb-dragging", !snapping);
+        if (snapping) clearTimeout(glide), (glide = window.setTimeout(() => document.documentElement.classList.add("sb-dragging"), 160));
+      }
+      last = next;
       setLive(last);
     };
     const up = () => {
@@ -48,7 +61,8 @@ function Sidebar() {
       window.removeEventListener("pointerup", up);
       document.documentElement.classList.remove("sb-dragging");
       document.body.style.cursor = "";
-      const final = last < SB_COMPACT ? SB_MIN : last;
+      clearTimeout(glide);
+      const final = snapWidth(last);
       actions.updateSettings({ sidebarWidth: final });
       setLive(null);
     };

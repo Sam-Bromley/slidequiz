@@ -50,11 +50,11 @@ export function weekRecap(data: AppData) {
 }
 
 /** "This week: 142 questions, 83% correct, best topic: Enzymes". A Pro perk. */
-export function WeeklyRecap() {
+export function WeeklyRecap({ popover }: { popover?: boolean } = {}) {
   const data = useData();
   usePlanQuiet();
   const r = weekRecap(data);
-  if (!r.q && !r.cards) return null;
+  if (!r.q && !r.cards && !popover) return null;
   const plus = hasPlus();
   if (!plus && !PLUS_ON) return null;
   const max = Math.max(1, ...r.days.map((x) => (x.log?.q ?? 0) + (x.log?.cards ?? 0)));
@@ -65,7 +65,7 @@ export function WeeklyRecap() {
     { label: "flashcards", value: r.cards.toLocaleString() },
   ];
   return (
-    <section aria-label="Your week" className="relative mt-6 overflow-hidden rounded-[22px] border bg-card/90 p-4 shadow-sm backdrop-blur sm:p-5">
+    <section aria-label="This week" className={cn("relative overflow-hidden rounded-[22px] border p-4 sm:p-5", popover ? "bg-popover text-popover-foreground shadow-pop" : "mt-6 bg-card/90 shadow-sm backdrop-blur")}>
       <div className="flex items-center gap-2">
         <CalendarDays className="size-4 text-brand" />
         <h2 className="text-[14px] font-semibold">This week</h2>
@@ -95,7 +95,7 @@ export function WeeklyRecap() {
               </>
             ) : (
               <span className="text-muted-foreground">
-                Studied {r.active} of 7 days. Keep going!
+                {r.active ? `Studied ${r.active} of 7 days. Keep going!` : "Your week fills in as you study."}
               </span>
             )}
           </p>
