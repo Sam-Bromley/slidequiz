@@ -34,7 +34,8 @@ export interface User {
   xp: number;
 }
 
-export type ThemeName = "dark" | "light" | "warm";
+/** "warmlight" is only ever automatic: night light on top of the Light theme. */
+export type ThemeName = "dark" | "light" | "warm" | "warmlight";
 
 export interface Settings {
   /** How My Materials is sorted. */

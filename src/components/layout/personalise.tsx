@@ -44,17 +44,18 @@ export function Personalise() {
           <p className="px-1 pb-2 text-[12px] font-medium text-muted-foreground">Theme</p>
           <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Theme">
             {THEMES.map((t) => {
-              const on = current === t.value;
+              // At night, a light theme shows as warm light: it still counts as Light.
+              const on = current === t.value || (current === "warmlight" && t.value === "light");
               return (
                 <button
                   key={t.value}
                   role="radio"
                   aria-checked={on}
-                  onClick={() => actions.updateSettings({ theme: t.value, ...(t.value !== "warm" && data.settings.nightLightAuto ? { nightLightAuto: false } : {}) })}
+                  onClick={() => actions.updateSettings({ theme: t.value })}
                   className={cn("flex flex-col items-center gap-1.5 rounded-xl border py-2.5 text-[12.5px] transition-colors focus-ring", on ? "border-foreground/40 bg-accent" : "hover:bg-accent")}
                 >
                   {(() => {
-                    const Icon = THEME_ICON[t.value];
+                    const Icon = THEME_ICON[t.value as keyof typeof THEME_ICON];
                     return <Icon className="size-4" />;
                   })()}
                   {t.label}

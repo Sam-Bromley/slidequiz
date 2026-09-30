@@ -35,10 +35,14 @@ export function isNightHours(s?: Pick<Settings, "nightStart" | "nightEnd">, d = 
 
 type ThemeInput = Pick<Settings, "theme" | "nightLightAuto" | "nightStart" | "nightEnd">;
 
-/** The theme actually shown: Night light takes over during the chosen hours when auto is on. */
+/**
+ * The theme actually shown. With automatic night light, during the chosen hours a light theme
+ * turns warm but stays light ("warmlight"), and a dark theme turns warm and dark ("warm").
+ */
 export function effectiveTheme(s: ThemeInput): ThemeName {
-  if (s.nightLightAuto && isNightHours(s)) return "warm";
-  return THEMES.some((t) => t.value === s.theme) ? (s.theme as ThemeName) : "light";
+  const base: ThemeName = THEMES.some((t) => t.value === s.theme) ? (s.theme as ThemeName) : "light";
+  if (s.nightLightAuto && isNightHours(s)) return base === "light" ? "warmlight" : "warm";
+  return base;
 }
 
 export function applyTheme(s: ThemeInput) {
@@ -46,6 +50,7 @@ export function applyTheme(s: ThemeInput) {
   const root = document.documentElement;
   root.classList.toggle("dark", isDarkTheme(t));
   root.classList.toggle("warm", t === "warm");
+  root.classList.toggle("warmlight", t === "warmlight");
   try {
     localStorage.setItem("slidequiz:appearance", effectiveTheme({ ...s, nightLightAuto: false }));
     localStorage.setItem("slidequiz:v7", "1");
