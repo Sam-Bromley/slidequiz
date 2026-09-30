@@ -26,7 +26,7 @@ export function AIWaiting({ material, what }: { material: Material; what: "notes
     const title = a && left > 0 ? `This needs ${lecturesText(need)}, and you have about ${left} left` : a?.plan === "guest" ? "You've used your free credits" : "You've used this month's credits";
     return (
       <Panel icon={<Clock className="size-5" />} title={title} action={<Button variant="outline" onClick={() => enhanceMaterial(material.id)}><RotateCcw /> Try again</Button>}>
-        {a ? <UpgradeHint a={a} fewer={left > 0} /> : "Your allowance resets soon."}
+        {a ? <UpgradeHint a={a} /> : "Your allowance resets soon."}
       </Panel>
     );
   }

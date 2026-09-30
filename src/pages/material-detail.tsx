@@ -1,18 +1,15 @@
-import { Download, FileText, Layers, Loader2, MoreHorizontal } from "lucide-react";
+import { Download, FileText, Loader2, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { useMaterialMenu } from "@/components/materials/material-card";
-import { SlideChooser } from "@/components/materials/slide-chooser";
 import { NotesView } from "@/components/notes/notes-view";
 import { PracticeView } from "@/components/practice/practice-view";
 import { ProgressView } from "@/components/practice/progress-view";
 import { Button, buttonClass } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Menu } from "@/components/ui/menu";
 import { Tabs, tabPanelProps } from "@/components/ui/tabs";
-import { toast } from "@/components/ui/toast";
 import { Link, useLocation } from "@/lib/router";
 import { notesExportDoc } from "@/services/notes";
 import { aiQuestionsReady, aiReady, enhanceMaterial, usesBuiltIn } from "@/services/ai/cloud";
@@ -20,7 +17,7 @@ import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } 
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
-import type { ID, Material } from "@/types/models";
+import type { ID } from "@/types/models";
 
 type Tab = "notes" | "practice" | "progress";
 
@@ -31,8 +28,6 @@ export function MaterialDetailPage({ id }: { id: string }) {
   const initial = query.get("tab");
   const [tab, setTab] = useState<Tab>(initial === "practice" || initial === "progress" ? initial : "notes");
   const [topics, setTopics] = useState<ID[]>([]);
-  const [choosing, setChoosing] = useState(false);
-  const [draft, setDraft] = useState<Material | null>(null);
   const [exporting, setExporting] = useState(false);
   const menu = useMaterialMenu(m ?? ({} as never));
 
@@ -73,18 +68,6 @@ export function MaterialDetailPage({ id }: { id: string }) {
     changeTab("notes");
     setTimeout(() => document.getElementById(`note-${pageId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
-  const saveChoice = async () => {
-    if (!draft) return;
-    if (!draft.pages.some((p) => p.included)) {
-      toast.error(`Choose at least one ${unitWord(m, 1)}`);
-      return;
-    }
-    actions.updateMaterial(m.id, { pages: draft.pages, topics: draft.topics });
-    setChoosing(false);
-    await buildPracticeQuestions(m.id);
-    toast("Notes and questions updated");
-    enhanceMaterial(m.id);
-  };
   const count = Math.min(6, Math.max(3, data.settings.mcqOptions ?? 5));
 
   return (
@@ -96,15 +79,6 @@ export function MaterialDetailPage({ id }: { id: string }) {
         description={prog.total ? `${included} of ${m.pages.length} ${unitWord(m)} · ${prog.total} questions · ${prog.pct}% covered` : `${included} of ${m.pages.length} ${unitWord(m)}`}
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDraft(m);
-                setChoosing(true);
-              }}
-            >
-              <Layers /> Choose {unitWord(m)}
-            </Button>
             <Menu
               label="Material actions"
               items={[{ label: "Export", icon: Download, onSelect: () => setExporting(true) }, ...menu.items.filter((x) => ["Rename", "Move to folder", "Delete"].includes(x.label))]}
@@ -148,25 +122,6 @@ export function MaterialDetailPage({ id }: { id: string }) {
         )}
       </div>
 
-      {choosing && draft && (
-        <Dialog
-          open
-          onClose={() => setChoosing(false)}
-          title={`Choose ${unitWord(m)} and images`}
-          description="Your notes and questions update to match. Progress on questions that stay is kept."
-          size="xl"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setChoosing(false)}>
-                Cancel
-              </Button>
-              <Button onClick={saveChoice}>Save</Button>
-            </>
-          }
-        >
-          <SlideChooser material={draft} onChange={setDraft} />
-        </Dialog>
-      )}
 
       {exporting && (
         <ExportDialog

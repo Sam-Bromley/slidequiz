@@ -66,7 +66,7 @@ export function AllowanceNote({ materials }: { materials: Material[] }) {
       <span className="font-medium text-foreground">
         {lecturesLeft(a) ? `This needs ${lecturesText(need)} but you have ${lecturesLeft(a) === 1 ? "about 1" : `about ${lecturesLeft(a)}`} left.` : `You've used your ${a.plan === "guest" ? "free credits" : "credits for this month"}.`}
       </span>{" "}
-      <UpgradeHint a={a} fewer />
+      <UpgradeHint a={a} />
     </p>
   );
 }

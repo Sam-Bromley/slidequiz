@@ -153,6 +153,15 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setPos((p) => p + 1);
   };
 
+  /** Skip this one for now: it comes back at the end of the round. */
+  const skip = () => {
+    if (!q) return;
+    setQueue((qu) => (pos + 1 < qu.length ? [...qu.slice(0, pos + 1), ...qu.slice(pos + 1), q.id] : qu));
+    setChosen(null);
+    setViewIdx(null);
+    setPos((p) => p + 1);
+  };
+
   const again = () => {
     const d = getState();
     const qs = setFor(d).filter((x) => !topicIds.length || (groupOf(x) && topicIds.includes(groupOf(x)!)));
@@ -353,6 +362,13 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             })}
           </div>
 
+          {!rev && !answered && (
+            <div className="mt-4 flex justify-end">
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={skip} data-no-bounce>
+                Skip <ArrowRight />
+              </Button>
+            </div>
+          )}
           {!rev && view && view.options.length < frozen.current && !answered && (
             <p className="mt-3 text-[12.5px] text-muted-foreground">Your slides only give {view?.options.length} good options for this one.</p>
           )}
