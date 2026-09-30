@@ -22,11 +22,6 @@ const SB_MIN = 68;
 const SB_MAX = SB_DEFAULT;
 /** Below this width the sidebar shows icons only. */
 const SB_COMPACT = 150;
-/** How close (px) the edge has to come to the normal size before it clicks onto it. */
-const SB_SNAP = 14;
-
-/** Magnet: near the normal size it clicks onto it; narrow enough and it clicks to icons only. */
-const snapWidth = (w: number) => (Math.abs(w - SB_DEFAULT) <= SB_SNAP ? SB_DEFAULT : w < SB_COMPACT ? SB_MIN : w);
 
 function Sidebar() {
   const { path } = useLocation();
@@ -36,8 +31,11 @@ function Sidebar() {
   const [live, setLive] = useState<number | null>(null);
   const width = live ?? saved;
   const compact = width < SB_COMPACT;
+  // 0 at icons only, 1 at the normal size: everything slides and fades between the two.
+  const t = Math.max(0, Math.min(1, (width - SB_MIN) / (SB_DEFAULT - SB_MIN)));
+  const labels = Math.max(0, Math.min(1, (width - 112) / 60));
 
-  // Drag the right edge to resize; let go near the icon size and it snaps to icons only.
+  // Drag the right edge to resize, anywhere from icons only up to the normal size.
   const startDrag = (e: React.PointerEvent) => {
     e.preventDefault();
     const x0 = e.clientX;
@@ -47,8 +45,8 @@ function Sidebar() {
     let last = w0;
     let frame = 0;
     const move = (ev: PointerEvent) => {
-      // Follows the pointer smoothly; clicks onto the normal size and onto icons only.
-      const next = snapWidth(Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0)));
+      // Follows the pointer smoothly, and stops at the normal size and at icons only.
+      const next = Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0));
       if (next === last) return;
       last = next;
       if (frame) return;
@@ -63,7 +61,7 @@ function Sidebar() {
       document.documentElement.classList.remove("sb-dragging");
       document.body.style.cursor = "";
       cancelAnimationFrame(frame);
-      const final = Math.round(snapWidth(last));
+      const final = Math.round(last);
       actions.updateSettings({ sidebarWidth: final });
       setLive(null);
     };
@@ -90,15 +88,19 @@ function Sidebar() {
 
   return (
     <aside className="sb-anim fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-background/45 backdrop-blur-xl lg:flex" style={{ width }} aria-label="Sidebar">
-      <div className={cn("group/sb flex h-14 items-center", compact ? "justify-center px-2" : "justify-between px-4")}>
-        <Link to="/" className="rounded-md focus-ring" aria-label="SlideQuiz home">
-          {compact ? <LogoMark className="size-7" /> : <Logo pro={pro && width >= 196} />}
+      <div className="group/sb relative flex h-14 items-center overflow-hidden" style={{ paddingLeft: 16 + 6 * (1 - t) }}>
+        <Link to="/" className="flex shrink-0 items-center gap-2 rounded-md focus-ring" aria-label="SlideQuiz home">
+          <LogoMark className="size-6 shrink-0" />
+          <span className="flex items-center gap-2 whitespace-nowrap" style={{ opacity: labels }} aria-hidden={labels < 0.5}>
+            <span className="text-[16px] font-bold tracking-[-0.025em] text-foreground">SlideQuiz</span>
+            {pro && <span className="rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground" style={{ opacity: Math.max(0, Math.min(1, (width - 196) / 30)) }}>Pro</span>}
+          </span>
         </Link>
-        {!compact && (
+        {labels > 0.95 && (
           <button
             type="button"
             onClick={() => actions.updateSettings({ sidebarHidden: true })}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-ring focus-visible:opacity-100 group-hover/sb:opacity-100"
+            className="absolute right-3 grid size-8 place-items-center rounded-md bg-background/60 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-ring focus-visible:opacity-100 group-hover/sb:opacity-100"
             aria-label="Hide sidebar"
             title="Hide sidebar"
           >
@@ -106,7 +108,7 @@ function Sidebar() {
           </button>
         )}
       </div>
-      <nav className={compact ? "px-2" : "px-2.5"} aria-label="Main" data-no-bounce>
+      <nav className="px-2.5" aria-label="Main" data-no-bounce>
         <ul className="space-y-px">
           {NAV.map((n) => {
             const active = n.match(path);
@@ -116,22 +118,31 @@ function Sidebar() {
                   to={n.to}
                   aria-current={active ? "page" : undefined}
                   title={compact ? n.label : undefined}
-                  aria-label={compact ? n.label : undefined}
-                  className={cn("flex h-9 items-center gap-2.5 rounded-lg text-[14px] transition-colors focus-ring", compact ? "justify-center" : "px-2.5", active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+                  className={cn("flex h-9 items-center gap-2.5 overflow-hidden rounded-lg pr-2.5 text-[14px] transition-colors focus-ring", active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+                  style={{ paddingLeft: 10 + 5 * (1 - t) }}
                 >
                   <n.icon className="size-[18px] shrink-0" />
-                  {!compact && <span className="truncate">{n.label}</span>}
+                  <span className="whitespace-nowrap" style={{ opacity: labels }}>
+                    {n.label}
+                  </span>
                 </Link>
               </li>
             );
           })}
         </ul>
       </nav>
-      {compact && (
-        <button type="button" onClick={() => actions.updateSettings({ sidebarHidden: true })} className="mx-auto mb-3 mt-auto grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-ring" aria-label="Hide sidebar" title="Hide sidebar">
-          <PanelLeftClose className="size-[18px]" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => actions.updateSettings({ sidebarHidden: true })}
+        className={cn("mb-3 mt-auto grid size-9 place-items-center self-center rounded-lg text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-ring", labels > 0.95 && "pointer-events-none")}
+        style={{ opacity: 1 - labels }}
+        tabIndex={labels > 0.95 ? -1 : 0}
+        aria-hidden={labels > 0.95}
+        aria-label="Hide sidebar"
+        title="Hide sidebar"
+      >
+        <PanelLeftClose className="size-[18px]" />
+      </button>
       {/* Drag to resize; double-click to reset. */}
       <div
         role="separator"
