@@ -5,7 +5,7 @@ import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type S
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { CONTACT_EMAIL } from "@/pages/privacy";
-import { openBilling, PLUS, usePlan } from "@/services/plus";
+import { openBilling, PLUS, PLUS_ON, usePlan } from "@/services/plus";
 import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
 import { leftText, UpgradeHint } from "@/components/ai/allowance-note";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -135,20 +135,22 @@ export function SettingsPage() {
             </div>
           </Row>
         )}
+        {(PLUS_ON || plan.plus) && (
         <Row
-          label={plan.plus ? "SlideQuiz Plus" : "Get more AI with Plus"}
-          hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} AI lectures a month, ${PLUS.price} a ${PLUS.period}`}
-        >
-          {plan.plus ? (
-            <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
-              Manage or cancel
-            </Button>
-          ) : (
-            <Link to="/plus" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-accent focus-ring">
-              <Sparkles className="size-4" /> See Plus
-            </Link>
-          )}
-        </Row>
+            label={plan.plus ? "SlideQuiz Plus" : "Get more AI with Plus"}
+            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} AI lectures a month, ${PLUS.price} a ${PLUS.period}`}
+          >
+            {plan.plus ? (
+              <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
+                Manage or cancel
+              </Button>
+            ) : (
+              <Link to="/plus" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-accent focus-ring">
+                <Sparkles className="size-4" /> See Plus
+              </Link>
+            )}
+          </Row>
+        )}
       </Section>
 
       <Section title="AI lectures" description="Each upload uses AI lectures to write its notes and questions. One is a normal lecture of up to about 5,000 words.">

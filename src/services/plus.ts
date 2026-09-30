@@ -7,6 +7,12 @@ import { useEffect, useSyncExternalStore } from "react";
 import { authToken, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/account";
 
 /** Shown on the Plus page. Keep in step with the Stripe price and the limits in ai-setup.sql. */
+/**
+ * Set to true once payments are set up (Stripe + the "plus" helper in Supabase).
+ * While false, Plus shows as "Coming soon" and nothing offers it.
+ */
+export const PLUS_ON = false;
+
 export const PLUS = {
   price: "£3.99",
   period: "month",

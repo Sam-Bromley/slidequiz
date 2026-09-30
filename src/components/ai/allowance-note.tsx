@@ -3,6 +3,7 @@ import { AuthDialog } from "@/components/account/auth-dialog";
 import { Link } from "@/lib/router";
 import { fits, lecturesFor, lecturesLeft, lecturesText, textSize, useAllowance, type Allowance } from "@/services/ai/cloud";
 import type { Material } from "@/types/models";
+import { PLUS_ON } from "@/services/plus";
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const resetDate = (a: Allowance) => (a.resets ? new Date(a.resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
@@ -27,6 +28,12 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
         </button>{" "}
         to get 10 a month.
         {auth && <AuthDialog initial="signup" onClose={() => setAuth(false)} />}
+      </>
+    );
+  if (a.plan === "free" && !PLUS_ON)
+    return (
+      <>
+        {fewer && "Choose fewer slides. "}Free lectures reset on {resetDate(a)}.
       </>
     );
   if (a.plan === "free")

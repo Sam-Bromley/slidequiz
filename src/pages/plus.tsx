@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { navigate, useLocation } from "@/lib/router";
 import { useAccount } from "@/services/account";
-import { openBilling, PLUS, refreshPlan, startCheckout, usePlan } from "@/services/plus";
+import { openBilling, PLUS, PLUS_ON, refreshPlan, startCheckout, usePlan } from "@/services/plus";
 
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
 
@@ -82,7 +82,16 @@ export function PlusPage() {
   };
 
   let action: React.ReactNode;
-  if (!account.user) {
+  if (!PLUS_ON && !plan.plus) {
+    action = (
+      <div className="space-y-2">
+        <Button className="w-full" disabled>
+          Coming soon
+        </Button>
+        <p className="text-center text-[12.5px] text-muted-foreground">Plus isn't available yet. Check back soon.</p>
+      </div>
+    );
+  } else if (!account.user) {
     action = (
       <Button className="w-full" onClick={() => setAuth(true)}>
         Make an account to get Plus
@@ -109,7 +118,7 @@ export function PlusPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Plus" description="More AI notes and questions every day, and you help keep SlideQuiz free for everyone." />
+      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Plus" description="More AI notes and questions every month, and you help keep SlideQuiz free for everyone." />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Plan
