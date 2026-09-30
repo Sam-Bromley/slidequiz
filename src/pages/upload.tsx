@@ -19,6 +19,9 @@ import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material } from "@/types/models";
 
+/** A pasted YouTube link on its own (with or without https://, www., m., youtu.be, shorts). */
+const YOUTUBE_ONLY = /^(https?:\/\/)?((www|m|music)\.)?(youtube\.com\/(watch\?\S*v=|shorts\/|live\/|embed\/)|youtu\.be\/)[\w-]{11}\S*$/i;
+
 interface Item {
   id: string;
   name: string;
@@ -89,9 +92,14 @@ export function UploadPage() {
     newItems.forEach((it, i) => process(list[i], it.id));
   };
 
-  const addYoutube = async () => {
-    const url = ytUrl.trim();
+  const addYoutube = async (link = ytUrl) => {
+    const url = link.trim();
     if (!url) return;
+    if (!hasPlus()) {
+      toast("YouTube videos are part of SlideQuiz Pro");
+      navigate("/pro");
+      return;
+    }
     setYt(false);
     setYtUrl("");
     const id = uid("up");
@@ -110,6 +118,14 @@ export function UploadPage() {
   };
 
   const addPasted = (text = pasteText, title = pasteTitle) => {
+    // Just a YouTube link? Treat it as a video, not as notes.
+    if (YOUTUBE_ONLY.test(text.trim())) {
+      setPaste(false);
+      setPasteText("");
+      setPasteTitle("");
+      addYoutube(text.trim());
+      return;
+    }
     try {
       const doc = parsePastedText(text, title.trim() || "My notes");
       const material = buildMaterial(doc, { name: `${title.trim() || "My notes"} (pasted)`, size: new Blob([text]).size });
@@ -219,7 +235,7 @@ export function UploadPage() {
             <Input id="yt-url" autoFocus value={ytUrl} onChange={(e) => setYtUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addYoutube()} placeholder="https://www.youtube.com/watch?v=…" />
           </Field>
           <div className="flex gap-2">
-            <Button onClick={addYoutube} disabled={!ytUrl.trim()}>Add video</Button>
+            <Button onClick={() => addYoutube()} disabled={!ytUrl.trim()}>Add video</Button>
             <Button variant="ghost" onClick={() => setYt(false)}>Cancel</Button>
           </div>
         </div>
