@@ -1,10 +1,11 @@
-import { Check, Copy, Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Download, LogIn, LogOut, RotateCcw, Sparkles, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
 import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { CONTACT_EMAIL } from "@/pages/privacy";
+import { openBilling, PLUS, usePlan } from "@/services/plus";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -58,6 +59,7 @@ export function SettingsPage() {
   const [restoring, setRestoring] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const account = useAccount();
+  const plan = usePlan();
   const [auth, setAuth] = useState<AuthMode | null>(null);
   const [newPw, setNewPw] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -105,6 +107,20 @@ export function SettingsPage() {
             </div>
           </Row>
         )}
+        <Row
+          label={plan.plus ? "SlideQuiz Plus" : "Get more AI with Plus"}
+          hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `AI for ${PLUS.plusLectures} lectures a day, ${PLUS.price} a ${PLUS.period}`}
+        >
+          {plan.plus ? (
+            <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
+              Manage or cancel
+            </Button>
+          ) : (
+            <Link to="/plus" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-accent focus-ring">
+              <Sparkles className="size-4" /> See Plus
+            </Link>
+          )}
+        </Row>
       </Section>
 
       <Section title="Appearance">
@@ -228,10 +244,14 @@ export function SettingsPage() {
         open={deletingAccount}
         onClose={() => setDeletingAccount(false)}
         title="Delete your account?"
-        description="Your login, email address and everything saved to your account are deleted. This can't be undone."
+        description={plan.plus && !plan.cancelling ? "You still have Plus. Cancel it first with Settings → Manage or cancel, or you'll keep being charged. Then delete your account." : "Your login, email address and everything saved to your account are deleted. This can't be undone."}
         requireText="delete"
         confirmLabel="Delete account"
         onConfirm={async () => {
+          if (plan.plus && !plan.cancelling) {
+            toast("Cancel Plus first, then delete your account.");
+            return;
+          }
           try {
             await deleteAccount();
             toast("Account deleted");

@@ -123,7 +123,15 @@ export function MaterialDetailPage({ id }: { id: string }) {
           <Loader2 className="size-3.5 animate-spin" /> {m.ai.notes ? "Writing better questions with AI…" : "Writing your notes with AI…"}
         </p>
       )}
-      {m.ai?.status === "limit" && <p className="-mt-2 mb-4 text-[13px] text-muted-foreground">You've used today's AI allowance, so this uses the standard notes. It resets tomorrow.</p>}
+      {m.ai?.status === "limit" && (
+        <p className="-mt-2 mb-4 text-[13px] text-muted-foreground">
+          You've used today's AI allowance, so this uses the standard notes. It resets tomorrow, or{" "}
+          <Link to="/plus" className="font-medium text-foreground underline underline-offset-2">
+            get Plus
+          </Link>{" "}
+          for more.
+        </p>
+      )}
       <Tabs
         idPrefix="mat"
         className="mb-6"

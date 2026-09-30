@@ -4,6 +4,7 @@
  * anonymous sign-in) used only for AI, so each browser has its own daily allowance.
  * Everything falls back to the built-in rules if the AI is unavailable, so the site always works.
  */
+import { hasPlus } from "@/services/plus";
 import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL } from "@/services/account";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
@@ -129,7 +130,9 @@ export function enhanceMaterial(id: ID): Promise<void> {
   const m0 = getState().materials.find((x) => x.id === id);
   if (!m0 || !m0.pages.some((p) => p.included && p.text.trim())) return Promise.resolve();
   const key = aiKey(m0);
-  if (m0.ai?.key === key && (m0.ai.status === "done" || m0.ai.status === "limit")) return Promise.resolve();
+  // Out of allowance: try again tomorrow, or straight away once they've got Plus.
+  const limitStillApplies = m0.ai?.status === "limit" && m0.ai.at.slice(0, 10) === nowISO().slice(0, 10) && !hasPlus();
+  if (m0.ai?.key === key && (m0.ai.status === "done" || limitStillApplies)) return Promise.resolve();
   if (running.has(id)) return running.get(id)!;
   const job = (async () => {
     actions.updateMaterial(id, { ai: { key, status: "working", at: nowISO() } });

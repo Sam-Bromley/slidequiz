@@ -1,0 +1,152 @@
+import { Check, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AuthDialog } from "@/components/account/auth-dialog";
+import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { navigate, useLocation } from "@/lib/router";
+import { useAccount } from "@/services/account";
+import { openBilling, PLUS, refreshPlan, startCheckout, usePlan } from "@/services/plus";
+
+const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
+
+function Plan({ name, price, points, highlight, children }: { name: string; price: string; points: string[]; highlight?: boolean; children?: React.ReactNode }) {
+  return (
+    <div className={`flex flex-col rounded-xl border bg-card p-5 ${highlight ? "border-foreground/30 shadow-sm" : ""}`}>
+      <div className="flex items-center gap-2 text-[15px] font-semibold">
+        {highlight && <Sparkles className="size-4" />} {name}
+      </div>
+      <div className="mt-1 text-[22px] font-semibold">{price}</div>
+      <ul className="mt-4 flex-1 space-y-2 text-[14px]">
+        {points.map((p) => (
+          <li key={p} className="flex gap-2">
+            <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> <span>{p}</span>
+          </li>
+        ))}
+      </ul>
+      {children && <div className="mt-5">{children}</div>}
+    </div>
+  );
+}
+
+/** SlideQuiz Plus: what you get, and the button to subscribe or manage it. */
+export function PlusPage() {
+  const account = useAccount();
+  const plan = usePlan();
+  const { query } = useLocation();
+  const [busy, setBusy] = useState(false);
+  const [auth, setAuth] = useState(false);
+  const done = query.get("done") === "1";
+  const [waiting, setWaiting] = useState(done);
+  useEffect(() => {
+    if (done) setWaiting(true);
+  }, [done]);
+
+  // Back from paying: Stripe tells us a moment later, so check a few times.
+  useEffect(() => {
+    if (!waiting || !account.user) return;
+    let tries = 0;
+    let stop = false;
+    const tick = async () => {
+      const s = await refreshPlan(account.user!.id);
+      if (stop) return;
+      if (s.plus) {
+        setWaiting(false);
+        toast("Welcome to Plus! Thank you for supporting SlideQuiz.");
+        navigate("/plus", { replace: true });
+      } else if (++tries < 10) setTimeout(tick, 2000);
+      else setWaiting(false);
+    };
+    tick();
+    return () => {
+      stop = true;
+    };
+  }, [waiting, account.user?.id]);
+
+  // Coming back from Stripe (including with the Back button) shouldn't leave a button spinning.
+  useEffect(() => {
+    setBusy(false);
+    const reset = () => setBusy(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, [plan.plus]);
+
+  const go = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      toast((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  let action: React.ReactNode;
+  if (!account.user) {
+    action = (
+      <Button className="w-full" onClick={() => setAuth(true)}>
+        Make an account to get Plus
+      </Button>
+    );
+  } else if (waiting) {
+    action = <p className="text-[13.5px] text-muted-foreground">Setting up your Plus…</p>;
+  } else if (plan.plus) {
+    action = (
+      <div className="space-y-2">
+        <p className="text-[13.5px] text-muted-foreground">{plan.cancelling ? `You have Plus until ${date(plan.until)}. It won't renew.` : "You have Plus. Thank you!"}</p>
+        <Button variant="outline" className="w-full" loading={busy} onClick={() => go(openBilling)}>
+          {plan.cancelling ? "Renew Plus" : "Manage or cancel"}
+        </Button>
+      </div>
+    );
+  } else {
+    action = (
+      <Button className="w-full" loading={busy} onClick={() => go(startCheckout)}>
+        Get Plus
+      </Button>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl">
+      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Plus" description="More AI notes and questions every day, and you help keep SlideQuiz free for everyone." />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Plan
+          name="Free"
+          price="£0"
+          points={[
+            "Upload as many lectures as you like",
+            `AI notes and questions for ${PLUS.freeLectures} lectures a day with an account (${PLUS.guestLectures} without)`,
+            "After that, standard notes and questions until tomorrow",
+            "Practice, flashcards and everything else",
+          ]}
+        />
+        <Plan
+          name="Plus"
+          price={`${PLUS.price} a ${PLUS.period}`}
+          highlight
+          points={[
+            "Everything in Free",
+            `AI notes and questions for ${PLUS.plusLectures} lectures a day`,
+            "Never held up when SlideQuiz is busy",
+            "Cancel any time",
+          ]}
+        >
+          {action}
+        </Plan>
+      </div>
+
+      <div className="mt-8 space-y-3 text-[13.5px] text-muted-foreground">
+        <p>Payments are handled securely by Stripe. SlideQuiz never sees your card details.</p>
+        <p>
+          Plus renews every {PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Plus); you keep Plus until the end of the {PLUS.period} you've paid for. The daily allowance is a fair-use limit and resets at midnight.
+        </p>
+        <p>
+          Something wrong with a payment? Email <a className="font-medium underline underline-offset-2" href="mailto:slidequiz.help@outlook.com">slidequiz.help@outlook.com</a>.
+        </p>
+      </div>
+      {auth && <AuthDialog initial="signup" onClose={() => setAuth(false)} />}
+    </div>
+  );
+}

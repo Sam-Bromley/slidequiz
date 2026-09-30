@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 
 export const CONTACT_EMAIL = "slidequiz.help@outlook.com";
-const UPDATED = "29 September 2026";
+const UPDATED = "30 September 2026";
 
 function H({ children }: { children: ReactNode }) {
   return <h2 className="mb-2 mt-8 text-[17px] font-semibold">{children}</h2>;
@@ -41,6 +41,9 @@ export function PrivacyPage() {
       <p className="mt-2">If you don't have an account, your browser gets an anonymous guest pass (no name or email) so we can give each person a fair daily AI allowance. We only store how much AI it has used each day.</p>
       <p className="mt-2">We use this only to run your account. We don't sell it, share it for advertising, or send you marketing emails. The only emails you'll get are ones you ask for, like a password reset.</p>
 
+      <H>SlideQuiz Plus payments</H>
+      <p>If you pay for Plus, the payment is handled by Stripe. You type your card details into Stripe's own page, so we never see or store them. We keep only whether you have Plus, when it renews or ends, and the reference numbers Stripe gives us for your subscription. Stripe keeps records of payments as the law requires; see Stripe's privacy policy at stripe.com/privacy.</p>
+
       <H>Visitor numbers</H>
       <p>We count visits with Cloudflare Web Analytics. It doesn't use cookies, doesn't track you across other websites and doesn't identify you. It tells us things like how many people visited and which pages they opened.</p>
 
@@ -52,6 +55,7 @@ export function PrivacyPage() {
       <ul>
         <li>Supabase: accounts, saved work, daily AI allowances, and passing your slide text to the AI.</li>
         <li>Anthropic: the AI that writes notes, questions, flashcards and answers.</li>
+        <li>Stripe: payments for SlideQuiz Plus.</li>
         <li>GitHub Pages: hosts the website. Like any web host, it may log visitors' IP addresses for security.</li>
         <li>Cloudflare: visitor numbers (see above).</li>
       </ul>
