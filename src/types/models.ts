@@ -37,6 +37,8 @@ export interface User {
 export type ThemeName = "dark" | "light" | "warm";
 
 export interface Settings {
+  /** How My Materials is sorted. */
+  materialsSort?: "custom" | "recent" | "name";
   theme: ThemeName | "system";
   /** Switch to the warm night light automatically between nightStart and nightEnd. */
   nightLightAuto?: boolean;
@@ -132,6 +134,10 @@ export interface Material {
   isDemo?: boolean;
   /** Folder in My Materials (null/undefined = top level). */
   folderId?: ID | null;
+  /** Width in My Materials, in pixels (drag the right edge to change). */
+  width?: number;
+  /** Position in My Materials when sorted by "Your order" (drag to reorder). */
+  order?: number;
   noteExtras?: NoteExtra[];
   /** Notes (and topics/questions) written by the AI for logged-in students. */
   ai?: MaterialAI;

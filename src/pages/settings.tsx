@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { CONTACT_EMAIL } from "@/pages/privacy";
 import { openBilling, PLUS, PLUS_ON, usePlan } from "@/services/plus";
 import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
-import { leftText, UpgradeHint } from "@/components/ai/allowance-note";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -56,26 +55,15 @@ function Row({ label, hint, htmlFor, children, inline }: { label: string; hint?:
 
 function AllowanceRow() {
   const a = useAllowance();
-  if (!a) return <Row label="Checking…"><span /></Row>;
-  const total = Math.round(a.allowance / a.lecture);
-  const pct = Math.min(100, Math.round((a.used / a.allowance) * 100));
+  const total = a ? Math.round(a.allowance / a.lecture) : 0;
+  const left = a ? lecturesLeft(a) : 0;
+  const pct = a ? Math.max(0, Math.min(100, Math.round(((a.allowance - a.used) / a.allowance) * 100))) : 0;
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3 text-[14px]">
-        <span className="font-medium">{leftText(a)}</span>
-        <span className="text-[12.5px] text-muted-foreground">
-          {lecturesLeft(a)} of {total}
-          {a.resets ? ` · resets ${new Date(a.resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : ""}
-        </span>
+    <div className="flex items-center gap-3">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Credits left">
+        <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={100 - pct} aria-valuemin={0} aria-valuemax={100} aria-label="Lectures left">
-        <div className="h-full rounded-full bg-foreground" style={{ width: `${100 - pct}%` }} />
-      </div>
-      {a.plan !== "plus" && (
-        <p className="mt-2 text-[12.5px] text-muted-foreground">
-          <UpgradeHint a={a} />
-        </p>
-      )}
+      <span className="shrink-0 text-[13.5px] font-medium tabular-nums">{a ? `${left}/${total} left` : "…"}</span>
     </div>
   );
 }
@@ -138,7 +126,7 @@ export function SettingsPage() {
         {(PLUS_ON || plan.plus) && (
         <Row
             label={plan.plus ? "SlideQuiz Plus" : "Get more with Plus"}
-            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} lectures a month, ${PLUS.price} a ${PLUS.period}`}
+            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} credits a month, ${PLUS.price} a ${PLUS.period}`}
           >
             {plan.plus ? (
               <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
@@ -153,7 +141,7 @@ export function SettingsPage() {
         )}
       </Section>
 
-      <Section title="Lectures" description="Each upload uses lectures from your allowance. One is a normal lecture of up to about 5,000 words; longer files count as more.">
+      <Section title="Credits">
         <AllowanceRow />
       </Section>
 

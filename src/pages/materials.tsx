@@ -16,7 +16,7 @@ import { useDragReorder } from "@/components/ui/drag-reorder";
 import { highlightParts, searchNotes } from "@/services/search";
 import { daysUntil, examLabel, folderCoverage, materialsIn } from "@/services/folders";
 import { useData } from "@/store/store";
-import type { Folder } from "@/types/models";
+import type { Folder, Material } from "@/types/models";
 
 const MATERIAL_MIME = "application/x-slidequiz-material";
 
@@ -131,8 +131,17 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
 }
 
 
-function FolderTile({ f, count, onDropMaterial, otherWidths, drag }: { f: Folder; count: number; onDropMaterial: (id: string) => void; otherWidths: number[]; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]> }) {
-  const [over, setOver] = useState(false);
+const DEFAULT_MATERIAL_W = 360;
+
+/** A material in the list: drag to move (or onto a folder), drag its right edge to resize. */
+function MaterialTile({ m, otherWidths, drag, selectable, selected, onSelect }: { m: Material; otherWidths: number[]; drag?: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; selectable: boolean; selected: boolean; onSelect: (v: boolean) => void }) {
+  const { width, start } = useResizableWidth(m.width ?? DEFAULT_MATERIAL_W, otherWidths, (w) => actions.setMaterialWidth(m.id, w));
+  return <MaterialCard m={m} drag={drag} width={width} onResizeStart={start} selectable={selectable} selected={selected} onSelect={onSelect} />;
+}
+
+function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: { f: Folder; count: number; onDropMaterial: (id: string) => void; otherWidths: number[]; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; dropOver?: boolean }) {
+  const [nativeOver, setOver] = useState(false);
+  const over = nativeOver || !!dropOver;
   // Each folder has its own width; drag its right edge to change it.
   const { width, start: onResizeStart } = useResizableWidth(f.width, otherWidths, (w) => actions.setFolderWidth(f.id, w));
   const [colouring, setColouring] = useState(false);
@@ -145,6 +154,7 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag }: { f: Folder
   return (
     <div
       {...drag}
+      data-drop-target={f.id}
       onDragOver={(e) => {
         // Materials can be dropped onto a folder to move them in.
         if (e.dataTransfer.types.includes(MATERIAL_MIME)) {
@@ -159,7 +169,7 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag }: { f: Folder
         if (mid) onDropMaterial(mid);
       }}
       style={{ ...drag.style, width: `min(100%, ${width}px)` }}
-      className={cn("group relative flex cursor-grab select-none items-center gap-3 rounded-xl border bg-card px-3.5 py-3 hover:border-foreground/20 active:cursor-grabbing", over && "border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
+      className={cn("group relative flex cursor-grab select-none items-center gap-3 rounded-xl border bg-card px-3.5 py-3 transition-[background-color,border-color,transform] hover:border-foreground/20 active:cursor-grabbing", over && "scale-[1.03] border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
     >
       <FolderIcon className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
       <Link to={`/materials?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
@@ -236,7 +246,8 @@ export function MaterialsPage() {
   const { query } = useLocation();
   const folderId = data.folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState("recent");
+  const sort = data.settings.materialsSort ?? "custom";
+  const setSort = (v: string) => actions.updateSettings({ materialsSort: v as "custom" | "recent" | "name" });
   const [selecting, setSelecting] = useState(false);
   const [sel, setSel] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -259,6 +270,8 @@ export function MaterialsPage() {
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     const out = data.materials.filter((m) => (t ? `${m.title} ${m.subject} ${m.topics.map((x) => x.name).join(" ")} ${m.files.map((f) => f.name).join(" ")}`.toLowerCase().includes(t) : (m.folderId ?? null) === folderId));
+    // "Your order": as dragged; new ones (not placed yet) go first, newest first.
+    if (sort === "custom") return out.sort((a, b) => (a.order ?? -1) - (b.order ?? -1) || b.createdAt.localeCompare(a.createdAt));
     return out.sort((a, b) => (sort === "name" ? a.title.localeCompare(b.title) : (b.lastOpenedAt ?? b.lastStudiedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.lastStudiedAt ?? a.createdAt)));
   }, [data.materials, q, sort, folderId]);
 
@@ -276,6 +289,18 @@ export function MaterialsPage() {
     actions.moveMaterial(materialId, target);
     toast(target ? `Moved to ${data.folders.find((f) => f.id === target)?.name}` : "Moved to My Materials");
   };
+  // Drag materials to reorder them (switches to "Your order"), or onto a folder to move them in.
+  const materialIds = list.map((m) => m.id);
+  const moveMaterial = useDragReorder(
+    materialIds,
+    (id, to) => {
+      const rest = materialIds.filter((x) => x !== id);
+      rest.splice(to, 0, id);
+      actions.orderMaterials(rest);
+      if (sort !== "custom") setSort("custom");
+    },
+    { onDropInto: (id, target) => moveInto(id, target === "root" ? null : target) },
+  );
   const selectedMaterials = data.materials.filter((m) => sel.includes(m.id));
   const hits = useMemo(() => (searching ? searchNotes(data.materials, q) : []), [data.materials, q, searching]);
   const empty = !folders.length && !list.length && !hits.length;
@@ -298,7 +323,8 @@ export function MaterialsPage() {
               const id = e.dataTransfer.getData(MATERIAL_MIME);
               if (id) moveInto(id, null);
             }}
-            className={cn("rounded-md px-1 focus-ring", trail.length ? "text-muted-foreground hover:text-foreground" : "", rootOver && "bg-accent")}
+            data-drop-target={trail.length ? "root" : undefined}
+            className={cn("rounded-md px-1 transition-colors focus-ring", trail.length ? "text-muted-foreground hover:text-foreground" : "", (rootOver || moveMaterial.over === "root") && "bg-accent text-foreground")}
           >
             My Materials
           </Link>
@@ -308,7 +334,7 @@ export function MaterialsPage() {
               {i === trail.length - 1 ? (
                 <h1 className="truncate px-1 text-[24px] font-semibold">{f.name}</h1>
               ) : (
-                <Link to={`/materials?f=${f.id}`} className="truncate rounded-md px-1 text-muted-foreground hover:text-foreground focus-ring">
+                <Link to={`/materials?f=${f.id}`} data-drop-target={f.id} className={cn("truncate rounded-md px-1 text-muted-foreground transition-colors hover:text-foreground focus-ring", moveMaterial.over === f.id && "bg-accent text-foreground")}>
                   {f.name}
                 </Link>
               )}
@@ -346,6 +372,7 @@ export function MaterialsPage() {
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="pl-9" aria-label="Search materials" />
           </div>
           <Select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort materials" className="w-36 sm:w-40">
+            <option value="custom">Your order</option>
             <option value="recent">Recently used</option>
             <option value="name">Name</option>
           </Select>
@@ -358,16 +385,24 @@ export function MaterialsPage() {
         <section aria-label="Folders" className="mb-6">
           <div className="flex flex-col items-start gap-2">
             {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} otherWidths={folders.filter((o) => o.id !== f.id).map((o) => o.width ?? DEFAULT_FOLDER_W)} />
+              <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} otherWidths={folders.filter((o) => o.id !== f.id).map((o) => o.width ?? DEFAULT_FOLDER_W)} />
             ))}
           </div>
         </section>
       )}
 
       {list.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col items-start gap-2">
           {list.map((m) => (
-            <MaterialCard key={m.id} m={m} selectable={selecting} selected={sel.includes(m.id)} onSelect={(v) => setSel((s) => (v ? [...s, m.id] : s.filter((x) => x !== m.id)))} />
+            <MaterialTile
+              key={m.id}
+              m={m}
+              otherWidths={list.filter((o) => o.id !== m.id).map((o) => o.width ?? DEFAULT_MATERIAL_W)}
+              drag={searching ? undefined : moveMaterial.itemProps(m.id)}
+              selectable={selecting}
+              selected={sel.includes(m.id)}
+              onSelect={(v) => setSel((s) => (v ? [...s, m.id] : s.filter((x) => x !== m.id)))}
+            />
           ))}
         </div>
       )}

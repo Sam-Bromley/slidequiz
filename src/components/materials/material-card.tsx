@@ -14,6 +14,7 @@ import { materialCounts, unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
 import type { Folder, Material, SourceFileType } from "@/types/models";
 import { overallProgress } from "@/services/practice";
+import { ResizeEdge } from "@/components/ui/resizable";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
 const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage };
@@ -141,19 +142,17 @@ export function useMaterialMenu(m: Material) {
   return { items, dialogs };
 }
 
-export function MaterialCard({ m, selectable, selected, onSelect }: { m: Material; selectable?: boolean; selected?: boolean; onSelect?: (v: boolean) => void }) {
+/** `drag`: props from useDragReorder so it can be moved; `width`/`onResizeStart`: drag its right edge to resize. */
+export function MaterialCard({ m, selectable, selected, onSelect, drag, width, onResizeStart }: { m: Material; selectable?: boolean; selected?: boolean; onSelect?: (v: boolean) => void; drag?: Record<string, unknown> & { style?: React.CSSProperties }; width?: number; onResizeStart?: (e: React.PointerEvent) => void }) {
   const data = useData();
   const c = materialCounts(data, m);
   const prog = overallProgress(data, m);
   const { items, dialogs } = useMaterialMenu(m);
   return (
     <article
-      draggable={!selectable}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("application/x-slidequiz-material", m.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      className={cn("group relative flex flex-col rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20", selected && "border-primary ring-1 ring-primary")}
+      {...(selectable ? {} : drag)}
+      style={{ ...(selectable ? {} : drag?.style), ...(width ? { width: `min(100%, ${width}px)` } : {}) }}
+      className={cn("group relative flex flex-col rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20", drag && !selectable && "cursor-grab select-none active:cursor-grabbing", selected && "border-primary ring-1 ring-primary")}
     >
       <div className="flex items-start gap-3">
         {selectable ? (
@@ -185,6 +184,7 @@ export function MaterialCard({ m, selectable, selected, onSelect }: { m: Materia
         </div>
       </div>
       <p className="mt-3 text-[12px] text-muted-foreground">{m.lastStudiedAt ? `Practised ${relativeTime(m.lastStudiedAt)}` : `Added ${relativeTime(m.createdAt)}`}</p>
+      {onResizeStart && <ResizeEdge onPointerDown={onResizeStart} label="Drag to resize" />}
       {dialogs}
     </article>
   );

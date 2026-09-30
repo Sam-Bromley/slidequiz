@@ -270,6 +270,25 @@ export const actions = {
     setState((s) => ({ ...s, decks: [deck, ...(s.decks ?? [])], flashcards: [...fcs, ...s.flashcards] }));
     return id;
   },
+  /** Moves a deck to a new position in the Flashcards list. */
+  moveDeck(id: ID, to: number) {
+    setState((s) => {
+      const decks = [...(s.decks ?? [])];
+      const from = decks.findIndex((d) => d.id === id);
+      if (from < 0) return s;
+      const [d] = decks.splice(from, 1);
+      decks.splice(Math.max(0, Math.min(decks.length, to)), 0, d);
+      return { ...s, decks };
+    });
+  },
+  setMaterialWidth(id: ID, width: number) {
+    setState((s) => ({ ...s, materials: s.materials.map((m) => (m.id === id ? { ...m, width } : m)) }));
+  },
+  /** Saves the order materials are shown in ("Your order"). */
+  orderMaterials(ids: ID[]) {
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    setState((s) => ({ ...s, materials: s.materials.map((m) => (pos.has(m.id) ? { ...m, order: pos.get(m.id) } : m)) }));
+  },
   setDeckWidth(id: ID, width: number) {
     setState((s) => ({ ...s, decks: (s.decks ?? []).map((d) => (d.id === id ? { ...d, width } : d)) }));
   },

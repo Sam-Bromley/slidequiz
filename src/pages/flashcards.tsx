@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
 import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
+import { useDragReorder } from "@/components/ui/drag-reorder";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
@@ -192,10 +193,10 @@ function NameDialog({ title, initial = "", confirm, onSave, onClose }: { title: 
 /* ---------------------------------------------------------------- decks list */
 
 /** One deck in the list. Drag its right edge to make it wider (it snaps to other decks' widths). */
-function DeckTile({ d, count, otherWidths }: { d: Deck; count: number; otherWidths: number[] }) {
+function DeckTile({ d, count, otherWidths, drag }: { d: Deck; count: number; otherWidths: number[]; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]> }) {
   const { width, start } = useResizableWidth(d.width, otherWidths, (w) => actions.setDeckWidth(d.id, w));
   return (
-    <div className="group relative rounded-xl border bg-card transition-colors hover:border-foreground/20" style={{ width: `min(100%, ${width}px)` }}>
+    <div {...drag} className={cn("group relative cursor-grab select-none rounded-xl border bg-card transition-colors hover:border-foreground/20 active:cursor-grabbing", drag["data-dragging"] !== undefined && "border-foreground/25")} style={{ ...drag.style, width: `min(100%, ${width}px)` }}>
       <Link to={`/flashcards/${d.id}`} className="flex items-center gap-3 rounded-xl px-3.5 py-3 focus-ring">
         <Layers className="size-5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1">
@@ -217,6 +218,8 @@ export function FlashcardsPage() {
   const decks = data.decks ?? [];
   const [creating, setCreating] = useState(false);
   const [own, setOwn] = useState(false);
+  // Drag decks up and down to reorder them, like folders.
+  const reorder = useDragReorder(decks.map((d) => d.id), (id, to) => actions.moveDeck(id, to));
 
   const makeOwn = (name: string) => {
     const id = actions.createDeck(name, [], []);
@@ -252,7 +255,7 @@ export function FlashcardsPage() {
       ) : (
         <div className="flex flex-col items-start gap-2">
           {decks.map((d) => (
-            <DeckTile key={d.id} d={d} count={data.flashcards.filter((c) => c.deckId === d.id).length} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
+            <DeckTile key={d.id} d={d} drag={reorder.itemProps(d.id)} count={data.flashcards.filter((c) => c.deckId === d.id).length} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
           ))}
         </div>
       )}

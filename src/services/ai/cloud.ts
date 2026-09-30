@@ -160,7 +160,7 @@ export const lecturesFor = (chars: number, a: Allowance | null) => {
 /** Lectures left, to the nearest whole one. */
 export const lecturesLeft = (a: Allowance) => Math.max(0, Math.round((a.allowance - a.used) / a.lecture));
 /** "less than 1 AI lecture", "1 AI lecture", "about 3 AI lectures". */
-export const lecturesText = (n: number) => (n === 0 ? "less than 1 lecture" : n === 1 ? "1 lecture" : `about ${n} lectures`);
+export const lecturesText = (n: number) => (n === 0 ? "less than 1 credit" : n === 1 ? "1 credit" : `about ${n} credits`);
 /** Is there room for this much text? */
 export const fits = (chars: number, a: Allowance | null) => !a || a.used + chars <= a.allowance + LEEWAY;
 
