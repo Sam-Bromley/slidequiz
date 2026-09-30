@@ -47,6 +47,10 @@ function Pop({ label, title, children, align = "left", className }: { label: str
   );
 }
 
+type PastAnswer = { qid: ID; view: { options: string[]; correct: number }; chosen: number };
+/** Answer history per material (or folder), for as long as the site is open. */
+const HISTORY = new Map<string, PastAnswer[]>();
+
 /**
  * One question at a time. Normally for one material (filtered by topic); with `mixed`,
  * questions come from several materials and the filter picks materials instead.
@@ -65,8 +69,15 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const [round, setRound] = useState(0);
   const [session, setSession] = useState({ right: 0, wrong: 0 });
   const nextBtn = useRef<HTMLButtonElement>(null);
-  /** Questions answered this session, so you can go back and look at them. */
-  const [past, setPast] = useState<{ qid: ID; view: { options: string[]; correct: number }; chosen: number }[]>([]);
+  /** Every question answered (kept while the site is open, across rounds and tab switches), so you can go back to any of them. */
+  const historyKey = mixed ? mixed.map((m) => m.id).join(",") : material.id;
+  const [past, setPastState] = useState<PastAnswer[]>(() => HISTORY.get(historyKey) ?? []);
+  const setPast = (fn: (ps: PastAnswer[]) => PastAnswer[]) =>
+    setPastState((ps) => {
+      const next = fn(ps);
+      HISTORY.set(historyKey, next);
+      return next;
+    });
   /** Which past question is on screen (null = the current one). */
   const [viewIdx, setViewIdx] = useState<number | null>(null);
 
@@ -118,7 +129,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const answer = (i: number) => {
     if (!q || !view || answered) return;
     setChosen(i);
-    setPast((ps) => [...ps, { qid: q.id, view, chosen: i }].slice(-50));
+    setPast((ps) => [...ps, { qid: q.id, view, chosen: i }]);
     const ok = i === view.correct;
     actions.answerPractice(q.id, ok);
     setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
@@ -149,7 +160,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setChosen(null);
     setRound((r) => r + 1);
     setSession({ right: 0, wrong: 0 });
-    setPast([]);
     setViewIdx(null);
   };
 
