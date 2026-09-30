@@ -1,9 +1,13 @@
-import { Check, Moon, Palette, Sun, Sunset } from "lucide-react";
+import { Check, Moon, Palette, Sun, Sunset, ImagePlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { baseTheme, effectiveTheme, isDarkTheme } from "@/lib/theme";
 
 import { cn } from "@/lib/utils";
+import { navigate } from "@/lib/router";
+import { toast } from "@/components/ui/toast";
+import { usePlan } from "@/services/plus";
+import { removeBackgroundPhoto, setBackgroundPhoto, useBackgroundPhotoUrl } from "@/services/background-photo";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { BackgroundScene } from "@/types/models";
@@ -20,6 +24,11 @@ export function Personalise() {
   const dark = isDarkTheme(current);
   const base = baseTheme(data.settings);
   const night = data.settings.theme === "warm" || !!data.settings.nightLight;
+  const plan = usePlan();
+  const photoUrl = useBackgroundPhotoUrl(data.settings.bgPhoto);
+  const photoOn = plan.plus && !!data.settings.bgPhotoOn && !!photoUrl;
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
   const saved = data.settings.scene ?? "none";
   const scene = SCENE_ORDER.includes(saved) ? saved : "none";
 
@@ -71,9 +80,9 @@ export function Personalise() {
           <p className="px-1 pb-2 pt-4 text-[12px] font-medium text-muted-foreground">Background</p>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Background">
             {SCENE_ORDER.map((s) => {
-              const on = scene === s;
+              const on = scene === s && !photoOn;
               return (
-                <button key={s} role="radio" aria-checked={on} onClick={() => actions.updateSettings({ scene: s })} className="group text-left focus-ring rounded-xl">
+                <button key={s} role="radio" aria-checked={on} onClick={() => actions.updateSettings({ scene: s, bgPhotoOn: false })} className="group text-left focus-ring rounded-xl">
                   <span className={cn("relative block h-14 overflow-hidden rounded-xl border-2 transition-colors", on ? "border-foreground" : "border-transparent group-hover:border-border")}>
                     <ScenePreview scene={s} dark={dark} />
                     {on && (
@@ -86,7 +95,61 @@ export function Personalise() {
                 </button>
               );
             })}
+            {/* Pro: your own photo. */}
+            <button
+              role="radio"
+              aria-checked={photoOn}
+              onClick={() => {
+                if (!plan.plus) {
+                  setOpen(false);
+                  toast("Your own background is part of SlideQuiz Pro");
+                  navigate("/pro");
+                } else if (photoUrl && !photoOn) actions.updateSettings({ bgPhotoOn: true });
+                else fileRef.current?.click();
+              }}
+              className="group rounded-xl text-left focus-ring"
+            >
+              <span className={cn("relative grid h-14 place-items-center overflow-hidden rounded-xl border-2 bg-muted transition-colors", photoOn ? "border-foreground" : "border-transparent group-hover:border-border")}>
+                {photoUrl ? <img src={photoUrl} alt="" className="absolute inset-0 size-full object-cover" /> : <ImagePlus className="size-5 text-muted-foreground" />}
+                {!plan.plus && <span className="absolute right-1 top-1 rounded-full bg-foreground px-1.5 py-px text-[10px] font-semibold text-background">Pro</span>}
+                {photoOn && (
+                  <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-foreground text-background">
+                    <Check className="size-3" strokeWidth={3} />
+                  </span>
+                )}
+              </span>
+              <span className="mt-1 block text-center text-[12px] text-muted-foreground">{busy ? "Adding…" : "Your photo"}</span>
+            </button>
           </div>
+          {plan.plus && photoUrl && (
+            <div className="mt-2 flex justify-center gap-3 text-[12px]">
+              <button type="button" className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring" onClick={() => fileRef.current?.click()}>
+                Change photo
+              </button>
+              <button type="button" className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring" onClick={() => removeBackgroundPhoto()}>
+                Remove
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              setBusy(true);
+              try {
+                await setBackgroundPhoto(f);
+              } catch (err) {
+                toast((err as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
         </div>
       )}
     </div>

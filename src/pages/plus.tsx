@@ -145,6 +145,7 @@ export function PlusPage() {
           points={[
             "Everything in Free",
             `${PLUS.plusLectures} credits a month`,
+            "Use your own photo as the background",
             "Never held up when SlideQuiz is busy",
             "Cancel any time",
           ]}

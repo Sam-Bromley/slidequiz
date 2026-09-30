@@ -155,8 +155,14 @@ export function SettingsPage() {
           </Select>
         </Row>
         <Row label="Background" htmlFor="set-scene">
-          <Select id="set-scene" value={SCENE_ORDER.includes(s.scene ?? "none") ? s.scene ?? "none" : "none"} onChange={(e) => actions.updateSettings({ scene: e.target.value as BackgroundScene })} className="sm:w-48">
+          <Select
+            id="set-scene"
+            value={plan.plus && s.bgPhotoOn && s.bgPhoto ? "photo" : SCENE_ORDER.includes(s.scene ?? "none") ? s.scene ?? "none" : "none"}
+            onChange={(e) => (e.target.value === "photo" ? actions.updateSettings({ bgPhotoOn: true }) : actions.updateSettings({ scene: e.target.value as BackgroundScene, bgPhotoOn: false }))}
+            className="sm:w-48"
+          >
             {SCENE_ORDER.map((sc) => <option key={sc} value={sc}>{sceneLabel(sc)}</option>)}
+            {plan.plus && s.bgPhoto && <option value="photo">Your photo</option>}
           </Select>
         </Row>
         <Row label="Quote of the day" htmlFor="set-quote" inline>

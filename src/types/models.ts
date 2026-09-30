@@ -50,6 +50,10 @@ export interface Settings {
   nightEnd?: string;
   /** Decorative background preset. */
   scene?: BackgroundScene;
+  /** Pro: the student's own background photo (an id in the on-device image store). */
+  bgPhoto?: string;
+  /** Pro: show that photo instead of the chosen scene. */
+  bgPhotoOn?: boolean;
   defaultDifficulty: DifficultySetting;
   defaultCount: number;
   showExplanations: boolean;

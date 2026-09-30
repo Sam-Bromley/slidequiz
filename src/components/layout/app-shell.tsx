@@ -1,6 +1,8 @@
 import { Settings, Upload, X } from "lucide-react";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
+import { usePlan } from "@/services/plus";
+import { useBackgroundPhotoUrl } from "@/services/background-photo";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Link, useLocation } from "@/lib/router";
@@ -139,7 +141,10 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 export function AppShell({ children, bare }: { children: ReactNode; bare?: boolean }) {
   const [drawer, setDrawer] = useState(false);
   const data = useData();
-  const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} />;
+  // Pro members' own photo (only while they have Pro, and only on the device it was added on).
+  const plan = usePlan();
+  const photoUrl = useBackgroundPhotoUrl(plan.plus && data.settings.bgPhotoOn ? data.settings.bgPhoto : undefined);
+  const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} photo={photoUrl} />;
   if (bare)
     return (
       <div className="min-h-[100dvh]">
