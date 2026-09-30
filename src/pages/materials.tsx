@@ -468,7 +468,7 @@ export function MaterialsPage() {
       )}
 
       {selecting && sel.length > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] z-30 px-4 lg:bottom-6 lg:left-[248px]">
+        <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] z-30 px-4 lg:bottom-6 lg:left-[var(--sb,248px)]">
           <div className="mx-auto flex max-w-3xl animate-fade-up flex-col gap-3 rounded-2xl border bg-popover p-4 shadow-pop sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] text-muted-foreground">Make questions from:</p>

@@ -493,7 +493,7 @@ export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; 
   const p = dark ? def.dark : def.light;
   const sun = SUN_SPOT[scene];
   return (
-    <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden lg:left-[248px]" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
+    <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden lg:left-[var(--sb,248px)]" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
       {p.stars && <StarField />}
       {p.glow && (
         <>

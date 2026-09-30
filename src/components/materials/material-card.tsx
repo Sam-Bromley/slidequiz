@@ -16,15 +16,20 @@ import type { Folder, Material, SourceFileType } from "@/types/models";
 import { overallProgress } from "@/services/practice";
 import { ResizeEdge } from "@/components/ui/resizable";
 import { ProgressRing } from "@/components/ui/progress-ring";
+import { subjectHue } from "@/lib/subject-colour";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 
 const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage, audio: AudioLines, video: Video, youtube: CirclePlay };
 
 
-export function MaterialIcon({ m, className }: { m: Material; className?: string }) {
+export function MaterialIcon({ m, className, hue }: { m: Material; className?: string; hue?: number | null }) {
   const Icon = TYPE_ICON[m.files[0]?.type ?? "text"];
   return (
-    <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground", className)} aria-hidden>
+    <span
+      className={cn("grid size-10 shrink-0 place-items-center rounded-lg", hue == null ? "bg-secondary text-muted-foreground" : "bg-[hsl(var(--sh)_75%_93%)] text-[hsl(var(--sh)_55%_38%)] dark:bg-[hsl(var(--sh)_35%_17%)] dark:text-[hsl(var(--sh)_75%_72%)]", className)}
+      style={hue == null ? undefined : ({ "--sh": hue } as React.CSSProperties)}
+      aria-hidden
+    >
       <Icon className="size-[18px]" />
     </span>
   );
@@ -149,6 +154,8 @@ export function MaterialCard({ m, selectable, selected, onSelect, drag, width, o
   const c = materialCounts(data, m);
   const prog = overallProgress(data, m);
   const { items, dialogs } = useMaterialMenu(m);
+  // Optional: a soft colour per subject (Settings → Appearance).
+  const hue = data.settings.subjectColours && (aiReady(m) || usesBuiltIn(m)) ? subjectHue(m.subject) : null;
   return (
     <article
       {...(selectable ? {} : drag)}
@@ -161,10 +168,12 @@ export function MaterialCard({ m, selectable, selected, onSelect, drag, width, o
             <Checkbox checked={!!selected} onChange={(e) => onSelect?.(e.target.checked)} aria-label={`Select ${m.title}`} />
           </div>
         ) : (
-          <MaterialIcon m={m} />
+          <MaterialIcon m={m} hue={hue} />
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-medium text-muted-foreground">{aiReady(m) || usesBuiltIn(m) ? m.subject : "\u00a0"}</p>
+          <p className={cn("text-[12px] font-medium", hue == null ? "text-muted-foreground" : "text-[hsl(var(--sh)_55%_38%)] dark:text-[hsl(var(--sh)_75%_72%)]")} style={hue == null ? undefined : ({ "--sh": hue } as React.CSSProperties)}>
+            {aiReady(m) || usesBuiltIn(m) ? m.subject : "\u00a0"}
+          </p>
           <h3 className="mt-0.5 font-sans text-[15px] font-semibold leading-snug">
             <Link to={`/materials/${m.id}`} className="rounded after:absolute after:inset-0 after:rounded-xl focus-ring">
               {m.title}

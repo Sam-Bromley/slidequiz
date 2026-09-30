@@ -18,6 +18,13 @@ export interface NoteLine {
   depth: 0 | 1;
 }
 
+/** A stable id for one line of the notes (highlights attach to it). */
+export function lineKey(pageId: string, index: number, text: string): string {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+  return `${pageId}:${index}:${(h >>> 0).toString(36)}`;
+}
+
 export interface NoteSlide {
   page: Page;
   /** Shown as a small heading unless it just repeats the section title. */
@@ -281,14 +288,31 @@ function giveSubheadings(sec: NoteSection) {
 /** The notes as a document for export (PDF, Word, text, Markdown, web page). */
 export function notesExportDoc(m: Material): import("@/services/export").ExportDoc {
   const blocks: import("@/services/export").ExportDoc["blocks"] = [];
+  const byLine = new Map<string, NonNullable<Material["marks"]>>();
+  for (const mk of m.marks ?? []) byLine.set(mk.key, [...(byLine.get(mk.key) ?? []), mk]);
   for (const sec of buildNotes(m)) {
     blocks.push({ kind: "h2", text: sec.title });
     for (const s of sec.slides) {
-      if (s.title) blocks.push({ kind: "p", text: s.title.toUpperCase() });
-      const items = s.lines.map((l) => (l.term ? `${tidyTerm(l.term)}${l.sep ?? ": "}${tidyLine(l.text)}` : tidyLine(l.text))).filter(Boolean);
-      if (s.table) items.push(...s.table.map((r) => r.join(" | ")));
-      if (items.length) blocks.push({ kind: "list", items });
+      if (s.title) blocks.push({ kind: "h3", text: s.title });
+      s.lines.forEach((l, i) => {
+        const text = tidyLine(l.text);
+        const term = l.kind === "sub" ? "" : l.term ? tidyTerm(l.term) : "";
+        if (!text && !term) return;
+        const marks = (byLine.get(lineKey(s.page.id, i, l.text)) ?? []).sort((x, y) => x.start - y.start);
+        blocks.push({
+          kind: "point",
+          style: l.kind === "sub" ? "sub" : l.kind === "para" ? "para" : "bullet",
+          depth: l.depth,
+          term: term || undefined,
+          sep: l.sep ?? ": ",
+          text,
+          marks: marks.map((x) => ({ start: x.start, end: x.end, color: x.color })),
+          notes: marks.filter((x) => x.note).map((x) => ({ text: x.note!, color: x.color })),
+        });
+      });
+      if (s.table?.length) blocks.push({ kind: "list", items: s.table.map((r) => r.join(" | ")) });
     }
   }
-  return { title: `${m.title} notes`, subtitle: m.subject, blocks };
+  const mine = (m.marks ?? []).filter((x) => x.note).length;
+  return { title: `${m.title}`, subtitle: [m.subject, "Revision notes", mine ? `${mine} of your own note${mine === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · "), blocks };
 }

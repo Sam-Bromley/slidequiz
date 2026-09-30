@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
+import { confetti } from "@/lib/confetti";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
@@ -129,6 +130,22 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const topicName = sq ? (mixed ? qMaterial?.title : material.topics.find((t) => t.id === sq.topicId)?.name) : undefined;
   const coveredN = all.filter(isCovered).length;
   const prog = { total: all.length, covered: coveredN, review: all.filter(needsReview).length, pct: all.length ? Math.round((coveredN / all.length) * 100) : 0 };
+
+  // Confetti: reaching 100% of this lecture, or finishing a round with a great score.
+  const lastPct = useRef(prog.pct);
+  useEffect(() => {
+    if (prog.pct === 100 && lastPct.current < 100 && prog.total >= 3) confetti();
+    lastPct.current = prog.pct;
+  }, [prog.pct, prog.total]);
+  const roundOver = all.length > 0 && !rev && !q;
+  const celebrated = useRef(-1);
+  useEffect(() => {
+    const done = session.right + session.wrong;
+    if (roundOver && celebrated.current !== round && done >= 5 && session.right / done >= 0.8 && prog.pct < 100) {
+      celebrated.current = round;
+      confetti({ count: 110 });
+    }
+  }, [roundOver, round, session.right, session.wrong, prog.pct]);
 
   const answer = (i: number) => {
     if (!q || !view || answered) return;
@@ -369,6 +386,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                     sAnswered && isRight && "border-success bg-success-soft",
                     !rev && sAnswered && isRight && isChosen && "animate-correct-glow",
                     sAnswered && isChosen && !isRight && "border-destructive bg-destructive-soft",
+                    !rev && sAnswered && isChosen && !isRight && "animate-shake",
                     sAnswered && !isRight && !isChosen && "opacity-60",
                   )}
                 >

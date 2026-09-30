@@ -26,10 +26,10 @@ export function StreakFlame() {
   const { count, today } = streakDays(days);
   if (!count) return null;
   const tier = count >= 14 ? 3 : count >= 7 ? 2 : count >= 3 ? 1 : 0;
-  const size = [15, 17, 19, 21][tier];
+  const size = [20, 22, 24, 26][tier];
   const title = today ? `${count} ${count === 1 ? "day" : "days"} in a row. Nice!` : `${count} ${count === 1 ? "day" : "days"} in a row. Practise today to keep it going!`;
   return (
-    <span className={cn("inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-[13.5px] font-semibold tabular-nums", today ? "text-foreground" : "text-muted-foreground")} title={title} aria-label={title}>
+    <span className={cn("inline-flex h-9 items-center gap-1 rounded-full px-2 text-[15px] font-bold tabular-nums", today ? "text-foreground" : "text-muted-foreground")} title={title} aria-label={title}>
       <svg
         viewBox="0 0 24 24"
         width={size}

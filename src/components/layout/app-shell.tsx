@@ -1,7 +1,10 @@
-import { Settings, Upload, X } from "lucide-react";
+import { Settings, Upload, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
 import { StreakFlame } from "./streak";
+import { StudyTimerButton, StudyTimerPill } from "./study-timer";
+import { actions } from "@/store/actions";
+import { applyFont, TEXT_ZOOM } from "@/lib/reading";
 import { usePlan, usePlanQuiet } from "@/services/plus";
 import { useBackgroundPhotoUrl } from "@/services/background-photo";
 import { useEffect, useState, type ReactNode } from "react";
@@ -13,16 +16,82 @@ import { useData } from "@/store/store";
 import { Logo, LogoMark } from "./logo";
 import { NAV } from "./nav";
 
+const SB_DEFAULT = 248;
+const SB_MIN = 68;
+const SB_MAX = 360;
+/** Below this width the sidebar shows icons only. */
+const SB_COMPACT = 170;
+
 function Sidebar() {
   const { path } = useLocation();
+  const data = useData();
+  const pro = usePlanQuiet().plus;
+  const saved = data.settings.sidebarWidth ?? SB_DEFAULT;
+  const [live, setLive] = useState<number | null>(null);
+  const width = live ?? saved;
+  const compact = width < SB_COMPACT;
+
+  // Drag the right edge to resize; let go near the icon size and it snaps to icons only.
+  const startDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = width;
+    document.documentElement.classList.add("sb-dragging");
+    document.body.style.cursor = "ew-resize";
+    let last = w0;
+    const move = (ev: PointerEvent) => {
+      last = Math.round(Math.max(SB_MIN, Math.min(SB_MAX, w0 + ev.clientX - x0)));
+      setLive(last);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.documentElement.classList.remove("sb-dragging");
+      document.body.style.cursor = "";
+      const final = last < SB_COMPACT ? SB_MIN : last;
+      actions.updateSettings({ sidebarWidth: final });
+      setLive(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--sb", `${data.settings.sidebarHidden ? 0 : width}px`);
+  }, [width, data.settings.sidebarHidden]);
+
+  if (data.settings.sidebarHidden)
+    return (
+      <button
+        type="button"
+        onClick={() => actions.updateSettings({ sidebarHidden: false })}
+        className="fixed left-3 top-3 z-30 hidden size-9 place-items-center rounded-lg border bg-background/70 text-muted-foreground shadow-sm backdrop-blur-xl transition-colors hover:text-foreground focus-ring lg:grid"
+        aria-label="Show sidebar"
+        title="Show sidebar"
+      >
+        <PanelLeftOpen className="size-[18px]" />
+      </button>
+    );
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r bg-background/45 backdrop-blur-xl lg:flex" aria-label="Sidebar">
-      <div className="flex h-14 items-center px-4">
+    <aside className="sb-anim fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-background/45 backdrop-blur-xl lg:flex" style={{ width }} aria-label="Sidebar">
+      <div className={cn("group/sb flex h-14 items-center", compact ? "justify-center px-2" : "justify-between px-4")}>
         <Link to="/" className="rounded-md focus-ring" aria-label="SlideQuiz home">
-          <Logo pro={usePlanQuiet().plus} />
+          {compact ? <LogoMark className="size-7" /> : <Logo pro={pro} />}
         </Link>
+        {!compact && (
+          <button
+            type="button"
+            onClick={() => actions.updateSettings({ sidebarHidden: true })}
+            className="grid size-8 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus-ring focus-visible:opacity-100 group-hover/sb:opacity-100"
+            aria-label="Hide sidebar"
+            title="Hide sidebar"
+          >
+            <PanelLeftClose className="size-[18px]" />
+          </button>
+        )}
       </div>
-      <nav className="px-2.5" aria-label="Main" data-no-bounce>
+      <nav className={compact ? "px-2" : "px-2.5"} aria-label="Main" data-no-bounce>
         <ul className="space-y-px">
           {NAV.map((n) => {
             const active = n.match(path);
@@ -31,16 +100,33 @@ function Sidebar() {
                 <Link
                   to={n.to}
                   aria-current={active ? "page" : undefined}
-                  className={cn("flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[14px] transition-colors focus-ring", active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+                  title={compact ? n.label : undefined}
+                  aria-label={compact ? n.label : undefined}
+                  className={cn("flex h-9 items-center gap-2.5 rounded-lg text-[14px] transition-colors focus-ring", compact ? "justify-center" : "px-2.5", active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
                 >
-                  <n.icon className="size-[18px]" />
-                  {n.label}
+                  <n.icon className="size-[18px] shrink-0" />
+                  {!compact && <span className="truncate">{n.label}</span>}
                 </Link>
               </li>
             );
           })}
         </ul>
       </nav>
+      {compact && (
+        <button type="button" onClick={() => actions.updateSettings({ sidebarHidden: true })} className="mx-auto mb-3 mt-auto grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-ring" aria-label="Hide sidebar" title="Hide sidebar">
+          <PanelLeftClose className="size-[18px]" />
+        </button>
+      )}
+      {/* Drag to resize; double-click to reset. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        title="Drag to resize · double-click to reset"
+        onPointerDown={startDrag}
+        onDoubleClick={() => actions.updateSettings({ sidebarWidth: SB_DEFAULT })}
+        className="absolute -right-1 inset-y-0 w-2 cursor-ew-resize touch-none transition-colors hover:bg-foreground/10"
+      />
     </aside>
   );
 }
@@ -62,6 +148,7 @@ function MobileTopBar(_: { onMenu: () => void }) {
         <Logo pro={usePlanQuiet().plus} />
       </Link>
       <StreakFlame />
+          <StudyTimerButton />
           <Personalise />
       <SettingsButton />
     </header>
@@ -146,6 +233,9 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
   // Pro members' own photo (only while they have Pro, and only on the device it was added on).
   const plan = usePlan();
   const photoUrl = useBackgroundPhotoUrl(plan.plus && data.settings.bgPhotoOn ? data.settings.bgPhoto : undefined);
+  // Reading font and size (Settings → Appearance).
+  const zoom = TEXT_ZOOM[data.settings.textSize ?? "default"] ?? 1;
+  useEffect(() => applyFont(data.settings.font), [data.settings.font]);
   // Pro accent colour on the whole page (only while they have Pro).
   const accent = plan.plus && data.settings.accent && data.settings.accent !== "default" ? data.settings.accent : null;
   useEffect(() => {
@@ -173,15 +263,17 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
         Skip to content
       </a>
       <Sidebar />
+      <StudyTimerPill />
       <MobileTopBar onMenu={() => setDrawer(true)} />
       <MobileDrawer open={drawer} onClose={() => setDrawer(false)} />
-      <div className="lg:pl-[248px]">
+      <div className="sb-anim lg:pl-[var(--sb,248px)]">
         <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 px-4 lg:flex">
           <StreakFlame />
+          <StudyTimerButton />
           <Personalise />
           <SettingsButton />
         </div>
-        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-16 lg:pt-2">
+        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-16 lg:pt-2" style={zoom !== 1 ? { zoom } : undefined}>
           {children}
         </main>
       </div>

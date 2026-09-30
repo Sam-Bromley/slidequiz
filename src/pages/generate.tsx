@@ -265,7 +265,7 @@ export function GeneratePage() {
       )}
 
       {/* Summary bar */}
-      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom,0px))] z-30 border-t bg-background/92 backdrop-blur-md lg:bottom-0 lg:left-[248px]">
+      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom,0px))] z-30 border-t bg-background/92 backdrop-blur-md lg:bottom-0 lg:left-[var(--sb,248px)]">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <p className="min-w-0 flex-1 truncate text-[13.5px] font-medium tabular-nums" aria-live="polite">
             {custom ? summaryLine : `${includedPages} ${unit} · 10 questions · Mixed difficulty · ${plural(allTopics.length, "topic")}`}

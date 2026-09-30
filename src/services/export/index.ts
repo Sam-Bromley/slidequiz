@@ -20,7 +20,45 @@ export type Block =
       answer?: string;
       explanation?: string;
     }
-  | { kind: "card"; front: string; back: string; meta?: string };
+  | { kind: "card"; front: string; back: string; meta?: string }
+  | { kind: "h3"; text: string }
+  | {
+      /** A line of notes: an optional bold term, the text, your highlights and your own notes. */
+      kind: "point";
+      style: "bullet" | "para" | "sub";
+      depth?: number;
+      term?: string;
+      sep?: string;
+      text: string;
+      marks?: { start: number; end: number; color: MarkColour }[];
+      notes?: { text: string; color: MarkColour }[];
+    };
+
+export type MarkColour = "yellow" | "green" | "blue" | "pink";
+
+/** The line as one string ("Term: text"), which highlight positions count through. */
+export const pointText = (b: { term?: string; sep?: string; text: string }) => (b.term ? b.term + (b.text ? b.sep ?? ": " : "") + b.text : b.text);
+
+/** The line split into runs: bold (the term) and highlighted parts. */
+export function pointRuns(b: Extract<Block, { kind: "point" }>) {
+  const full = pointText(b);
+  const termEnd = b.term?.length ?? 0;
+  const cuts = new Set([0, full.length, termEnd]);
+  for (const m of b.marks ?? []) {
+    cuts.add(Math.max(0, Math.min(full.length, m.start)));
+    cuts.add(Math.max(0, Math.min(full.length, m.end)));
+  }
+  const pts = [...cuts].sort((x, y) => x - y);
+  const runs: { text: string; bold: boolean; mark?: MarkColour }[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (pts[i] === pts[i + 1]) continue;
+    runs.push({ text: full.slice(pts[i], pts[i + 1]), bold: b.style === "sub" || pts[i] < termEnd, mark: b.marks?.find((m) => m.start <= pts[i] && m.end >= pts[i + 1])?.color });
+  }
+  return runs;
+}
+
+const MARK_RGB: Record<MarkColour, [number, number, number]> = { yellow: [1, 0.93, 0.55], green: [0.73, 0.94, 0.8], blue: [0.75, 0.89, 0.99], pink: [0.99, 0.8, 0.9] };
+const MARK_HEX: Record<MarkColour, string> = { yellow: "FFF08C", green: "BAF0CC", blue: "BFE3FC", pink: "FCCCE5" };
 
 export interface ExportDoc {
   title: string;
@@ -173,16 +211,96 @@ export async function toPdf(doc: ExportDoc): Promise<Blob> {
     y -= o.gap ?? 4;
   };
 
-  text(doc.title, { size: 20, f: bold, gap: 2 });
-  if (doc.subtitle) text(doc.subtitle, { size: 10, color: muted, gap: 6 });
-  page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.8, color: rule });
-  y -= 16;
+  /** Words with their own font and highlight, wrapped across lines. */
+  const rich = (runs: { text: string; bold: boolean; mark?: MarkColour }[], o: { size?: number; indent?: number; gap?: number; color?: ReturnType<typeof rgb>; bullet?: string }) => {
+    const size = o.size ?? 10.5, indent = o.indent ?? 0, lh = size * 1.42;
+    const words: { w: string; f: typeof font; mark?: MarkColour; space: boolean }[] = [];
+    for (const r of runs) {
+      const parts = pdfSafe(r.text).split(/(\s+)/);
+      for (const p of parts) {
+        if (!p) continue;
+        if (/^\s+$/.test(p)) {
+          if (words.length) words[words.length - 1].space = true;
+          continue;
+        }
+        words.push({ w: p, f: r.bold ? bold : font, mark: r.mark, space: false });
+      }
+    }
+    const spaceW = font.widthOfTextAtSize(" ", size);
+    let lines: (typeof words)[] = [[]];
+    let lineW = 0;
+    for (const wd of words) {
+      const ww = wd.f.widthOfTextAtSize(wd.w, size);
+      const cur = lines[lines.length - 1];
+      const prevSpace = cur.length && cur[cur.length - 1].space ? spaceW : 0;
+      if (cur.length && lineW + prevSpace + ww > maxW - indent) {
+        lines.push([wd]);
+        lineW = ww;
+      } else {
+        cur.push(wd);
+        lineW += prevSpace + ww;
+      }
+    }
+    lines = lines.filter((l) => l.length);
+    lines.forEach((l, li) => {
+      ensure(lh);
+      if (li === 0 && o.bullet) page.drawText(o.bullet, { x: M + indent - 11, y: y - size, size, font, color: muted });
+      let x = M + indent;
+      l.forEach((wd, i) => {
+        const ww = wd.f.widthOfTextAtSize(wd.w, size);
+        const trail = wd.space && i < l.length - 1 ? spaceW : 0;
+        if (wd.mark) {
+          const [r, g, bl] = MARK_RGB[wd.mark];
+          const nextMarked = trail && l[i + 1]?.mark === wd.mark;
+          page.drawRectangle({ x: x - 0.5, y: y - size - 2.5, width: ww + (nextMarked ? trail : 0) + 1, height: size + 4.5, color: rgb(r, g, bl) });
+        }
+        page.drawText(wd.w, { x, y: y - size, size, font: wd.f, color: o.color ?? ink });
+        x += ww + trail;
+      });
+      y -= lh;
+    });
+    y -= o.gap ?? 4;
+  };
+
+  // A coloured band across the top of the first page.
+  const bandH = 96;
+  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: bandH, color: accent });
+  page.drawText("SlideQuiz", { x: M, y: H - 30, size: 9, font: bold, color: rgb(1, 1, 1), opacity: 0.75 });
+  const titleLines = wrap(doc.title, bold, 20, maxW).slice(0, 2);
+  let ty = H - 54;
+  for (const tl of titleLines) {
+    page.drawText(tl, { x: M, y: ty, size: 20, font: bold, color: rgb(1, 1, 1) });
+    ty -= 24;
+  }
+  y = H - bandH - 20;
+  if (doc.subtitle) text(doc.subtitle, { size: 10, color: muted, gap: 10 });
 
   for (const b of doc.blocks) {
     if (b.kind === "h2") {
       ensure(40);
       y -= 8;
-      text(b.text, { size: 13.5, f: bold, gap: 6 });
+      text(b.text, { size: 14, f: bold, gap: 2 });
+      page.drawRectangle({ x: M, y: y + 1, width: 28, height: 2.5, color: accent });
+      y -= 6;
+    } else if (b.kind === "h3") {
+      ensure(34);
+      y -= 4;
+      text(b.text, { size: 11.5, f: bold, color: accent, gap: 3 });
+    } else if (b.kind === "point") {
+      const indent = b.style === "bullet" ? 14 + (b.depth ? 16 : 0) : 0;
+      if (b.style === "sub") y -= 3;
+      rich(pointRuns(b), { indent, bullet: b.style === "bullet" ? (b.depth ? "–" : "•") : undefined, gap: 3 });
+      for (const n of b.notes ?? []) {
+        const [r, g, bl] = MARK_RGB[n.color];
+        const lines = wrap(n.text, font, 9.5, maxW - indent - 22);
+        const h = lines.length * 9.5 * 1.42 + 8;
+        ensure(h + 4);
+        page.drawRectangle({ x: M + indent, y: y - h, width: maxW - indent, height: h, color: rgb(r, g, bl), opacity: 0.45 });
+        page.drawRectangle({ x: M + indent, y: y - h, width: 2.5, height: h, color: rgb(r * 0.75, g * 0.75, bl * 0.75) });
+        y -= 4;
+        text("My note: " + n.text, { size: 9.5, indent: indent + 10, gap: 0 });
+        y -= 8;
+      }
     } else if (b.kind === "p") text(b.text, { color: b.muted ? muted : ink, size: b.muted ? 9.5 : 10.5 });
     else if (b.kind === "list") b.items.forEach((it) => text("•  " + it, { indent: 6 }));
     else if (b.kind === "card") {
@@ -226,12 +344,27 @@ export async function toDocx(doc: ExportDoc): Promise<Blob> {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle } = d;
   const children: InstanceType<typeof Paragraph>[] = [];
   const muted = "6B7080";
-  children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: doc.title, bold: true })] }));
+  children.push(new Paragraph({ heading: HeadingLevel.TITLE, border: { bottom: { style: BorderStyle.SINGLE, size: 18, color: "4B44D6", space: 4 } }, children: [new TextRun({ text: doc.title, bold: true })] }));
   if (doc.subtitle) children.push(new Paragraph({ children: [new TextRun({ text: doc.subtitle, color: muted })], spacing: { after: 240 } }));
   const line = () => new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "C9CCD6", space: 1 } }, spacing: { before: 280 }, children: [] });
   for (const b of doc.blocks) {
     if (b.kind === "h2") children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 280, after: 120 }, children: [new TextRun(b.text)] }));
-    else if (b.kind === "p") children.push(new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: b.text, color: b.muted ? muted : undefined, size: b.muted ? 19 : 22 })] }));
+    else if (b.kind === "h3") children.push(new Paragraph({ heading: HeadingLevel.HEADING_3, spacing: { before: 200, after: 60 }, keepNext: true, children: [new TextRun({ text: b.text, color: "4B44D6" })] }));
+    else if (b.kind === "point") {
+      const runs = pointRuns(b).map((r) => new TextRun({ text: r.text, bold: r.bold, shading: r.mark ? { type: d.ShadingType.CLEAR, color: "auto", fill: MARK_HEX[r.mark] } : undefined }));
+      if (b.style === "bullet") children.push(new Paragraph({ bullet: { level: b.depth ? 1 : 0 }, spacing: { after: 40 }, children: runs }));
+      else children.push(new Paragraph({ spacing: { before: b.style === "sub" ? 120 : 0, after: 80 }, children: runs }));
+      for (const n of b.notes ?? [])
+        children.push(
+          new Paragraph({
+            indent: { left: b.style === "bullet" ? 720 : 0 },
+            spacing: { after: 80 },
+            shading: { type: d.ShadingType.CLEAR, color: "auto", fill: MARK_HEX[n.color] },
+            border: { left: { style: BorderStyle.SINGLE, size: 18, color: "999999", space: 6 } },
+            children: [new TextRun({ text: "My note: ", bold: true, size: 19 }), new TextRun({ text: n.text, size: 19 })],
+          }),
+        );
+    } else if (b.kind === "p") children.push(new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: b.text, color: b.muted ? muted : undefined, size: b.muted ? 19 : 22 })] }));
     else if (b.kind === "list") b.items.forEach((it) => children.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun(it)] })));
     else if (b.kind === "card") {
       children.push(new Paragraph({ spacing: { before: 160 }, children: [new TextRun({ text: b.front, bold: true })] }));
@@ -285,6 +418,13 @@ export function toPrintHtml(doc: ExportDoc) {
   const body = doc.blocks
     .map((b) => {
       if (b.kind === "h2") return `<h2>${e(b.text)}</h2>`;
+      if (b.kind === "h3") return `<h3>${e(b.text)}</h3>`;
+      if (b.kind === "point") {
+        const inner = pointRuns(b).map((r) => { const t = r.bold ? `<b>${e(r.text)}</b>` : e(r.text); return r.mark ? `<mark class="${r.mark}">${t}</mark>` : t; }).join("");
+        const notes = (b.notes ?? []).map((n) => `<div class="mynote ${n.color}"><b>My note:</b> ${e(n.text)}</div>`).join("");
+        const tag = b.style === "bullet" ? `<p class="pt${b.depth ? " d1" : ""}">` : b.style === "sub" ? `<p class="sub">` : "<p>";
+        return tag + inner + "</p>" + notes;
+      }
       if (b.kind === "p") return `<p class="${b.muted ? "muted" : ""}">${e(b.text)}</p>`;
       if (b.kind === "list") return `<ul>${b.items.map((i) => `<li>${e(i)}</li>`).join("")}</ul>`;
       if (b.kind === "card") return `<div class="card"><div class="front">${e(b.front)}</div><div class="back">${e(b.back)}</div>${b.meta ? `<div class="muted small">${e(b.meta)}</div>` : ""}</div>`;
@@ -314,6 +454,11 @@ const PRINT_CSS = `
   .sq-print .card{border:1px dashed #aaa;border-radius:6px;padding:8pt 10pt;margin:0 0 8pt;break-inside:avoid}
   .sq-print .card .front{font-weight:600}.sq-print .pairs{display:flex;gap:24pt}
   .sq-print footer{margin-top:24pt}
+  .sq-print h3{font-size:11.5pt;color:#4b44d6;margin:12pt 0 3pt}
+  .sq-print .pt{position:relative;padding-left:14pt;margin:2pt 0}.sq-print .pt:before{content:"•";position:absolute;left:3pt;color:#888}.sq-print .pt.d1{margin-left:14pt}
+  .sq-print .sub{font-weight:600;margin:8pt 0 2pt}
+  .sq-print mark{padding:0 1px;border-radius:2px}.sq-print mark.yellow,.sq-print .mynote.yellow{background:#fff08c}.sq-print mark.green,.sq-print .mynote.green{background:#baf0cc}.sq-print mark.blue,.sq-print .mynote.blue{background:#bfe3fc}.sq-print mark.pink,.sq-print .mynote.pink{background:#fccce5}
+  .sq-print .mynote{border-left:3px solid #999;padding:3pt 8pt;margin:2pt 0 6pt 14pt;font-size:9.5pt;break-inside:avoid}
 }`;
 
 export function printDoc(doc: ExportDoc) {
@@ -340,7 +485,13 @@ export function toMarkdown(doc: ExportDoc) {
   const out: string[] = [`# ${doc.title}`, ...(doc.subtitle ? ["", `_${doc.subtitle}_`] : []), ""];
   for (const b of doc.blocks) {
     if (b.kind === "h2") out.push(`## ${b.text}`, "");
-    else if (b.kind === "p") out.push(b.muted ? `_${b.text}_` : b.text, "");
+    else if (b.kind === "h3") out.push(`### ${b.text}`, "");
+    else if (b.kind === "point") {
+      const t = pointRuns(b).map((r) => { const x = r.bold ? `**${r.text}**` : r.text; return r.mark ? `==${x}==` : x; }).join("");
+      out.push(b.style === "bullet" ? `${b.depth ? "  " : ""}- ${t}` : t);
+      for (const n of b.notes ?? []) out.push(`${b.style === "bullet" ? "  " : ""}  > My note: ${n.text}`);
+      if (b.style !== "bullet") out.push("");
+    } else if (b.kind === "p") out.push(b.muted ? `_${b.text}_` : b.text, "");
     else if (b.kind === "list") out.push(...b.items.map((i) => `- ${i}`), "");
     else if (b.kind === "card") out.push(`**${b.front}**`, "", b.back, ...(b.meta ? ["", `_${b.meta}_`] : []), "", "---", "");
     else {
@@ -378,7 +529,11 @@ export function toPlainText(doc: ExportDoc) {
   const lines: string[] = [doc.title, ...(doc.subtitle ? [doc.subtitle] : []), ""];
   for (const b of doc.blocks) {
     if (b.kind === "h2") lines.push("", b.text.toUpperCase(), "");
-    else if (b.kind === "p") lines.push(b.text);
+    else if (b.kind === "h3") lines.push("", b.text);
+    else if (b.kind === "point") {
+      lines.push((b.style === "bullet" ? (b.depth ? "    - " : "• ") : "") + pointText(b));
+      for (const n of b.notes ?? []) lines.push(`    [My note] ${n.text}`);
+    } else if (b.kind === "p") lines.push(b.text);
     else if (b.kind === "list") b.items.forEach((i) => lines.push(`• ${i}`));
     else if (b.kind === "card") lines.push(`${b.front}\n   → ${b.back}`, "");
     else {

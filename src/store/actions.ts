@@ -20,6 +20,7 @@ import type {
   StudySession,
   SummaryDoc,
   User,
+  NoteMark,
 } from "@/types/models";
 import { getState, replaceState, setState } from "./store";
 
@@ -33,6 +34,30 @@ function addXp(s: AppData, n: number): AppData {
   const days = s.user.studyDays ?? [];
   const studyDays = days[days.length - 1] === today ? days : [...days, today].slice(-400);
   return { ...s, user: { ...s.user, xp: Math.max(0, s.user.xp + n), studyDays } };
+}
+
+/** Adds to today's entry in the study log (for the weekly recap). */
+function logStudy(s: AppData, answers: { questionId: ID; right: boolean }[], cards = 0): AppData {
+  const today = dayKey(new Date());
+  const log = { ...(s.user.studyLog ?? {}) };
+  const day = { ...(log[today] ?? { q: 0, c: 0, cards: 0 }) };
+  day.t = { ...(day.t ?? {}) };
+  for (const a of answers) {
+    const q = s.questions.find((x) => x.id === a.questionId);
+    day.q += 1;
+    day.c += a.right ? 1 : 0;
+    if (q) {
+      const k = `${q.materialId}|${q.topicId ?? ""}`;
+      const [n, r] = day.t[k] ?? [0, 0];
+      day.t[k] = [n + 1, r + (a.right ? 1 : 0)];
+    }
+  }
+  day.cards += cards;
+  log[today] = day;
+  // Keep about 10 weeks.
+  const keys = Object.keys(log).sort();
+  for (const k of keys.slice(0, Math.max(0, keys.length - 70))) delete log[k];
+  return { ...s, user: { ...s.user, studyLog: log } };
 }
 
 /** Folders keep the order the student dragged them into; new ones go at the end. */
@@ -209,7 +234,7 @@ export const actions = {
         ),
         materials: s.materials.map((m) => (m.id === q.materialId ? { ...m, lastStudiedAt: now } : m)),
       };
-      return addXp(next, correct ? XP.correct : 1);
+      return addXp(logStudy(next, [{ questionId, right: correct }]), correct ? XP.correct : 1);
     });
   },
   resetPractice(materialId: ID): Undo {
@@ -260,7 +285,7 @@ export const actions = {
     setState((s) => {
       const q = s.questions.find((x) => x.id === a.questionId);
       if (!q) return s;
-      const next = applyAnswerToStats(s, a);
+      const next = logStudy(applyAnswerToStats(s, a), [{ questionId: a.questionId, right: a.score >= 0.85 }]);
       return addXp(next, a.score >= 0.85 ? XP.correct : a.score >= 0.3 ? XP.partial : 1);
     });
   },
@@ -284,6 +309,22 @@ export const actions = {
       decks.splice(Math.max(0, Math.min(decks.length, to)), 0, d);
       return { ...s, decks };
     });
+  },
+  /** Pro: add or change a highlight on the notes (same id = update). */
+  saveMark(materialId: ID, mark: NoteMark) {
+    setState((s) => ({
+      ...s,
+      materials: s.materials.map((m) => {
+        if (m.id !== materialId) return m;
+        const others = (m.marks ?? []).filter((x) => x.id !== mark.id);
+        // A new highlight replaces any it overlaps on the same line.
+        const kept = others.filter((x) => x.key !== mark.key || x.end <= mark.start || x.start >= mark.end || (m.marks ?? []).some((y) => y.id === mark.id));
+        return { ...m, marks: [...kept, mark] };
+      }),
+    }));
+  },
+  removeMark(materialId: ID, markId: ID) {
+    setState((s) => ({ ...s, materials: s.materials.map((m) => (m.id === materialId ? { ...m, marks: (m.marks ?? []).filter((x) => x.id !== markId) } : m)) }));
   },
   setMaterialWidth(id: ID, width: number) {
     setState((s) => ({ ...s, materials: s.materials.map((m) => (m.id === id ? { ...m, width } : m)) }));
@@ -317,7 +358,7 @@ export const actions = {
 
   /* ------------------------------------------------------------ flashcards */
   rateCard(id: ID, rating: FlashcardRating) {
-    setState((s) => addXp({ ...s, flashcards: s.flashcards.map((c) => (c.id === id ? { ...c, srs: schedule(c.srs, rating) } : c)) }, XP.card));
+    setState((s) => addXp(logStudy({ ...s, flashcards: s.flashcards.map((c) => (c.id === id ? { ...c, srs: schedule(c.srs, rating) } : c)) }, [], 1), XP.card));
   },
   toggleCardBookmark(id: ID) {
     setState((s) => ({ ...s, flashcards: s.flashcards.map((c) => (c.id === id ? { ...c, bookmarked: !c.bookmarked } : c)) }));
@@ -360,9 +401,11 @@ export const actions = {
       if (!a || a.status === "completed") return s;
       let next: AppData = { ...s, attempts: s.attempts.map((x) => (x.id === id ? { ...x, status: "completed" as const, finishedAt: nowISO() } : x)) };
       let xp = XP.quiz;
+      const logged: { questionId: ID; right: boolean }[] = [];
       for (const ans of Object.values(a.answers)) {
         if (!ans.response || ans.skipped) continue;
         next = applyAnswerToStats(next, ans);
+        logged.push({ questionId: ans.questionId, right: ans.score >= 0.85 });
         xp += ans.score >= 0.85 ? XP.correct : ans.score >= 0.3 ? XP.partial : 0;
       }
       const session: StudySession = { id: uid("ses"), kind: "quiz", materialIds: a.materialIds, startedAt: a.startedAt, durationMs: a.elapsedMs, items: Object.keys(a.answers).length };
@@ -371,7 +414,7 @@ export const actions = {
         sessions: [session, ...next.sessions],
         materials: next.materials.map((m) => (a.materialIds.includes(m.id) ? { ...m, lastStudiedAt: nowISO() } : m)),
       };
-      return addXp(next, xp);
+      return addXp(logStudy(next, logged), xp);
     });
   },
   deleteAttempt(id: ID): Undo {

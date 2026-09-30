@@ -166,6 +166,24 @@ export function SettingsPage() {
             {plan.plus && s.bgPhoto && <option value="photo">Your photo</option>}
           </Select>
         </Row>
+        <Row label="Text size" htmlFor="set-size">
+          <Select id="set-size" value={s.textSize ?? "default"} onChange={(e) => actions.updateSettings({ textSize: e.target.value as Settings["textSize"] })} className="sm:w-48">
+            <option value="small">Small</option>
+            <option value="default">Normal</option>
+            <option value="large">Large</option>
+            <option value="xl">Extra large</option>
+          </Select>
+        </Row>
+        <Row label="Font" hint="Easy-read and dyslexia-friendly fonts for notes and questions" htmlFor="set-font">
+          <Select id="set-font" value={s.font ?? "default"} onChange={(e) => actions.updateSettings({ font: e.target.value as Settings["font"] })} className="sm:w-48">
+            <option value="default">Standard</option>
+            <option value="readable">Easy-read (Atkinson)</option>
+            <option value="dyslexic">Dyslexia-friendly</option>
+          </Select>
+        </Row>
+        <Row label="Colour subjects" hint="Each subject gets its own soft colour on your materials" htmlFor="set-subjects" inline>
+          <Switch id="set-subjects" checked={!!s.subjectColours} onChange={(v) => set({ subjectColours: v })} label="Colour subjects" />
+        </Row>
         <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>

@@ -34,6 +34,18 @@ export interface User {
   xp: number;
   /** Days (YYYY-MM-DD, local) on which the student practised or revised: for the streak. */
   studyDays?: string[];
+  /** What was studied each day (YYYY-MM-DD, local), for the weekly recap. Kept for about 10 weeks. */
+  studyLog?: Record<string, DayLog>;
+}
+
+export interface DayLog {
+  /** Questions answered, and how many were right. */
+  q: number;
+  c: number;
+  /** Flashcards reviewed. */
+  cards: number;
+  /** Per topic ("materialId|topicId"): [answered, right]. */
+  t?: Record<string, [number, number]>;
 }
 
 /** "warmlight" is only ever automatic: night light on top of the Light theme. */
@@ -52,6 +64,15 @@ export interface Settings {
   nightEnd?: string;
   /** Decorative background preset. */
   scene?: BackgroundScene;
+  /** Give each subject its own soft colour on material cards. */
+  subjectColours?: boolean;
+  /** Reading size for the main content. */
+  textSize?: "small" | "default" | "large" | "xl";
+  /** Reading font: the default, an easy-read font, or a dyslexia-friendly one. */
+  font?: "default" | "readable" | "dyslexic";
+  /** Sidebar width in pixels (drag its edge); hidden = tucked away. */
+  sidebarWidth?: number;
+  sidebarHidden?: boolean;
   /** Pro: accent colour for buttons and highlights. */
   accent?: "default" | "blue" | "green" | "purple" | "pink" | "orange";
   /** Pro: the student's own background photo (an id in the on-device image store). */
@@ -127,9 +148,24 @@ export interface Topic {
   pageIds: ID[];
 }
 
+/** Pro: a highlight (and optional note) on a line of the notes. */
+export interface NoteMark {
+  id: ID;
+  /** Which line: see lineKey() in services/notes. */
+  key: string;
+  start: number;
+  end: number;
+  text: string;
+  color: "yellow" | "green" | "blue" | "pink";
+  note?: string;
+  at: ISODate;
+}
+
 export interface Material {
   id: ID;
   title: string;
+  /** Pro: the student's highlights and notes on the AI notes. */
+  marks?: NoteMark[];
   subject: string;
   course?: string;
   unit: "slides" | "pages" | "sections";

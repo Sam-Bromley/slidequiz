@@ -8,6 +8,8 @@ import { toast } from "@/components/ui/toast";
 import { cn, inArtifactHost, plural } from "@/lib/utils";
 import { exportDoc, flashcardsCsv, flashcardsDoc, questionsCsv, questionsDoc, summaryDocument, toPlainText, type ExportDoc, type ExportFormat } from "@/services/export";
 import { topicName } from "@/store/selectors";
+import { navigate } from "@/lib/router";
+import { hasPlus, usePlanQuiet } from "@/services/plus";
 import { getState } from "@/store/store";
 import type { Flashcard, Question, SummaryDoc } from "@/types/models";
 
@@ -22,6 +24,9 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
   const [worksheet, setWorksheet] = useState(false);
   const [keyAtEnd, setKeyAtEnd] = useState(true);
   const [busy, setBusy] = useState(false);
+  usePlanQuiet();
+  // Designed notes (PDF and Word, with your highlights) are a Pro perk.
+  const proOnly = (f: ExportFormat) => content === "notes" && (f === "pdf" || f === "docx") && !hasPlus();
 
   const build = (): { doc: ExportDoc; csv?: string; json?: unknown } => {
     const d = getState();
@@ -36,6 +41,10 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
   };
 
   const run = async () => {
+    if (proOnly(format)) {
+      toast("Notes as PDF and Word are part of SlideQuiz Pro", { tone: "info", description: "Or export them as text, Markdown or a web page for free.", action: { label: "See Pro", onClick: () => (onClose(), navigate("/pro")) } });
+      return;
+    }
     setBusy(true);
     try {
       const { doc, csv, json } = build();
@@ -100,7 +109,10 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
             <button key={f.value} role="radio" aria-checked={format === f.value} onClick={() => setFormat(f.value)} className={cn("flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors focus-ring", format === f.value ? "border-primary bg-primary-soft/70 ring-1 ring-primary" : "hover:bg-accent")}>
               <f.icon className={cn("size-[18px]", format === f.value ? "text-primary" : "text-muted-foreground")} />
               <span>
-                <span className="block text-[13.5px] font-semibold">{f.label}</span>
+                <span className="flex items-center gap-1.5 text-[13.5px] font-semibold">
+                  {f.label}
+                  {proOnly(f.value) && <span className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-1.5 py-px text-[9.5px] font-bold tracking-wide text-white">PRO</span>}
+                </span>
                 <span className="block text-[11.5px] leading-snug text-muted-foreground">{f.hint}</span>
               </span>
             </button>

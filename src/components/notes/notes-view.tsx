@@ -1,4 +1,4 @@
-import { BookOpen, Download, Image as ImageIcon, MessageCircle } from "lucide-react";
+import { BookOpen, Download, Image as ImageIcon, MessageCircle, StickyNote } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
-import { buildNotes, notesExportDoc, type NoteLine, type NoteSlide } from "@/services/notes";
+import { buildNotes, lineKey, notesExportDoc, type NoteLine, type NoteSlide } from "@/services/notes";
+import { Highlighter } from "@/components/notes/highlighter";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
-import type { Material, PageImage } from "@/types/models";
+import type { Material, NoteMark, PageImage } from "@/types/models";
 
 const URL_RE = /((?:https?:\/\/|www\.)[^\s)]+[^\s).,;:!?'"]|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/gi;
 
@@ -33,28 +34,115 @@ function linkify(text: string): ReactNode {
   });
 }
 
-function Line({ l }: { l: NoteLine }) {
+export const MARK_BG: Record<NoteMark["color"], string> = {
+  yellow: "bg-yellow-200/80 dark:bg-yellow-400/30",
+  green: "bg-emerald-200/80 dark:bg-emerald-400/25",
+  blue: "bg-sky-200/80 dark:bg-sky-400/25",
+  pink: "bg-pink-200/80 dark:bg-pink-400/25",
+};
+
+/**
+ * The line's text with any highlights. Highlights are stored as character positions in the
+ * line as shown ("Term: text"), so they survive page reloads and show in the same place.
+ */
+function marked(term: string, sep: string, text: string, marks: NoteMark[], onMark: (m: NoteMark, el: HTMLElement) => void): ReactNode {
+  const full = term ? term + (text ? sep : "") + text : text;
+  const termEnd = term.length;
+  if (!marks.length) {
+    return term ? (
+      <>
+        <strong className="font-semibold text-foreground">{term}</strong>
+        {text && sep}
+        {linkify(text)}
+      </>
+    ) : (
+      linkify(text)
+    );
+  }
+  const cuts = new Set([0, full.length, termEnd]);
+  for (const m of marks) {
+    cuts.add(Math.max(0, Math.min(full.length, m.start)));
+    cuts.add(Math.max(0, Math.min(full.length, m.end)));
+  }
+  const points = [...cuts].sort((a, b) => a - b);
+  const out: ReactNode[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (a === b) continue;
+    const seg = full.slice(a, b);
+    const inner = a < termEnd ? <strong className="font-semibold text-foreground">{seg}</strong> : seg;
+    const m = marks.find((x) => x.start <= a && x.end >= b);
+    if (!m) {
+      out.push(<span key={a}>{inner}</span>);
+      continue;
+    }
+    const last = m.end === b;
+    out.push(
+      <mark
+        key={a}
+        data-mark-id={m.id}
+        onClick={(e) => onMark(m, e.currentTarget)}
+        className={cn("cursor-pointer rounded-[3px] px-0 text-inherit shadow-none", MARK_BG[m.color])}
+        title={m.note ? m.note : "Click to add a note or remove"}
+      >
+        {inner}
+        {last && m.note && <StickyNote className="ml-0.5 inline size-3.5 -translate-y-px text-foreground/70" aria-label="Has a note" />}
+      </mark>,
+    );
+  }
+  return out;
+}
+
+function Line({ l, k, marks, onMark }: { l: NoteLine; k: string; marks: NoteMark[]; onMark: (m: NoteMark, el: HTMLElement) => void }) {
   const text = tidyLine(l.text);
-  const term = l.term ? tidyTerm(l.term) : "";
+  const term = l.kind === "sub" ? "" : l.term ? tidyTerm(l.term) : "";
   if (!text && !term) return null;
-  const body: ReactNode = term ? (
-    <>
-      <strong className="font-semibold text-foreground">{term}</strong>
-      {text && (l.sep ?? ": ")}
-      {linkify(text)}
-    </>
-  ) : (
-    linkify(text)
+  const sep = l.sep ?? ": ";
+  const full = term ? term + (text ? sep : "") + text : text;
+  const body = marked(term, sep, text, marks, onMark);
+  const notes = marks.filter((m) => m.note).sort((x, y) => x.start - y.start);
+  const own = notes.length > 0 && (
+    <span className={cn("mt-1 block space-y-1", l.kind === "bullet" && "pl-5", l.depth === 1 && "ml-5")}>
+      {notes.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={(e) => onMark(m, e.currentTarget)}
+          className={cn("flex w-full items-start gap-2 rounded-lg border-l-[3px] px-2.5 py-1.5 text-left text-[0.9em] text-foreground/85 focus-ring", NOTE_BOX[m.color])}
+        >
+          <StickyNote className="mt-[0.2em] size-3.5 shrink-0 opacity-70" aria-hidden />
+          <span className="whitespace-pre-wrap">{m.note}</span>
+        </button>
+      ))}
+    </span>
   );
-  if (l.kind === "sub") return <p className="mt-3 font-semibold text-foreground">{linkify(text)}</p>;
-  if (l.kind === "para") return <p className="text-foreground/90">{body}</p>;
-  return (
-    <p className={cn("relative pl-5 text-foreground/90", l.depth === 1 && "ml-5")}>
-      <span className={cn("absolute left-1 top-[0.8em] size-[5px] -translate-y-1/2 rounded-full", l.depth ? "border border-muted-foreground" : "bg-muted-foreground")} aria-hidden />
-      {body}
-    </p>
+  let p: ReactNode;
+  if (l.kind === "sub") p = <p data-line-key={k} data-full={full} className="mt-3 font-semibold text-foreground">{body}</p>;
+  else if (l.kind === "para") p = <p data-line-key={k} data-full={full} className="text-foreground/90">{body}</p>;
+  else
+    p = (
+      <p data-line-key={k} data-full={full} className={cn("relative pl-5 text-foreground/90", l.depth === 1 && "ml-5")}>
+        <span className={cn("absolute left-1 top-[0.8em] size-[5px] -translate-y-1/2 rounded-full", l.depth ? "border border-muted-foreground" : "bg-muted-foreground")} aria-hidden />
+        {body}
+      </p>
+    );
+  return own ? (
+    <div>
+      {p}
+      {own}
+    </div>
+  ) : (
+    p
   );
 }
+
+const NOTE_BOX: Record<NoteMark["color"], string> = {
+  yellow: "border-yellow-400 bg-yellow-50 dark:bg-yellow-400/10",
+  green: "border-emerald-400 bg-emerald-50 dark:bg-emerald-400/10",
+  blue: "border-sky-400 bg-sky-50 dark:bg-sky-400/10",
+  pink: "border-pink-400 bg-pink-50 dark:bg-pink-400/10",
+};
 
 function Figure({ img, label, open, className }: { img: PageImage; label: string; open: () => void; className?: string }) {
   return (
@@ -64,7 +152,7 @@ function Figure({ img, label, open, className }: { img: PageImage; label: string
   );
 }
 
-function SlideBlock({ s, first, showImages, openImage }: { s: NoteSlide; first: boolean; showImages: boolean; openImage: (img: PageImage, label: string) => void }) {
+function SlideBlock({ s, first, showImages, openImage, marks, onMark }: { s: NoteSlide; first: boolean; showImages: boolean; openImage: (img: PageImage, label: string) => void; marks: Map<string, NoteMark[]>; onMark: (m: NoteMark, el: HTMLElement) => void }) {
   const hasText = s.lines.length > 0 || !!s.table;
   const imgs = showImages ? s.images : [];
   // One picture sits beside the text like a textbook figure; wide ones or several go underneath.
@@ -73,9 +161,10 @@ function SlideBlock({ s, first, showImages, openImage }: { s: NoteSlide; first: 
     <div className="min-w-0">
       {s.lines.length > 0 && (
         <div className="space-y-1.5 text-[15px] leading-relaxed">
-          {s.lines.map((l, i) => (
-            <Line key={i} l={l} />
-          ))}
+          {s.lines.map((l, i) => {
+            const k = lineKey(s.page.id, i, l.text);
+            return <Line key={i} l={l} k={k} marks={marks.get(k) ?? []} onMark={onMark} />;
+          })}
         </div>
       )}
       {s.table && (
@@ -131,6 +220,17 @@ export function NotesView({ material }: { material: Material }) {
   const [asking, setAsking] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [big, setBig] = useState<{ img: PageImage; label: string } | null>(null);
+  // Pro: highlights and notes on the notes.
+  const [activeMark, setActiveMark] = useState<{ mark: NoteMark; el: HTMLElement } | null>(null);
+  const marksByLine = useMemo(() => {
+    const map = new Map<string, NoteMark[]>();
+    for (const m of material.marks ?? []) map.set(m.key, [...(map.get(m.key) ?? []), m]);
+    return map;
+  }, [material.marks]);
+  const openMark = (mark: NoteMark, el: HTMLElement) => {
+    if (window.getSelection()?.toString()) return;
+    setActiveMark({ mark, el });
+  };
 
   useEffect(() => {
     if (!asking) return;
@@ -187,11 +287,12 @@ export function NotesView({ material }: { material: Material }) {
           )}
         </div>
 
+        <Highlighter material={material} active={activeMark} onClose={() => setActiveMark(null)} />
         {sections.map((sec, si) => (
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
             {sec.slides.map((s, i) => (
-              <SlideBlock key={s.page.id} s={s} first={i === 0} showImages={showImages} openImage={(img, label) => setBig({ img, label })} />
+              <SlideBlock key={s.page.id} s={s} first={i === 0} showImages={showImages} openImage={(img, label) => setBig({ img, label })} marks={marksByLine} onMark={openMark} />
             ))}
           </section>
         ))}

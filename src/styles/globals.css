@@ -196,3 +196,12 @@ html.dark.accent-green { --primary: 150 55% 52%; --primary-foreground: 150 60% 8
 html.dark.accent-purple { --primary: 262 85% 72%; --primary-foreground: 262 50% 12%; --ring: 262 85% 72%; --brand: 262 85% 72%; }
 html.dark.accent-pink { --primary: 330 85% 70%; --primary-foreground: 330 50% 12%; --ring: 330 85% 70%; --brand: 330 85% 70%; }
 html.dark.accent-orange { --primary: 28 95% 62%; --primary-foreground: 28 60% 10%; --ring: 28 95% 62%; --brand: 28 95% 62%; }
+
+/* Reading fonts (loaded only when picked). */
+html.font-readable body, html.font-readable body * { font-family: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif !important; }
+html.font-dyslexic body, html.font-dyslexic body * { font-family: "OpenDyslexic", ui-sans-serif, system-ui, sans-serif !important; }
+html.font-dyslexic body { letter-spacing: 0.01em; word-spacing: 0.08em; }
+
+/* Sidebar resize: smooth when hiding/showing, instant while dragging. */
+.sb-anim { transition: width 0.22s ease, padding-left 0.22s ease; }
+html.sb-dragging .sb-anim { transition: none; }
