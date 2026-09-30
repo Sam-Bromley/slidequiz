@@ -9,6 +9,8 @@
 //   STRIPE_SECRET_KEY      required (starts sk_live_ or sk_test_)
 //   STRIPE_PRICE_ID        required (starts price_, the monthly Plus price)
 //   STRIPE_WEBHOOK_SECRET  required (starts whsec_, from the webhook you add in Stripe)
+//   STRIPE_MANAGED         optional: "off" to stop using Managed Payments (Stripe as merchant of record,
+//                          handling VAT, fraud and disputes). On by default.
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
 
 const ALLOWED = [/^https:\/\/(www\.)?slidequiz\.co\.uk$/, /^https:\/\/sam-bromley\.github\.io$/, /^http:\/\/localhost(:\d+)?$/];
@@ -40,7 +42,7 @@ async function stripe(path: string, params: Record<string, unknown> = {}, method
   const url = `https://api.stripe.com/v1/${path}` + (method === "GET" && form.size ? `?${form}` : "");
   const r = await fetch(url, {
     method,
-    headers: { Authorization: `Bearer ${env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { Authorization: `Bearer ${env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded", "Stripe-Version": "2026-04-22.dahlia" },
     body: method === "GET" ? undefined : form,
   });
   const out = await r.json();
@@ -153,6 +155,8 @@ Deno.serve(async (req) => {
         subscription_data: { metadata: { user_id: user.id } },
         ...(plan?.stripe_customer ? { customer: plan.stripe_customer } : { customer_email: user.email }),
         allow_promotion_codes: true,
+        // Stripe is the seller of record: it charges and pays VAT, and handles fraud and disputes.
+        ...(env("STRIPE_MANAGED") === "off" ? {} : { managed_payments: { enabled: true } }),
         success_url: `${site}/#/plus?done=1`,
         cancel_url: `${site}/#/plus`,
       });
