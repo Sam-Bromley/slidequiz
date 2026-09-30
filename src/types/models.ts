@@ -156,6 +156,8 @@ export interface MaterialAI {
   notes?: AINoteSection[];
   /** True once the questions are the AI's. */
   questions?: boolean;
+  /** Why it last failed, shown small on the "Couldn't write" panel. */
+  error?: string;
   at: string;
 }
 

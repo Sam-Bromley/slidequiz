@@ -34,6 +34,7 @@ export function AIWaiting({ material, what }: { material: Material; what: "notes
     return (
       <Panel icon={<TriangleAlert className="size-5" />} title={`Couldn't write your ${noun}`} action={<Button variant="outline" onClick={() => enhanceMaterial(material.id)}><RotateCcw /> Try again</Button>}>
         The AI is busy or your connection dropped. Try again in a moment.
+        {material.ai?.error && <span className="mt-2 block text-[12px] opacity-70">Reason: {material.ai.error}</span>}
       </Panel>
     );
 

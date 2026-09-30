@@ -20,7 +20,8 @@ import { aiKey } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
 
 export const AI_ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
-const CHUNK = 45_000;
+/** Characters of slide text per request: small enough that each answer comes back quickly. */
+const CHUNK = 15_000;
 
 export class AIError extends Error {
   constructor(
@@ -95,11 +96,11 @@ async function call<T>(task: string, body: Record<string, unknown>): Promise<T> 
       body: JSON.stringify({ task, ...body }),
     });
   } catch {
-    throw new AIError("Couldn't reach the AI.");
+    throw new AIError("Couldn't reach the AI helper (network or CORS).");
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 404) throw new AIError("AI isn't set up yet.", false, true);
-  if (!res.ok) throw new AIError(data?.error ?? "The AI couldn't help this time.", !!data?.limit);
+  if (!res.ok) throw new AIError(`${data?.error ?? data?.msg ?? data?.message ?? "The AI couldn't help this time."} (${res.status})`, !!data?.limit);
   return data as T;
 }
 
@@ -146,7 +147,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
     try {
       const pages = cloudPages(m0);
       // 1. Notes and topics.
-      const parts = await Promise.all(chunks(pages).map((c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c })));
+      const parts = await runLimited(chunks(pages), 4, (c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c }));
       const sections = mergeSections(parts.flatMap((p) => p.sections ?? []), pages);
       if (!sections.length) throw new AIError("No notes came back.");
       applyTopics(id, sections);
@@ -158,7 +159,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
       if (!m1) return;
       const topicOf = new Map(m1.pages.map((p) => [p.id, p.topicId]));
       const labelOf = new Map(m1.pages.map((p) => [p.id, p.label]));
-      const qs = await runLimited(chunks(pages), 2, (c) => call<{ questions: CloudQuestion[] }>("questions", { title: m0.title, pages: c }));
+      const qs = await runLimited(chunks(pages), 4, (c) => call<{ questions: CloudQuestion[] }>("questions", { title: m0.title, pages: c }));
       const drafts = qs.flatMap((r) => r.questions ?? []).flatMap((q) => toDraft(q, m1, topicOf, labelOf));
       if (drafts.length) actions.setPracticeQuestions(id, drafts);
       actions.updateMaterial(id, { ai: { key, status: "done", notes: sections, questions: drafts.length > 0, at: nowISO() } });
@@ -166,7 +167,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
       const cur = getState().materials.find((x) => x.id === id);
       const err = e instanceof AIError ? e : null;
       const status = err?.off ? "off" : err?.limit ? "limit" : "failed";
-      actions.updateMaterial(id, { ai: { key, status, notes: cur?.ai?.notes, questions: cur?.ai?.questions, at: nowISO() } });
+      actions.updateMaterial(id, { ai: { key, status, notes: cur?.ai?.notes, questions: cur?.ai?.questions, error: (e as Error)?.message, at: nowISO() } });
       // AI not set up at all: make the built-in questions so there's something to practise.
       if (status === "off") (await import("@/services/practice")).buildPracticeQuestions(id);
     } finally {
