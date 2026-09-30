@@ -1,0 +1,69 @@
+import { useState } from "react";
+import { AuthDialog } from "@/components/account/auth-dialog";
+import { Link } from "@/lib/router";
+import { fits, lecturesFor, lecturesLeft, lecturesText, textSize, useAllowance, type Allowance } from "@/services/ai/cloud";
+import type { Material } from "@/types/models";
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const resetDate = (a: Allowance) => (a.resets ? new Date(a.resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
+
+/** "Where it's from" for the lectures left: to try, this month, or this month on Plus. */
+export function leftText(a: Allowance) {
+  const left = lecturesLeft(a);
+  if (a.plan === "guest") return `${plural(left, "AI lecture")} left to try`;
+  return `${plural(left, "AI lecture")} left this month`;
+}
+
+/** What to do when there aren't enough lectures left. `fewer`: also suggest choosing fewer slides. */
+export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
+  const [auth, setAuth] = useState(false);
+  const link = "font-medium text-foreground underline underline-offset-2";
+  if (a.plan === "guest")
+    return (
+      <>
+        {fewer && "Choose fewer slides, or "}
+        <button type="button" className={link} onClick={() => setAuth(true)}>
+          {fewer ? "make" : "Make"} a free account
+        </button>{" "}
+        to get 10 a month.
+        {auth && <AuthDialog initial="signup" onClose={() => setAuth(false)} />}
+      </>
+    );
+  if (a.plan === "free")
+    return (
+      <>
+        {fewer && "Choose fewer slides, or "}
+        <Link to="/plus" className={link}>
+          {fewer ? "get" : "Get"} Plus
+        </Link>{" "}
+        for 150 a month. Free lectures reset on {resetDate(a)}.
+      </>
+    );
+  return (
+    <>
+      {fewer && "Choose fewer slides. "}Your lectures reset on {resetDate(a)}.
+    </>
+  );
+}
+
+/** Under the files on the upload page: how many AI lectures these will use, and how many are left. */
+export function AllowanceNote({ materials }: { materials: Material[] }) {
+  const a = useAllowance();
+  if (!a || !materials.length) return null;
+  const chars = materials.reduce((n, m) => n + textSize(m), 0);
+  const need = lecturesFor(chars, a);
+  if (fits(chars, a))
+    return (
+      <p className="text-center text-[13px] text-muted-foreground">
+        Uses {lecturesText(need)} · {leftText(a)}
+      </p>
+    );
+  return (
+    <p className="max-w-md text-center text-[13px] text-muted-foreground" role="status">
+      <span className="font-medium text-foreground">
+        {lecturesLeft(a) ? `This needs ${lecturesText(need)} but you have ${lecturesLeft(a) === 1 ? "about 1" : `about ${lecturesLeft(a)}`} left.` : `You've used your ${a.plan === "guest" ? "free" : "AI"} lectures${a.plan === "guest" ? "" : " for this month"}.`}
+      </span>{" "}
+      <UpgradeHint a={a} fewer />
+    </p>
+  );
+}

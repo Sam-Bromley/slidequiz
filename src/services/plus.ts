@@ -10,9 +10,9 @@ import { authToken, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/ac
 export const PLUS = {
   price: "£3.99",
   period: "month",
-  guestLectures: "about 4–6",
-  freeLectures: "about 8–12",
-  plusLectures: "about 30",
+  guestLectures: "2",
+  freeLectures: "10",
+  plusLectures: "150",
 };
 
 export interface PlanState {

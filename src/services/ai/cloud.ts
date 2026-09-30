@@ -8,8 +8,8 @@
  * again later; nothing is made up by rules instead. The one exception is when the AI helper
  * isn't set up at all ("off"), where the built-in notes keep the site usable.
  */
-import { hasPlus } from "@/services/plus";
-import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL } from "@/services/account";
+import { useEffect, useSyncExternalStore } from "react";
+import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/account";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
@@ -100,9 +100,69 @@ async function call<T>(task: string, body: Record<string, unknown>): Promise<T> 
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 404) throw new AIError("AI isn't set up yet.", false, true);
-  if (!res.ok) throw new AIError(`${data?.error ?? data?.msg ?? data?.message ?? "The AI couldn't help this time."} (${res.status})`, !!data?.limit);
+  if (!res.ok) throw new AIError(data?.busy ? "busy" : `${data?.error ?? data?.msg ?? data?.message ?? "The AI couldn't help this time."} (${res.status})`, !!data?.limit);
   return data as T;
 }
+
+/* ---------------------------------------------------------------- AI lecture allowance */
+
+/** From the database (see ai_allowance in supabase/ai-setup.sql). Counted in characters of slide text. */
+export interface Allowance {
+  plan: "guest" | "free" | "plus";
+  used: number;
+  allowance: number;
+  /** Characters in one "lecture". */
+  lecture: number;
+  /** When it resets (null for guests, whose 2 lectures are a one-off). */
+  resets: string | null;
+}
+/** Matches the leeway in use_lecture_text, so a lecture that only just fits isn't refused. */
+const LEEWAY = 5000;
+let allowance: Allowance | null = null;
+const allowanceListeners = new Set<() => void>();
+
+export async function refreshAllowance(): Promise<Allowance | null> {
+  try {
+    const token = await aiToken();
+    if (!token) return allowance;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ai_allowance`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: "{}" });
+    if (!r.ok) return allowance;
+    allowance = (await r.json()) as Allowance;
+    allowanceListeners.forEach((l) => l());
+  } catch {
+    /* offline: keep what we had */
+  }
+  return allowance;
+}
+
+/** The student's AI lectures, kept up to date as they log in and out. */
+export function useAllowance(): Allowance | null {
+  const uid = useAccount().user?.id ?? null;
+  useEffect(() => {
+    refreshAllowance();
+  }, [uid]);
+  return useSyncExternalStore(
+    (l) => (allowanceListeners.add(l), () => allowanceListeners.delete(l)),
+    () => allowance,
+    () => allowance,
+  );
+}
+
+/** Roughly how many characters a material sends (as the helper counts them). */
+export function textSize(m: Material): number {
+  return cloudPages(m).reduce((n, p) => n + p.label.length + p.title.length + Math.min(p.text.length, 4000) + 50, 0);
+}
+/** How many "lectures" some text uses, to the nearest whole one (0 means less than one). */
+export const lecturesFor = (chars: number, a: Allowance | null) => {
+  const n = chars / (a?.lecture ?? 30000);
+  return n < 0.75 ? 0 : Math.max(1, Math.round(n));
+};
+/** Lectures left, to the nearest whole one. */
+export const lecturesLeft = (a: Allowance) => Math.max(0, Math.round((a.allowance - a.used) / a.lecture));
+/** "less than 1 AI lecture", "1 AI lecture", "about 3 AI lectures". */
+export const lecturesText = (n: number) => (n === 0 ? "less than 1 AI lecture" : n === 1 ? "1 AI lecture" : `about ${n} AI lectures`);
+/** Is there room for this much text? */
+export const fits = (chars: number, a: Allowance | null) => !a || a.used + chars <= a.allowance + LEEWAY;
 
 /** The included slides' text (reference lists removed), ready to send. */
 function cloudPages(m: Material, topicIds: ID[] = []): CloudPage[] {
@@ -138,11 +198,17 @@ export function enhanceMaterial(id: ID): Promise<void> {
   const m0 = getState().materials.find((x) => x.id === id);
   if (!m0 || !m0.pages.some((p) => p.included && p.text.trim())) return Promise.resolve();
   const key = aiKey(m0);
-  // Out of allowance: try again tomorrow, or straight away once they've got Plus.
-  const limitStillApplies = m0.ai?.status === "limit" && m0.ai.at.slice(0, 10) === nowISO().slice(0, 10) && !hasPlus();
-  if (m0.ai?.key === key && (m0.ai.status === "done" || limitStillApplies)) return Promise.resolve();
+  if (m0.ai?.key === key && m0.ai.status === "done") return Promise.resolve();
   if (running.has(id)) return running.get(id)!;
   const job = (async () => {
+    // Check there are enough AI lectures left before starting, so nothing is half-done.
+    const a = await refreshAllowance();
+    if (!fits(textSize(m0), a)) {
+      const cur = getState().materials.find((x) => x.id === id)?.ai;
+      if (cur?.status !== "limit" || cur.key !== key || cur.error !== "allowance") actions.updateMaterial(id, { ai: { key, status: "limit", notes: cur?.notes, questions: cur?.questions, error: "allowance", at: nowISO() } });
+      running.delete(id);
+      return;
+    }
     actions.updateMaterial(id, { ai: { key, status: "working", at: nowISO() } });
     try {
       const pages = cloudPages(m0);
@@ -172,6 +238,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
       if (status === "off") (await import("@/services/practice")).buildPracticeQuestions(id);
     } finally {
       running.delete(id);
+      refreshAllowance();
     }
   })();
   running.set(id, job);

@@ -12,6 +12,7 @@ import { ACCEPT_ATTR, buildMaterial, detectType, FILE_TYPE_LABEL, ParseError, pa
 import { buildPracticeQuestions } from "@/services/practice";
 import { persistPendingImages } from "@/services/storage/images";
 import { enhanceMaterial } from "@/services/ai/cloud";
+import { AllowanceNote } from "@/components/ai/allowance-note";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material } from "@/types/models";
@@ -123,8 +124,10 @@ export function UploadPage() {
         await buildPracticeQuestions(m.id);
       }
       navigate(mats.length === 1 ? `/materials/${mats[0].id}` : "/materials");
-      // Logged in: the AI rewrites the notes and questions in the background.
-      for (const m of mats) enhanceMaterial(m.id);
+      // The AI writes the notes and questions in the background, one lecture at a time.
+      (async () => {
+        for (const m of mats) await enhanceMaterial(m.id);
+      })();
     } finally {
       setSaving(false);
       setStep("");
@@ -200,6 +203,7 @@ export function UploadPage() {
           <Button size="lg" onClick={save} disabled={busy || !ready.length} loading={saving} className="min-w-44 rounded-full">
             {busy ? "Reading…" : "Generate"}
           </Button>
+          {!saving && !busy && <AllowanceNote materials={ready.map((i) => i.material!)} />}
           {saving && step && (
             <p className="text-[13px] text-muted-foreground" aria-live="polite">
               {step}

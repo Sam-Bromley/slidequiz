@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { CONTACT_EMAIL } from "@/pages/privacy";
 import { openBilling, PLUS, usePlan } from "@/services/plus";
+import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
+import { leftText, UpgradeHint } from "@/components/ai/allowance-note";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -48,6 +50,32 @@ function Row({ label, hint, htmlFor, children, inline }: { label: string; hint?:
         {hint && <span className="block text-[12.5px] text-muted-foreground">{hint}</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+function AllowanceRow() {
+  const a = useAllowance();
+  if (!a) return <Row label="Checking…"><span /></Row>;
+  const total = Math.round(a.allowance / a.lecture);
+  const pct = Math.min(100, Math.round((a.used / a.allowance) * 100));
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-[14px]">
+        <span className="font-medium">{leftText(a)}</span>
+        <span className="text-[12.5px] text-muted-foreground">
+          {lecturesLeft(a)} of {total}
+          {a.resets ? ` · resets ${new Date(a.resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : ""}
+        </span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={100 - pct} aria-valuemin={0} aria-valuemax={100} aria-label="AI lectures left">
+        <div className="h-full rounded-full bg-foreground" style={{ width: `${100 - pct}%` }} />
+      </div>
+      {a.plan !== "plus" && (
+        <p className="mt-2 text-[12.5px] text-muted-foreground">
+          <UpgradeHint a={a} />
+        </p>
+      )}
     </div>
   );
 }
@@ -109,7 +137,7 @@ export function SettingsPage() {
         )}
         <Row
           label={plan.plus ? "SlideQuiz Plus" : "Get more AI with Plus"}
-          hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `AI for ${PLUS.plusLectures} lectures a day, ${PLUS.price} a ${PLUS.period}`}
+          hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} AI lectures a month, ${PLUS.price} a ${PLUS.period}`}
         >
           {plan.plus ? (
             <Button variant="outline" onClick={() => openBilling().catch((e) => toast((e as Error).message))}>
@@ -121,6 +149,10 @@ export function SettingsPage() {
             </Link>
           )}
         </Row>
+      </Section>
+
+      <Section title="AI lectures" description="Each upload uses AI lectures to write its notes and questions. One is a normal lecture of up to about 5,000 words.">
+        <AllowanceRow />
       </Section>
 
       <Section title="Appearance">

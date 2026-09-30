@@ -1,8 +1,8 @@
 import { Clock, RotateCcw, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "@/lib/router";
 import { enhanceMaterial } from "@/services/ai/cloud";
-import { hasPlus } from "@/services/plus";
+import { UpgradeHint } from "@/components/ai/allowance-note";
+import { lecturesFor, lecturesLeft, lecturesText, textSize, useAllowance } from "@/services/ai/cloud";
 import type { Material } from "@/types/models";
 
 /**
@@ -11,24 +11,25 @@ import type { Material } from "@/types/models";
  */
 export function AIWaiting({ material, what }: { material: Material; what: "notes" | "questions" }) {
   const status = material.ai?.status;
+  const a = useAllowance();
   const noun = what === "notes" ? "notes" : "practice questions";
 
-  if (status === "limit")
+  if (status === "limit") {
+    if (material.ai?.error === "busy")
+      return (
+        <Panel icon={<Clock className="size-5" />} title="SlideQuiz is very busy today" action={<Button variant="outline" onClick={() => enhanceMaterial(material.id)}><RotateCcw /> Try again</Button>}>
+          Your {noun} will be written tomorrow; just open this lecture again. Sorry for the wait!
+        </Panel>
+      );
+    const need = lecturesFor(textSize(material), a);
+    const left = a ? lecturesLeft(a) : 0;
+    const title = a && left > 0 ? `This needs ${lecturesText(need)}, and you have about ${left} left` : a?.plan === "guest" ? "You've used your free AI lectures" : "You've used this month's AI lectures";
     return (
-      <Panel icon={<Clock className="size-5" />} title="Today's AI allowance is used up">
-        Your {noun} will be written as soon as it resets tomorrow; just open this lecture again.
-        {!hasPlus() && (
-          <>
-            {" "}
-            Or{" "}
-            <Link to="/plus" className="font-medium text-foreground underline underline-offset-2">
-              get Plus
-            </Link>{" "}
-            for more each day.
-          </>
-        )}
+      <Panel icon={<Clock className="size-5" />} title={title} action={<Button variant="outline" onClick={() => enhanceMaterial(material.id)}><RotateCcw /> Try again</Button>}>
+        {a ? <UpgradeHint a={a} fewer={left > 0} /> : "Your allowance resets soon."}
       </Panel>
     );
+  }
 
   if (status === "failed")
     return (

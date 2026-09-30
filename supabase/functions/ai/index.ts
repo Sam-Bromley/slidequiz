@@ -113,16 +113,23 @@ Deno.serve(async (req) => {
     .join("\n\n")
     .slice(0, MAX_INPUT);
 
-  // 2. Daily allowance per student (counted in characters sent).
-  const use = await fetch(`${base}/rest/v1/rpc/use_ai`, {
-    method: "POST",
-    headers: { apikey: anon, Authorization: auth, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_chars: pages.length + String(body.message ?? "").length }),
-  });
-  const left = use.ok ? await use.json() : null;
+  // 2. Allowance. Notes and questions count towards the student's AI lectures (the same text
+  //    only once); flashcards and questions about the notes are fair use, counted per day.
+  const headers = { apikey: anon, Authorization: auth, "Content-Type": "application/json" };
+  let left: number | null = null;
+  if (body.task === "notes" || body.task === "questions") {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pages));
+    const hash = [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, "0")).join("");
+    const use = await fetch(`${base}/rest/v1/rpc/use_lecture_text`, { method: "POST", headers, body: JSON.stringify({ p_hash: hash, p_chars: pages.length }) });
+    left = use.ok ? await use.json() : null;
+    if (left === -1) return json({ error: "You've used your AI lectures for now.", limit: true }, 429, origin);
+  } else {
+    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: pages.length + String(body.message ?? "").length }) });
+    left = use.ok ? await use.json() : null;
+    if (left === -1) return json({ error: "You've used today's fair use of AI. It resets tomorrow.", limit: true }, 429, origin);
+  }
   if (left === null) return json({ error: "Couldn't check your AI allowance." }, 500, origin);
-  if (left === -2) return json({ error: "SlideQuiz has used today's AI allowance. It resets tomorrow.", limit: true }, 429, origin);
-  if (left < 0) return json({ error: "You've used today's AI allowance. It resets tomorrow.", limit: true }, 429, origin);
+  if (left === -2) return json({ error: "SlideQuiz is very busy today. Try again tomorrow.", limit: true, busy: true }, 429, origin);
 
   // 3. Ask Claude.
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -130,7 +137,12 @@ Deno.serve(async (req) => {
     headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({ model: MODEL, max_tokens: task.maxTokens, system: task.system, messages: [{ role: "user", content: task.prompt(body, pages) }] }),
   });
-  if (!r.ok) return json({ error: "The AI is busy. Try again in a minute." }, 502, origin);
+  if (!r.ok) {
+    const detail = String((await r.json().catch(() => null))?.error?.message ?? r.status);
+    console.error("Anthropic error:", detail);
+    const reason = /credit|billing|balance/i.test(detail) ? "the AI account is out of credit" : r.status === 401 ? "the AI key isn't set up" : r.status === 429 || r.status === 529 ? "the AI is busy" : `AI error ${r.status}`;
+    return json({ error: `Couldn't write this right now (${reason}). Try again in a minute.` }, 502, origin);
+  }
   const out = await r.json();
   const text: string = (out.content ?? []).map((c: any) => c.text ?? "").join("");
   const start = text.indexOf("{");
