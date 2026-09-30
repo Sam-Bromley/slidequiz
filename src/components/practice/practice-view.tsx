@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,10 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const [round, setRound] = useState(0);
   const [session, setSession] = useState({ right: 0, wrong: 0 });
   const nextBtn = useRef<HTMLButtonElement>(null);
+  /** Questions answered this session, so you can go back and look at them. */
+  const [past, setPast] = useState<{ qid: ID; view: { options: string[]; correct: number }; chosen: number }[]>([]);
+  /** Which past question is on screen (null = the current one). */
+  const [viewIdx, setViewIdx] = useState<number | null>(null);
 
   // Rebuild the order when the topic filter or the question set changes.
   const setKey = `${topicIds.join(",")}|${shuffle}|${topicQs.map((q) => q.id).join(",")}`;
@@ -87,17 +91,34 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const frozen = useRef(count);
   if (!answered) frozen.current = count;
   const view = useMemo(() => (q ? shuffleOptions(q, frozen.current) : null), [qid, pos, round, frozen.current]); // eslint-disable-line react-hooks/exhaustive-deps
-  const correct = answered && view ? chosen === view.correct : false;
-  const isRetry = q ? needsReview(q) && !answered : false;
-  const qMaterial = q ? (mixed ? mixed.find((m) => m.id === q.materialId) : material) : undefined;
-  const page = q ? qMaterial?.pages.find((p) => p.id === q.sources[0]?.pageId) : undefined;
-  const topicName = q ? (mixed ? qMaterial?.title : material.topics.find((t) => t.id === q.topicId)?.name) : undefined;
+  // Looking back at an earlier question, or at the current one.
+  const rev = viewIdx !== null ? past[viewIdx] : null;
+  const sq = rev ? all.find((x) => x.id === rev.qid) : q;
+  const sView = rev ? rev.view : view;
+  const sChosen = rev ? rev.chosen : chosen;
+  const sAnswered = rev ? true : answered;
+  const sCorrect = sAnswered && sView ? sChosen === sView.correct : false;
+  const currentInPast = answered && past.length > 0 && past[past.length - 1].qid === qid;
+  const canGoBack = viewIdx !== null ? viewIdx > 0 : past.length - (currentInPast ? 1 : 0) > 0;
+  const goBack = () => setViewIdx((v) => (v !== null ? Math.max(0, v - 1) : past.length - (currentInPast ? 2 : 1)));
+  const goForward = () =>
+    setViewIdx((v) => {
+      if (v === null) return null;
+      const n = v + 1;
+      return n >= past.length || (currentInPast && n === past.length - 1) ? null : n;
+    });
+  // How it went last time (only shown before answering the current question).
+  const before = !rev && q && !answered ? q.stats.lastResult : undefined;
+  const qMaterial = sq ? (mixed ? mixed.find((m) => m.id === sq.materialId) : material) : undefined;
+  const page = sq ? qMaterial?.pages.find((p) => p.id === sq.sources[0]?.pageId) : undefined;
+  const topicName = sq ? (mixed ? qMaterial?.title : material.topics.find((t) => t.id === sq.topicId)?.name) : undefined;
   const coveredN = all.filter(isCovered).length;
   const prog = { total: all.length, covered: coveredN, review: all.filter(needsReview).length, pct: all.length ? Math.round((coveredN / all.length) * 100) : 0 };
 
   const answer = (i: number) => {
     if (!q || !view || answered) return;
     setChosen(i);
+    setPast((ps) => [...ps, { qid: q.id, view, chosen: i }].slice(-50));
     const ok = i === view.correct;
     actions.answerPractice(q.id, ok);
     setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
@@ -116,6 +137,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
 
   const next = () => {
     setChosen(null);
+    setViewIdx(null);
     setPos((p) => p + 1);
   };
 
@@ -127,6 +149,8 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setChosen(null);
     setRound((r) => r + 1);
     setSession({ right: 0, wrong: 0 });
+    setPast([]);
+    setViewIdx(null);
   };
 
   // Keyboard: A–F or 1–6 to answer, Enter or → for the next question.
@@ -134,6 +158,19 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest("input,textarea,select,[contenteditable]") || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog]")) return;
+      // ← goes back to earlier questions; → / Enter comes forward again.
+      if (e.key === "ArrowLeft" && canGoBack) {
+        e.preventDefault();
+        goBack();
+        return;
+      }
+      if (rev) {
+        if (e.key === "Enter" || e.key === "ArrowRight") {
+          e.preventDefault();
+          goForward();
+        }
+        return;
+      }
       if (!view) return;
       if (!answered) {
         const k = e.key.toUpperCase();
@@ -230,7 +267,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           <p className="font-medium">No questions yet</p>
           <p className="mt-1 text-[14px] text-muted-foreground">Questions are made from the facts in your slides. Include slides with some text to get started.</p>
         </div>
-      ) : !q || !view ? (
+      ) : !sq || !sView ? (
         <div className="animate-fade-up rounded-2xl border bg-card p-8 text-center">
           <p className="text-[20px] font-semibold">{topicQs.every(isCovered) ? "You've covered everything here" : "Round finished"}</p>
           <p className="mt-2 text-[14px] text-muted-foreground">
@@ -242,7 +279,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           </Button>
         </div>
       ) : (
-        <article key={`${qid}-${pos}-${round}`} className="animate-fade-up rounded-2xl border bg-card p-5 sm:p-7" aria-live="polite">
+        <article key={rev ? `past-${viewIdx}` : `${qid}-${pos}-${round}`} className="animate-fade-up rounded-2xl border bg-card p-5 sm:p-7" aria-live="polite">
           <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
             {topicName && <span>{topicName}</span>}
             {page && (
@@ -251,10 +288,17 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                 <span>{page.label}</span>
               </>
             )}
-            {isRetry && <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning">You got this wrong before</span>}
+            {before === "incorrect" && <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning">You got this wrong before</span>}
+            {before === "correct" && <span className="rounded-full bg-success-soft px-2 py-0.5 font-medium text-success">You got this right before</span>}
+            {rev && <span className="rounded-full bg-muted px-2 py-0.5 font-medium">Looking back</span>}
+            {canGoBack && (
+              <button type="button" onClick={goBack} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-accent hover:text-foreground focus-ring" aria-label="Previous question">
+                <ArrowLeft className="size-3.5" /> Previous
+              </button>
+            )}
           </p>
           {(() => {
-            const p = splitPrompt(q.prompt);
+            const p = splitPrompt(sq!.prompt);
             return (
               <>
                 {p.kicker && <p className="mb-1 text-[13px] font-medium text-muted-foreground">{p.kicker}</p>}
@@ -263,32 +307,32 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             );
           })()}
           <div className="mt-5 space-y-2" role="radiogroup" aria-label="Answers" data-no-bounce>
-            {view.options.map((o, i) => {
-              const isRight = i === view.correct;
-              const isChosen = i === chosen;
+            {sView!.options.map((o, i) => {
+              const isRight = i === sView!.correct;
+              const isChosen = i === sChosen;
               return (
                 <button
                   key={i}
                   type="button"
                   role="radio"
                   aria-checked={isChosen}
-                  disabled={answered}
-                  onClick={() => answer(i)}
+                  disabled={sAnswered}
+                  onClick={() => !rev && answer(i)}
                   className={cn(
                     "flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
-                    !answered && "hover:border-foreground/40 hover:bg-accent",
-                    answered && isRight && "border-success bg-success-soft",
-                    answered && isChosen && !isRight && "border-destructive bg-destructive-soft",
-                    answered && !isRight && !isChosen && "opacity-60",
+                    !sAnswered && "hover:border-foreground/40 hover:bg-accent",
+                    sAnswered && isRight && "border-success bg-success-soft",
+                    sAnswered && isChosen && !isRight && "border-destructive bg-destructive-soft",
+                    sAnswered && !isRight && !isChosen && "opacity-60",
                   )}
                 >
                   <span
                     className={cn(
                       "grid size-6 shrink-0 place-items-center rounded-full border text-[12px] font-semibold",
-                      answered && isRight ? "border-success bg-success text-success-foreground" : answered && isChosen ? "border-destructive bg-destructive text-destructive-foreground" : "text-muted-foreground",
+                      sAnswered && isRight ? "border-success bg-success text-success-foreground" : sAnswered && isChosen ? "border-destructive bg-destructive text-destructive-foreground" : "text-muted-foreground",
                     )}
                   >
-                    {answered && isRight ? <Check className="size-3.5" strokeWidth={3} /> : answered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
+                    {sAnswered && isRight ? <Check className="size-3.5" strokeWidth={3} /> : sAnswered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
                   </span>
                   <span className="pt-0.5">{tidyOption(o)}</span>
                 </button>
@@ -296,27 +340,33 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             })}
           </div>
 
-          {view.options.length < frozen.current && !answered && (
-            <p className="mt-3 text-[12.5px] text-muted-foreground">Your slides only give {view.options.length} good options for this one.</p>
+          {!rev && view && view.options.length < frozen.current && !answered && (
+            <p className="mt-3 text-[12.5px] text-muted-foreground">Your slides only give {view?.options.length} good options for this one.</p>
           )}
-          {answered && (
+          {sAnswered && (
             <div className="mt-5 animate-fade-up">
-              <p className={cn("text-[15px] font-semibold", correct ? "text-success" : "text-destructive")}>
-                {correct ? "Correct" : `Not quite. The answer is ${LETTERS[view.correct]}.`}
+              <p className={cn("text-[15px] font-semibold", sCorrect ? "text-success" : "text-destructive")}>
+                {rev ? (sCorrect ? "You got this right" : `You got this wrong. The answer is ${LETTERS[sView!.correct]}.`) : sCorrect ? "Correct" : `Not quite. The answer is ${LETTERS[sView!.correct]}.`}
               </p>
-              <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(q.explanation)}</p>
-              {!correct && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
+              <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>
+              {!rev && !sCorrect && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
               <div className="mt-5 flex items-center justify-between gap-3">
                 {page ? (
-                  <button type="button" onClick={() => onOpenNotes(page.id, q.materialId)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
+                  <button type="button" onClick={() => onOpenNotes(page.id, sq!.materialId)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
                     See it in your notes
                   </button>
                 ) : (
                   <span />
                 )}
-                <Button ref={nextBtn} onClick={next} data-no-bounce>
-                  Next question <ArrowRight />
-                </Button>
+                {rev ? (
+                  <Button onClick={goForward} data-no-bounce>
+                    {viewIdx !== null && (viewIdx + 1 >= past.length || (currentInPast && viewIdx + 1 === past.length - 1)) ? "Back to current question" : "Next"} <ArrowRight />
+                  </Button>
+                ) : (
+                  <Button ref={nextBtn} onClick={next} data-no-bounce>
+                    Next question <ArrowRight />
+                  </Button>
+                )}
               </div>
             </div>
           )}
