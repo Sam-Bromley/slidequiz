@@ -481,7 +481,8 @@ function ForestSvg({ p }: { p: Pal }) {
 export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; dark: boolean; photo?: string | null }) {
   if (photo)
     return (
-      <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden lg:left-[248px]" aria-hidden>
+      // Runs under the left bar too, which is frosted glass, so the photo blurs softly into it.
+      <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
         <img src={photo} alt="" className="size-full object-cover" />
         {/* A soft wash in the theme's colour so text on top stays easy to read. */}
         <div className="absolute inset-0" style={{ background: `hsl(var(--background) / ${dark ? 0.5 : 0.35})` }} />
