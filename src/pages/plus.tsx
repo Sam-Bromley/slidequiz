@@ -149,6 +149,7 @@ export function PlusPage() {
             "Everything in Free",
             `${PLUS.plusLectures} credits a month`,
             "Notes from lecture recordings (audio and video) and YouTube videos",
+            "Essay practice: exam-style essay questions and plans, aimed at your marking criteria",
             "Highlight your notes and add your own notes to them",
             "Download your notes as a designed PDF or Word document",
             "A weekly recap of how your revision is going",

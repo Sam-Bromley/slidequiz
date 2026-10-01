@@ -14,7 +14,7 @@ import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import { nowISO, uid } from "@/lib/utils";
-import type { AINoteSection, ID, Material, SourceRef, Topic } from "@/types/models";
+import type { AINoteSection, EssayPlan, EssayQuestion, EssayWork, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
@@ -340,4 +340,66 @@ export async function cloudChat(m: Material, history: { role: string; content: s
     if (pages.reduce((n, p) => n + p.text.length, 0) > CHUNK) chosen = [...pages].sort((a, b) => score(b) - score(a)).slice(0, 30).sort((a, b) => pages.indexOf(a) - pages.indexOf(b));
     return await call<{ answer: string; pageIds: ID[] }>("chat", { title: m.title, pages: chosen, history: history.slice(-8), message });
   }
+}
+
+/* ---------------------------------------------------------------- essays (Pro) */
+
+/** The lecture for an essay: the whole thing, trimmed to what one request can take. */
+function essayPages(m: Material): CloudPage[] {
+  const pages = cloudPages(m);
+  let size = 0;
+  return pages.filter((p) => (size += p.title.length + Math.min(p.text.length, 4000) + 40) <= 58_000);
+}
+
+const essayOpts = (w: EssayWork | undefined) => ({ rubric: w?.rubric ?? "", level: w?.level ?? "uni", marks: w?.marks ?? 25, words: w?.words ?? undefined });
+
+/** New essay questions for a lecture. Throws an AIError if it can't. */
+export async function cloudEssayQuestions(m: Material, count = 6): Promise<EssayQuestion[]> {
+  const w = m.essays;
+  const res = await call<{ questions: { question: string; command?: string; marks?: number; difficulty?: string; criteria?: string[]; focus?: string }[] }>("essayQuestions", {
+    title: m.title,
+    pages: essayPages(m),
+    count,
+    avoid: (w?.questions ?? []).map((q) => q.question),
+    ...essayOpts(w),
+  });
+  return (res.questions ?? [])
+    .filter((q) => q.question?.trim())
+    .map((q) => ({
+      id: uid("eq"),
+      question: q.question.trim(),
+      command: q.command?.trim() || undefined,
+      marks: Number(q.marks) || w?.marks || undefined,
+      difficulty: (["easy", "medium", "hard"] as const).find((d) => d === q.difficulty),
+      criteria: (q.criteria ?? []).map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
+      focus: q.focus?.trim() || undefined,
+      at: nowISO(),
+    }));
+}
+
+/** A plan for one essay question. Throws an AIError if it can't. */
+export async function cloudEssayPlan(m: Material, q: EssayQuestion): Promise<EssayPlan> {
+  const w = m.essays;
+  const r = await call<any>("essayPlan", { title: m.title, pages: essayPages(m), question: q.question, ...essayOpts(w), marks: q.marks ?? w?.marks ?? 25 });
+  const labelOf = new Map(m.pages.map((p) => [p.id, p.label]));
+  const str = (x: unknown) => String(x ?? "").trim();
+  const paragraphs = (Array.isArray(r.paragraphs) ? r.paragraphs : [])
+    .map((p: any) => ({
+      id: uid("ep"),
+      point: str(p.point),
+      evidence: (Array.isArray(p.evidence) ? p.evidence : []).map((e: any) => ({ text: str(e.text ?? e), pageId: labelOf.has(e.pageId) ? e.pageId : undefined, label: labelOf.get(e.pageId) })).filter((e: any) => e.text),
+      analysis: str(p.analysis),
+      criteria: (Array.isArray(p.criteria) ? p.criteria : []).map(str).filter(Boolean).slice(0, 3),
+    }))
+    .filter((p: any) => p.point);
+  if (!paragraphs.length || !str(r.thesis)) throw new AIError("The plan came back incomplete. Try again.");
+  return {
+    thesis: str(r.thesis),
+    intro: str(r.intro),
+    paragraphs,
+    counter: r.counter && str(r.counter.point) ? { point: str(r.counter.point), response: str(r.counter.response) } : undefined,
+    conclusion: str(r.conclusion),
+    tips: (Array.isArray(r.tips) ? r.tips : []).map(str).filter(Boolean).slice(0, 4),
+    at: nowISO(),
+  };
 }

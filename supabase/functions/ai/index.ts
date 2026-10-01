@@ -83,6 +83,56 @@ Reply with JSON only: {"answer":"…","pageIds":["ids of the slides you used"]}`
   },
 };
 
+/* ---------------------------------------------------------------- essays (Pro) */
+
+const LEVEL: Record<string, string> = { gcse: "GCSE", alevel: "A-level", uni: "university" };
+const rubricBlock = (b: any) => {
+  const r = String(b.rubric ?? "").trim().slice(0, 8000);
+  return r ? `The student's marking criteria / mark scheme (aim everything at these; use their own criterion names, e.g. "AO2" or "Critical analysis"):\n<<<\n${r}\n>>>` : "No marking criteria were given: use the usual criteria for this level (knowledge, application, analysis, evaluation, structure).";
+};
+const ESSAY_STYLE = `You help UK students prepare for essay questions on their own lecture material. Use UK spelling. Be accurate: base everything on the lecture text given. Plain text only inside JSON strings (no markdown, no bullet characters).`;
+
+Object.assign(TASKS, {
+  essayQuestions: {
+    maxTokens: 4000,
+    system: ESSAY_STYLE,
+    prompt: (b: any, pages: string) => `Lecture: "${b.title}"
+Level: ${LEVEL[b.level] ?? "university"}${b.marks ? `. Typical essay: ${b.marks} marks` : ""}${b.words ? `, about ${b.words} words` : ""}.
+${rubricBlock(b)}
+
+Lecture text (each slide starts with [id]):
+${pages}
+
+Write ${Math.min(10, Math.max(3, Number(b.count) || 6))} different essay questions a student could be set on this material, like real exam questions. Use real command words (Evaluate, Discuss, To what extent, Compare, Analyse, Assess, Explain). Mix difficulty. Each must be answerable from the lecture, and together they should cover the main topics.${Array.isArray(b.avoid) && b.avoid.length ? `\nDon't repeat these existing questions:\n${b.avoid.slice(0, 20).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
+For each, say which of the marking criteria it tests most (short names) and in a few words what it focuses on.
+Reply with JSON only:
+{"questions":[{"question":"…","command":"Evaluate","marks":${Number(b.marks) || 25},"difficulty":"easy|medium|hard","criteria":["…"],"focus":"…"}]}`,
+  },
+  essayPlan: {
+    maxTokens: 5000,
+    system: ESSAY_STYLE + " You write essay plans, never full essays: short, specific notes the student turns into their own writing.",
+    prompt: (b: any, pages: string) => `Lecture: "${b.title}"
+Level: ${LEVEL[b.level] ?? "university"}. Question (${Number(b.marks) || 25} marks${b.words ? `, about ${b.words} words` : ""}):
+"${String(b.question ?? "").slice(0, 600)}"
+${rubricBlock(b)}
+
+Lecture text (each slide starts with [id]):
+${pages}
+
+Write a plan for a top-band answer. Keep every line short (one sentence). Give:
+- thesis: the one-sentence argument that answers the question directly
+- intro: what the introduction should do (one or two short sentences)
+- paragraphs: 3 to 5 main paragraphs in a sensible order; each has a point (topic sentence idea), 1 to 3 pieces of evidence from the lecture (each with the id of the slide it comes from), analysis (why it matters / how it answers the question), and the criteria it earns marks for
+- counter: the strongest counter-argument and how to respond to it (evaluation)
+- conclusion: the judgement to reach
+- tips: 2 or 3 short tips for hitting the top band of these criteria
+Reply with JSON only:
+{"thesis":"…","intro":"…","paragraphs":[{"point":"…","evidence":[{"text":"…","pageId":"…"}],"analysis":"…","criteria":["…"]}],"counter":{"point":"…","response":"…"},"conclusion":"…","tips":["…"]}`,
+  },
+});
+
+const PRO_ONLY = new Set(["essayQuestions", "essayPlan"]);
+
 const json = (data: unknown, status: number, origin: string | null) =>
   new Response(JSON.stringify(data), { status, headers: { ...cors(origin), "Content-Type": "application/json" } });
 
@@ -108,6 +158,14 @@ Deno.serve(async (req) => {
   const task = TASKS[body?.task];
   if (!task || !Array.isArray(body.pages)) return json({ error: "Unknown task" }, 400, origin);
 
+  // Essays are part of SlideQuiz Pro.
+  if (PRO_ONLY.has(body.task)) {
+    const plan = await fetch(`${base}/rest/v1/rpc/sq_plan`, { method: "POST", headers: { apikey: anon, Authorization: auth, "Content-Type": "application/json" }, body: "{}" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (plan !== "plus") return json({ error: "Essays are part of SlideQuiz Pro." }, 403, origin);
+  }
+
   const pages = (body.pages as Page[])
     .map((p) => `[${String(p.id).slice(0, 40)}] ${p.label} — ${p.title}\n${String(p.text).slice(0, 4000)}`)
     .join("\n\n")
@@ -124,7 +182,8 @@ Deno.serve(async (req) => {
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used your AI lectures for now.", limit: true }, 429, origin);
   } else {
-    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: pages.length + String(body.message ?? "").length }) });
+    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length;
+    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: pages.length + extra }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used today's fair use of AI. It resets tomorrow.", limit: true }, 429, origin);
   }

@@ -166,6 +166,8 @@ export interface Material {
   title: string;
   /** Pro: the student's highlights and notes on the AI notes. */
   marks?: NoteMark[];
+  /** Pro: essay questions and plans for this lecture. */
+  essays?: EssayWork;
   subject: string;
   course?: string;
   unit: "slides" | "pages" | "sections";
@@ -442,4 +444,41 @@ export interface GenerationRecord {
   createdAt: ISODate;
   questionIds: ID[];
   flashcardIds: ID[];
+}
+
+/* ---------------------------------------------------------------- essays (Pro) */
+
+export type EssayLevel = "gcse" | "alevel" | "uni";
+
+export interface EssayPlan {
+  thesis: string;
+  intro: string;
+  paragraphs: { id: ID; point: string; evidence: { text: string; pageId?: ID; label?: string }[]; analysis: string; criteria: string[] }[];
+  counter?: { point: string; response: string };
+  conclusion: string;
+  tips: string[];
+  at: ISODate;
+}
+
+export interface EssayQuestion {
+  id: ID;
+  question: string;
+  command?: string;
+  marks?: number;
+  difficulty?: "easy" | "medium" | "hard";
+  criteria: string[];
+  focus?: string;
+  saved?: boolean;
+  plan?: EssayPlan;
+  at: ISODate;
+}
+
+export interface EssayWork {
+  /** The student's marking criteria / mark scheme, as text. */
+  rubric?: string;
+  rubricName?: string;
+  level?: EssayLevel;
+  marks?: number;
+  words?: number;
+  questions: EssayQuestion[];
 }
