@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
 export const ADS_ID = "AW-18485189868";
 /** Conversion labels from Google Ads (Goals → Conversions → the action → Tag setup). Empty = not set up yet. */
 const LABELS: Record<"purchase" | "signup", string> = {
-  purchase: "",
+  purchase: "bf-wCOKe2YwdEOy5tu5E",
   signup: "",
 };
 
@@ -78,6 +78,9 @@ export function initAds() {
   if (ADS_READY && consent === "yes") load();
 }
 
+/** A short one-way code, so nothing identifying is sent to Google. */
+export const oneWay = (text: string) => [...text].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261).toString(36);
+
 /** Tells Google Ads about a sign-up or a Pro purchase (only with consent, and once per id). */
 export function trackConversion(kind: "purchase" | "signup", opts: { value?: number; id?: string } = {}) {
   const label = LABELS[kind];
@@ -94,5 +97,7 @@ export function trackConversion(kind: "purchase" | "signup", opts: { value?: num
     send_to: `${ADS_ID}/${label}`,
     ...(opts.value != null ? { value: opts.value, currency: "GBP" } : {}),
     ...(opts.id ? { transaction_id: opts.id } : {}),
+    // A purchase here is always someone starting Pro, so a new customer.
+    ...(kind === "purchase" ? { new_customer: true } : {}),
   });
 }
