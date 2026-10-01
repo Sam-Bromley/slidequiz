@@ -483,7 +483,7 @@ export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; 
     return (
       // Runs under the left bar too, which is frosted glass, so the photo blurs softly into it.
       <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-        {/* Shown as it is (no wash): the page's own panels are frosted instead, so text stays easy to read. */}
+        {/* Shown exactly as it is, the same in light and dark (no wash on top). */}
         <img src={photo} alt="" className="size-full object-cover" />
       </div>
     );

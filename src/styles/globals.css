@@ -206,29 +206,3 @@ html.font-dyslexic body { letter-spacing: 0.01em; word-spacing: 0.08em; }
 .sb-anim { transition: width 0.22s ease, padding-left 0.22s ease; }
 html.sb-dragging .sb-anim { transition: none; }
 
-/* Pro: your own photo as the background. The photo is shown as it is; the page sits on frosted panels. */
-html.has-photo main#main:not(:has(.home-page)) {
-  margin-top: 4px;
-  margin-bottom: 24px;
-  padding-top: 28px;
-  border-radius: 24px;
-  border: 1px solid hsl(var(--border) / 0.55);
-  background: hsl(var(--background) / 0.84);
-  -webkit-backdrop-filter: blur(24px) saturate(1.15);
-  backdrop-filter: blur(24px) saturate(1.15);
-  box-shadow: 0 10px 40px -12px rgb(0 0 0 / 0.25);
-}
-@media (max-width: 1023px) {
-  html.has-photo main#main:not(:has(.home-page)) { width: calc(100% - 16px); margin-top: 8px; }
-}
-html.has-photo aside[aria-label="Sidebar"] { background: hsl(var(--background) / 0.72); }
-html.has-photo .topbar-tools,
-html.has-photo .home-quote {
-  border-radius: 9999px;
-  background: hsl(var(--background) / 0.78);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 4px 20px -8px rgb(0 0 0 / 0.25);
-}
-html.has-photo .topbar-tools { padding: 2px 4px; }
-html.has-photo .home-quote { border-radius: 20px; padding: 12px 20px; }

@@ -274,11 +274,6 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       /* storage blocked */
     }
   }, [accent]);
-  // With a photo, the page sits on frosted panels rather than straight on the picture.
-  useEffect(() => {
-    document.documentElement.classList.toggle("has-photo", !!photoUrl);
-    return () => document.documentElement.classList.remove("has-photo");
-  }, [photoUrl]);
   const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} photo={photoUrl} />;
   if (bare)
     return (
