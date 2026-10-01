@@ -108,6 +108,56 @@ export const PAGES = [
     ],
     faq: COMMON_FAQ,
   },
+  {
+    slug: "essay-plans",
+    note: "Part of SlideQuiz Pro. Notes, questions and flashcards are free to start.",
+    title: "Essay questions and plans from your lectures",
+    description: "Get exam-style essay questions and clear essay plans from your own lectures, aimed at your marking criteria. Part of SlideQuiz Pro.",
+    h1: "Essay questions and plans from your lectures",
+    lead: "Add your marking criteria, then get essay questions on a lecture or a whole module, and a clear plan for any of them, with evidence from your own slides. Part of SlideQuiz Pro.",
+    sections: [
+      {
+        h: "How it works",
+        steps: [
+          ["Choose what to revise", "One lecture, several lectures, or a whole module folder."],
+          ["Add your marking criteria", "Paste or upload your rubric, mark scheme or assessment objectives, and choose the level and marks."],
+          ["Get questions and plans", "Exam-style questions (Evaluate, Discuss, Compare and more), then a plan for any of them: your argument, paragraph by paragraph with evidence from your slides, the counter-argument and the conclusion."],
+        ],
+      },
+      {
+        h: "Plans, not ready-made essays",
+        paras: ["SlideQuiz writes plans and tips, never whole essays, so you learn to write top-band answers yourself. Edit any part of a plan, reorder paragraphs, and download it as a PDF."],
+      },
+    ],
+    faq: [["Is this free?", "Essay practice is part of SlideQuiz Pro (£3.99 a month, cancel any time). Notes, practice questions and flashcards are free to start."], ...COMMON_FAQ],
+  },
+  {
+    slug: "pro",
+    cta: ["Get SlideQuiz Pro", "/#/pro"],
+    note: "£3.99 a month. Cancel any time.",
+    title: "SlideQuiz Pro",
+    description: "SlideQuiz Pro: 100 credits a month, essay practice, lecture recordings and YouTube videos, highlights, PDF and Word notes and more. £3.99 a month, cancel any time.",
+    h1: "SlideQuiz Pro",
+    lead: "Everything in SlideQuiz, plus more credits and extra tools for serious revision. £3.99 a month, cancel any time.",
+    sections: [
+      {
+        h: "What you get with Pro",
+        list: [
+          ["100 credits a month", "Enough for a whole term of lectures. Free accounts get 10."],
+          ["Essay practice", "Essay questions and plans aimed at your own marking criteria."],
+          ["Recordings and YouTube", "Notes and questions from lecture recordings (audio and video) and YouTube lectures."],
+          ["Highlights and your own notes", "Highlight your revision notes and add notes of your own."],
+          ["Designed PDF and Word notes", "Download your notes, with your highlights, ready to print or share."],
+          ["Weekly recap and personalising", "See how your week went, use your own photo as the background, and pick accent colours."],
+        ],
+      },
+      {
+        h: "Simple and fair",
+        paras: ["Payments are handled securely by Stripe, and SlideQuiz never sees your card details. Cancel any time from Settings, and you keep Pro until the end of the month you've paid for."],
+      },
+    ],
+    faq: COMMON_FAQ,
+  },
 ];
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -185,13 +235,13 @@ export function renderPage(page, analytics) {
 <main>
 <h1>${esc(page.h1)}</h1>
 <p class="lead">${esc(page.lead)}</p>
-<a class="btn" href="/">Try SlideQuiz free</a>
-<p class="note">No sign-up needed. Your files stay on your device.</p>
+<a class="btn" href="${page.cta?.[1] ?? "/"}">${page.cta?.[0] ?? "Try SlideQuiz free"}</a>
+<p class="note">${esc(page.note ?? "No sign-up needed. Your files stay on your device.")}</p>
 ${steps}
 ${body}
 <h2>Questions</h2>
 ${page.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("\n")}
-<div class="cta"><p>Ready to revise from your own slides?</p><a class="btn" href="/">Try SlideQuiz free</a></div>
+<div class="cta"><p>Ready to revise from your own slides?</p><a class="btn" href="${page.cta?.[1] ?? "/"}">${page.cta?.[0] ?? "Try SlideQuiz free"}</a></div>
 </main>
 <footer><a href="/">SlideQuiz</a>${others.map((p) => `<a href="/${p.slug}/">${esc(p.title)}</a>`).join("")}<a href="/#/privacy">Privacy policy</a></footer>
 </div>
