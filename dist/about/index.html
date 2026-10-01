@@ -68,5 +68,19 @@ footer a{text-decoration:none}footer a:hover{text-decoration:underline}</style>
 <!-- Cloudflare Web Analytics -->
     <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "3d409bb66a33402c8c96a0ad9e1ed039"}'></script>
     <!-- End Cloudflare Web Analytics -->
+<script>
+  // Coming from an ad: keep the ad's click id on links into the app, so a later sign-up or purchase is credited to the ad.
+  (function () {
+    var q = new URLSearchParams(location.search), keep = new URLSearchParams();
+    ["gclid", "gbraid", "wbraid"].forEach(function (k) { if (q.get(k)) keep.set(k, q.get(k)); });
+    if (!keep.toString()) return;
+    document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+      var h = a.getAttribute("href"), i = h.indexOf("#");
+      var path = i < 0 ? h : h.slice(0, i), hash = i < 0 ? "" : h.slice(i);
+      if (/.(png|ico|svg)/.test(path)) return;
+      a.setAttribute("href", path + (path.indexOf("?") < 0 ? "?" : "&") + keep.toString() + hash);
+    });
+  })();
+</script>
 </body>
 </html>

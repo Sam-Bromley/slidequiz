@@ -34,10 +34,34 @@ declare global {
   }
 }
 
+/** The ad's click id from the landing page, kept for this visit until the visitor accepts cookies. */
+const CLICK_KEYS = ["gclid", "gbraid", "wbraid"];
+try {
+  const q = new URLSearchParams(location.search);
+  for (const k of CLICK_KEYS) if (q.get(k)) sessionStorage.setItem(`slidequiz:${k}`, q.get(k)!);
+} catch {
+  /* storage blocked */
+}
+/** Puts the click id back in the address before Google's tag reads it (it may have been lost moving around the site). */
+function restoreClickId() {
+  try {
+    const q = new URLSearchParams(location.search);
+    let changed = false;
+    for (const k of CLICK_KEYS) {
+      const v = sessionStorage.getItem(`slidequiz:${k}`);
+      if (v && !q.get(k)) (q.set(k, v), (changed = true));
+    }
+    if (changed) history.replaceState(history.state, "", `${location.pathname}?${q.toString()}${location.hash}`);
+  } catch {
+    /* ignore */
+  }
+}
+
 let loaded = false;
 function load() {
   if (loaded || typeof document === "undefined") return;
   loaded = true;
+  restoreClickId();
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag() {
     // eslint-disable-next-line prefer-rest-params

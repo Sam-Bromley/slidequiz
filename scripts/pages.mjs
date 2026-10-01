@@ -196,6 +196,20 @@ ${page.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p
 <footer><a href="/">SlideQuiz</a>${others.map((p) => `<a href="/${p.slug}/">${esc(p.title)}</a>`).join("")}<a href="/#/privacy">Privacy policy</a></footer>
 </div>
 ${analytics}
+<script>
+  // Coming from an ad: keep the ad's click id on links into the app, so a later sign-up or purchase is credited to the ad.
+  (function () {
+    var q = new URLSearchParams(location.search), keep = new URLSearchParams();
+    ["gclid", "gbraid", "wbraid"].forEach(function (k) { if (q.get(k)) keep.set(k, q.get(k)); });
+    if (!keep.toString()) return;
+    document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+      var h = a.getAttribute("href"), i = h.indexOf("#");
+      var path = i < 0 ? h : h.slice(0, i), hash = i < 0 ? "" : h.slice(i);
+      if (/\.(png|ico|svg)/.test(path)) return;
+      a.setAttribute("href", path + (path.indexOf("?") < 0 ? "?" : "&") + keep.toString() + hash);
+    });
+  })();
+</script>
 </body>
 </html>
 `;
