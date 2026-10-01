@@ -96,7 +96,7 @@ Object.assign(TASKS, {
   essayQuestions: {
     maxTokens: 4000,
     system: ESSAY_STYLE,
-    prompt: (b: any, pages: string) => `Lecture: "${b.title}"
+    prompt: (b: any, pages: string) => `Course material: "${b.title}"
 Level: ${LEVEL[b.level] ?? "university"}${b.marks ? `. Typical essay: ${b.marks} marks` : ""}${b.words ? `, about ${b.words} words` : ""}.
 ${rubricBlock(b)}
 
@@ -111,7 +111,7 @@ Reply with JSON only:
   essayPlan: {
     maxTokens: 5000,
     system: ESSAY_STYLE + " You write essay plans, never full essays: short, specific notes the student turns into their own writing.",
-    prompt: (b: any, pages: string) => `Lecture: "${b.title}"
+    prompt: (b: any, pages: string) => `Course material: "${b.title}"
 Level: ${LEVEL[b.level] ?? "university"}. Question (${Number(b.marks) || 25} marks${b.words ? `, about ${b.words} words` : ""}):
 "${String(b.question ?? "").slice(0, 600)}"
 ${rubricBlock(b)}

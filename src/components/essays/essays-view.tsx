@@ -8,17 +8,18 @@ import { toast } from "@/components/ui/toast";
 import { navigate } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { AIError, cloudEssayPlan, cloudEssayQuestions, refreshAllowance } from "@/services/ai/cloud";
+import { getSet, migrateMaterialEssays, patchQuestion, patchSet, setFor, setMaterials } from "@/services/essays";
 import { exportDoc, type Block } from "@/services/export";
 import { hasPlus, usePlanQuiet } from "@/services/plus";
-import { actions } from "@/store/actions";
-import { getState } from "@/store/store";
-import type { EssayLevel, EssayPlan, EssayQuestion, EssayWork, Material } from "@/types/models";
+import { useData } from "@/store/store";
+import type { EssayLevel, EssayPlan, EssayQuestion, EssaySet, Material } from "@/types/models";
+import { useEffect } from "react";
 
 /* ---------------------------------------------------------------- state helpers */
 
-const work = (id: string): EssayWork => getState().materials.find((m) => m.id === id)?.essays ?? { questions: [] };
-const saveWork = (id: string, patch: Partial<EssayWork>) => actions.updateMaterial(id, { essays: { ...work(id), ...patch } });
-const patchQ = (id: string, qid: string, patch: Partial<EssayQuestion>) => saveWork(id, { questions: work(id).questions.map((q) => (q.id === qid ? { ...q, ...patch } : q)) });
+const saveWork = (id: string, patch: Partial<EssaySet>) => patchSet(id, patch);
+const patchQ = patchQuestion;
+const work = (id: string) => getSet(id) ?? { questions: [] as EssayQuestion[] };
 
 const LEVELS: { value: EssayLevel; label: string }[] = [
   { value: "gcse", label: "GCSE" },
@@ -36,14 +37,33 @@ function aiMessage(e: unknown) {
 
 /* ---------------------------------------------------------------- view */
 
+/** The Essays tab on a lecture: its own essay set. */
 export function EssaysView({ material }: { material: Material }) {
   usePlanQuiet();
-  if (!hasPlus()) return <EssaysTeaser />;
-  return <EssaysPro material={material} />;
+  const plus = hasPlus();
+  const data = useData();
+  useEffect(() => {
+    if (!plus) return;
+    migrateMaterialEssays();
+  }, [plus]);
+  if (!plus) return <EssaysTeaser />;
+  const set = (data.essays ?? []).find((x) => x.materialIds.length === 1 && x.materialIds[0] === material.id);
+  if (!set) return <StartForMaterial material={material} />;
+  return <EssaySetView set={set} />;
 }
 
-function EssaysPro({ material: m }: { material: Material }) {
-  const w = m.essays ?? { questions: [] };
+/** Makes the lecture's essay set the first time it's needed. */
+function StartForMaterial({ material }: { material: Material }) {
+  useEffect(() => {
+    setFor([material.id], material.title);
+  }, [material.id, material.title]);
+  return null;
+}
+
+/** Questions and plans for an essay set. */
+export function EssaySetView({ set }: { set: EssaySet }) {
+  const w = set;
+  const m = { id: set.id };
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState(!w.questions.length);
   const [filter, setFilter] = useState<"all" | "saved">("all");
@@ -51,7 +71,8 @@ function EssaysPro({ material: m }: { material: Material }) {
   const generate = async () => {
     setBusy(true);
     try {
-      const qs = await cloudEssayQuestions(getState().materials.find((x) => x.id === m.id)!, 6);
+      const cur = getSet(set.id)!;
+      const qs = await cloudEssayQuestions(setMaterials(cur), cur, cur.title, 6);
       if (!qs.length) throw new Error("No questions came back. Try again.");
       saveWork(m.id, { questions: [...qs, ...work(m.id).questions] });
       setSettings(false);
@@ -68,7 +89,7 @@ function EssaysPro({ material: m }: { material: Material }) {
   return (
     <div className="space-y-5">
       {settings ? (
-        <EssaySetup material={m} busy={busy} onGenerate={generate} onClose={w.questions.length ? () => setSettings(false) : undefined} />
+        <EssaySetup set={set} busy={busy} onGenerate={generate} onClose={w.questions.length ? () => setSettings(false) : undefined} />
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setSettings(true)} className="inline-flex h-9 items-center gap-2 rounded-full border bg-card px-3.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring">
@@ -103,7 +124,7 @@ function EssaysPro({ material: m }: { material: Material }) {
 
       <ul className="space-y-3">
         {list.map((q) => (
-          <EssayQuestionCard key={q.id} material={m} q={q} />
+          <EssayQuestionCard key={q.id} set={set} q={q} />
         ))}
       </ul>
       {filter === "saved" && !list.length && <p className="text-center text-[13.5px] text-muted-foreground">No saved questions yet. Tap the star on a question to keep it here.</p>}
@@ -127,8 +148,9 @@ function QuestionSkeletons({ n = 3 }: { n?: number }) {
 
 /* ---------------------------------------------------------------- setup */
 
-function EssaySetup({ material: m, busy, onGenerate, onClose }: { material: Material; busy: boolean; onGenerate: () => void; onClose?: () => void }) {
-  const w = m.essays ?? { questions: [] };
+function EssaySetup({ set, busy, onGenerate, onClose }: { set: EssaySet; busy: boolean; onGenerate: () => void; onClose?: () => void }) {
+  const w = set;
+  const m = { id: set.id };
   const [reading, setReading] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
@@ -161,7 +183,7 @@ function EssaySetup({ material: m, busy, onGenerate, onClose }: { material: Mate
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="text-[16px] font-semibold">Essay practice</h2>
-          <p className="mt-0.5 text-[13.5px] text-muted-foreground">Get essay questions on this lecture, then a plan for any of them, aimed at your marking criteria.</p>
+          <p className="mt-0.5 text-[13.5px] text-muted-foreground">Get essay questions on {set.materialIds.length > 1 ? `these ${set.materialIds.length} lectures` : "this lecture"}, then a plan for any of them, aimed at your marking criteria.</p>
         </div>
         {onClose && (
           <Button variant="ghost" size="icon" aria-label="Close settings" onClick={onClose}>
@@ -222,7 +244,8 @@ function EssaySetup({ material: m, busy, onGenerate, onClose }: { material: Mate
 
 /* ---------------------------------------------------------------- question + plan */
 
-function EssayQuestionCard({ material: m, q }: { material: Material; q: EssayQuestion }) {
+function EssayQuestionCard({ set, q }: { set: EssaySet; q: EssayQuestion }) {
+  const m = { id: set.id, title: set.title };
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -234,7 +257,8 @@ function EssayQuestionCard({ material: m, q }: { material: Material; q: EssayQue
   const makePlan = async () => {
     setBusy(true);
     try {
-      const p = await cloudEssayPlan(getState().materials.find((x) => x.id === m.id)!, q);
+      const cur = getSet(set.id)!;
+      const p = await cloudEssayPlan(setMaterials(cur), cur, cur.title, q);
       patchQ(m.id, q.id, { plan: p });
     } catch (e) {
       toast.error(aiMessage(e));
@@ -299,7 +323,7 @@ function EssayQuestionCard({ material: m, q }: { material: Material; q: EssayQue
       </div>
       {open && (
         <div className="border-t bg-subtle/60 p-4 sm:p-5">
-          {busy && !q.plan ? <PlanSkeleton /> : q.plan ? <PlanView material={m} q={q} plan={q.plan} busy={busy} onRedo={makePlan} /> : null}
+          {busy && !q.plan ? <PlanSkeleton /> : q.plan ? <PlanView set={set} q={q} plan={q.plan} busy={busy} onRedo={makePlan} /> : null}
         </div>
       )}
     </li>
@@ -326,16 +350,17 @@ function EditText({ value, onSave, editing, className, rows = 2 }: { value: stri
   return <Textarea defaultValue={value} rows={rows} onBlur={(e) => e.target.value.trim() !== value && onSave(e.target.value.trim())} className={cn("min-h-0 text-[14px]", className)} />;
 }
 
-function PlanView({ material: m, q, plan, busy, onRedo }: { material: Material; q: EssayQuestion; plan: EssayPlan; busy: boolean; onRedo: () => void }) {
+function PlanView({ set, q, plan, busy, onRedo }: { set: EssaySet; q: EssayQuestion; plan: EssayPlan; busy: boolean; onRedo: () => void }) {
+  const m = { id: set.id, title: set.title };
   const [editing, setEditing] = useState(false);
-  const set = (patch: Partial<EssayPlan>) => patchQ(m.id, q.id, { plan: { ...plan, ...patch } });
-  const setPara = (i: number, patch: Partial<EssayPlan["paragraphs"][number]>) => set({ paragraphs: plan.paragraphs.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
+  const upd = (patch: Partial<EssayPlan>) => patchQ(m.id, q.id, { plan: { ...plan, ...patch } });
+  const setPara = (i: number, patch: Partial<EssayPlan["paragraphs"][number]>) => upd({ paragraphs: plan.paragraphs.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
   const move = (i: number, d: -1 | 1) => {
     const ps = [...plan.paragraphs];
     const j = i + d;
     if (j < 0 || j >= ps.length) return;
     [ps[i], ps[j]] = [ps[j], ps[i]];
-    set({ paragraphs: ps });
+    upd({ paragraphs: ps });
   };
 
   const doc = () => {
@@ -392,11 +417,11 @@ function PlanView({ material: m, q, plan, busy, onRedo }: { material: Material; 
         <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-primary">
           <Target className="size-3.5" /> Your argument
         </p>
-        <EditText editing={editing} value={plan.thesis} onSave={(v) => set({ thesis: v })} className="mt-1 text-[15px] font-medium leading-snug" />
+        <EditText editing={editing} value={plan.thesis} onSave={(v) => upd({ thesis: v })} className="mt-1 text-[15px] font-medium leading-snug" />
       </div>
 
       <PlanBlock title="Introduction">
-        <EditText editing={editing} value={plan.intro} onSave={(v) => set({ intro: v })} className="text-[14px] text-foreground/90" />
+        <EditText editing={editing} value={plan.intro} onSave={(v) => upd({ intro: v })} className="text-[14px] text-foreground/90" />
       </PlanBlock>
 
       <ol className="space-y-3">
@@ -452,17 +477,17 @@ function PlanView({ material: m, q, plan, busy, onRedo }: { material: Material; 
         <PlanBlock title="The other side" icon={<Scale className="size-3.5" />}>
           <p className="text-[14px]">
             <span className="font-medium">Counter-argument: </span>
-            {editing ? <EditText editing value={plan.counter.point} onSave={(v) => set({ counter: { ...plan.counter!, point: v } })} className="mt-1" /> : plan.counter.point}
+            {editing ? <EditText editing value={plan.counter.point} onSave={(v) => upd({ counter: { ...plan.counter!, point: v } })} className="mt-1" /> : plan.counter.point}
           </p>
           <p className="mt-1.5 text-[14px]">
             <span className="font-medium">Your response: </span>
-            {editing ? <EditText editing value={plan.counter.response} onSave={(v) => set({ counter: { ...plan.counter!, response: v } })} className="mt-1" /> : plan.counter.response}
+            {editing ? <EditText editing value={plan.counter.response} onSave={(v) => upd({ counter: { ...plan.counter!, response: v } })} className="mt-1" /> : plan.counter.response}
           </p>
         </PlanBlock>
       )}
 
       <PlanBlock title="Conclusion">
-        <EditText editing={editing} value={plan.conclusion} onSave={(v) => set({ conclusion: v })} className="text-[14px] text-foreground/90" />
+        <EditText editing={editing} value={plan.conclusion} onSave={(v) => upd({ conclusion: v })} className="text-[14px] text-foreground/90" />
       </PlanBlock>
 
       {plan.tips.length > 0 && (
@@ -495,7 +520,7 @@ function PlanBlock({ title, icon, children }: { title: string; icon?: React.Reac
 
 /* ---------------------------------------------------------------- free users */
 
-function EssaysTeaser() {
+export function EssaysTeaser() {
   return (
     <section className="relative overflow-hidden rounded-2xl border bg-card" aria-label="Essays">
       <div className="pointer-events-none select-none space-y-3 p-5 opacity-70 blur-[3px]" aria-hidden>
@@ -515,7 +540,7 @@ function EssaysTeaser() {
             <PenLine className="size-5" />
           </span>
           <h2 className="mt-3 text-[17px] font-semibold">Essay practice is part of Pro</h2>
-          <p className="mt-1.5 text-[13.5px] text-muted-foreground">Add your marking criteria, get exam-style essay questions on this lecture, and a clear plan for any of them, with evidence from your slides.</p>
+          <p className="mt-1.5 text-[13.5px] text-muted-foreground">Add your marking criteria, get exam-style essay questions on a lecture or a whole module, and a clear plan for any of them, with evidence from your slides.</p>
           <Button className="mt-4" onClick={() => navigate("/pro")}>
             <Sparkles /> See Pro
           </Button>

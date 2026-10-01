@@ -187,7 +187,7 @@ function BottomNav() {
   const { path } = useLocation();
   return (
     <nav data-no-bounce className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/70 backdrop-blur-xl lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }} aria-label="Primary">
-      <ul className="mx-auto grid h-16 max-w-lg grid-cols-3">
+      <ul className="mx-auto grid h-16 max-w-lg grid-cols-4">
         {MOBILE_TABS.map((n) => {
           const active = n.match(path);
           return (

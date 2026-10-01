@@ -1,4 +1,4 @@
-import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2, AudioLines, Video, CirclePlay } from "lucide-react";
+import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, Layers, MoreHorizontal, PenLine, Pencil, Presentation, StickyNote, Trash2, AudioLines, Video, CirclePlay } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -126,6 +126,8 @@ export function useMaterialMenu(m: Material) {
   const items = [
     { label: "Rename", icon: Pencil, onSelect: () => setRename(true) },
     { label: "Move to folder", icon: FolderInput, onSelect: () => setMove(true) },
+    { label: "Make flashcards", icon: Layers, onSelect: () => navigate(`/flashcards?from=${m.id}`) },
+    { label: "Essays", icon: PenLine, onSelect: () => navigate(`/materials/${m.id}?tab=essays`) },
     { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDel(true) },
   ];
   const dialogs = (

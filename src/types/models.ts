@@ -482,3 +482,13 @@ export interface EssayWork {
   words?: number;
   questions: EssayQuestion[];
 }
+
+/** Essay practice on one lecture or several (e.g. a whole module folder). */
+export interface EssaySet extends EssayWork {
+  id: ID;
+  title: string;
+  materialIds: ID[];
+  createdAt: ISODate;
+  /** The folder it was made from, if any. */
+  folderId?: ID;
+}

@@ -344,23 +344,31 @@ export async function cloudChat(m: Material, history: { role: string; content: s
 
 /* ---------------------------------------------------------------- essays (Pro) */
 
-/** The lecture for an essay: the whole thing, trimmed to what one request can take. */
-function essayPages(m: Material): CloudPage[] {
-  const pages = cloudPages(m);
+/**
+ * The lectures for an essay, trimmed to what one request can take. With several lectures each
+ * slide is labelled with its lecture, and long slides are shortened so every lecture fits.
+ */
+function essayPages(materials: Material[]): CloudPage[] {
+  const multi = materials.length > 1;
+  const all = groundingFor(materials).pages.map((p) => ({ id: p.id, label: multi ? `${p.materialTitle} · ${p.label}` : p.label, title: p.title, text: p.text }));
+  const BUDGET = 58_000;
+  const total = all.reduce((n, p) => n + p.label.length + p.title.length + Math.min(p.text.length, 4000) + 40, 0);
+  const cap = total <= BUDGET ? 4000 : Math.max(250, Math.floor(BUDGET / Math.max(1, all.length)) - 80);
   let size = 0;
-  return pages.filter((p) => (size += p.title.length + Math.min(p.text.length, 4000) + 40) <= 58_000);
+  return all
+    .map((p) => ({ ...p, text: p.text.length > cap ? p.text.slice(0, cap) : p.text }))
+    .filter((p) => (size += p.label.length + p.title.length + p.text.length + 40) <= BUDGET);
 }
 
 const essayOpts = (w: EssayWork | undefined) => ({ rubric: w?.rubric ?? "", level: w?.level ?? "uni", marks: w?.marks ?? 25, words: w?.words ?? undefined });
 
-/** New essay questions for a lecture. Throws an AIError if it can't. */
-export async function cloudEssayQuestions(m: Material, count = 6): Promise<EssayQuestion[]> {
-  const w = m.essays;
+/** New essay questions. Throws an AIError if it can't. */
+export async function cloudEssayQuestions(materials: Material[], w: EssayWork, title: string, count = 6): Promise<EssayQuestion[]> {
   const res = await call<{ questions: { question: string; command?: string; marks?: number; difficulty?: string; criteria?: string[]; focus?: string }[] }>("essayQuestions", {
-    title: m.title,
-    pages: essayPages(m),
+    title,
+    pages: essayPages(materials),
     count,
-    avoid: (w?.questions ?? []).map((q) => q.question),
+    avoid: w.questions.map((q) => q.question),
     ...essayOpts(w),
   });
   return (res.questions ?? [])
@@ -369,7 +377,7 @@ export async function cloudEssayQuestions(m: Material, count = 6): Promise<Essay
       id: uid("eq"),
       question: q.question.trim(),
       command: q.command?.trim() || undefined,
-      marks: Number(q.marks) || w?.marks || undefined,
+      marks: Number(q.marks) || w.marks || undefined,
       difficulty: (["easy", "medium", "hard"] as const).find((d) => d === q.difficulty),
       criteria: (q.criteria ?? []).map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
       focus: q.focus?.trim() || undefined,
@@ -378,10 +386,10 @@ export async function cloudEssayQuestions(m: Material, count = 6): Promise<Essay
 }
 
 /** A plan for one essay question. Throws an AIError if it can't. */
-export async function cloudEssayPlan(m: Material, q: EssayQuestion): Promise<EssayPlan> {
-  const w = m.essays;
-  const r = await call<any>("essayPlan", { title: m.title, pages: essayPages(m), question: q.question, ...essayOpts(w), marks: q.marks ?? w?.marks ?? 25 });
-  const labelOf = new Map(m.pages.map((p) => [p.id, p.label]));
+export async function cloudEssayPlan(materials: Material[], w: EssayWork, title: string, q: EssayQuestion): Promise<EssayPlan> {
+  const r = await call<any>("essayPlan", { title, pages: essayPages(materials), question: q.question, ...essayOpts(w), marks: q.marks ?? w.marks ?? 25 });
+  const multi = materials.length > 1;
+  const labelOf = new Map(materials.flatMap((m) => m.pages.map((p) => [p.id, multi ? `${m.title} · ${p.label}` : p.label] as const)));
   const str = (x: unknown) => String(x ?? "").trim();
   const paragraphs = (Array.isArray(r.paragraphs) ? r.paragraphs : [])
     .map((p: any) => ({

@@ -1,4 +1,5 @@
 import type {
+  EssaySet,
   ChatMessage,
   Deck, Folder, Flashcard, GenerationRecord, ID, Material, Question, QuizAttempt, SavedQuestion, Settings, StudyPlan, StudySession, SummaryDoc, User,
 } from "@/types/models";
@@ -12,6 +13,8 @@ export interface AppData {
   questions: Question[];
   flashcards: Flashcard[];
   decks?: Deck[];
+  /** Pro: essay questions and plans. */
+  essays?: EssaySet[];
   attempts: QuizAttempt[];
   sessions: StudySession[];
   saved: SavedQuestion[];

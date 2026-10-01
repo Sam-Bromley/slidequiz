@@ -108,7 +108,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
         onChange={changeTab}
         items={[
           { value: "notes", label: "Notes" },
-          { value: "practice", label: "Practice", count: prog.total || undefined },
+          { value: "practice", label: "Practice" },
           { value: "progress", label: "Progress" },
           {
             value: "essays",

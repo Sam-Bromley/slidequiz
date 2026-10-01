@@ -9,7 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { Menu } from "@/components/ui/menu";
 import { toast } from "@/components/ui/toast";
-import { Link, navigate } from "@/lib/router";
+import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { tidySentence } from "@/lib/tidy";
 import { cardsFor } from "@/services/flashcards";
@@ -21,10 +21,10 @@ import type { Deck, Flashcard, ID } from "@/types/models";
 
 /* ---------------------------------------------------------------- create from materials */
 
-function CreateDialog({ onClose }: { onClose: () => void }) {
+function CreateDialog({ onClose, initial = [] }: { onClose: () => void; initial?: ID[] }) {
   const data = useData();
   const mats = data.materials;
-  const [picked, setPicked] = useState<Record<ID, ID[] | "all">>({});
+  const [picked, setPicked] = useState<Record<ID, ID[] | "all">>(() => Object.fromEntries(initial.filter((id) => mats.some((m) => m.id === id)).map((id) => [id, "all" as const])));
   const [open, setOpen] = useState<ID | null>(mats.length === 1 ? mats[0].id : null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -216,7 +216,9 @@ function DeckTile({ d, count, otherWidths, drag }: { d: Deck; count: number; oth
 export function FlashcardsPage() {
   const data = useData();
   const decks = data.decks ?? [];
-  const [creating, setCreating] = useState(false);
+  const { query } = useLocation();
+  const from = (query.get("from") ?? "").split(",").filter(Boolean);
+  const [creating, setCreating] = useState(from.length > 0);
   const [own, setOwn] = useState(false);
   // Drag decks up and down to reorder them, like folders.
   const reorder = useDragReorder(decks.map((d) => d.id), (id, to) => actions.moveDeck(id, to));
@@ -259,7 +261,15 @@ export function FlashcardsPage() {
           ))}
         </div>
       )}
-      {creating && <CreateDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <CreateDialog
+          initial={from}
+          onClose={() => {
+            setCreating(false);
+            if (from.length) navigate("/flashcards", { replace: true });
+          }}
+        />
+      )}
       {own && <NameDialog title="Make your own flashcards" confirm="Create" onSave={makeOwn} onClose={() => setOwn(false)} />}
     </div>
   );
