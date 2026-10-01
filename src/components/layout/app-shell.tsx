@@ -274,6 +274,11 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       /* storage blocked */
     }
   }, [accent]);
+  // With a photo, the page sits on frosted panels rather than straight on the picture.
+  useEffect(() => {
+    document.documentElement.classList.toggle("has-photo", !!photoUrl);
+    return () => document.documentElement.classList.remove("has-photo");
+  }, [photoUrl]);
   const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} photo={photoUrl} />;
   if (bare)
     return (
@@ -294,10 +299,12 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       <MobileDrawer open={drawer} onClose={() => setDrawer(false)} />
       <div className="sb-anim lg:pl-[var(--sb,248px)]">
         <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 px-4 lg:flex">
-          <StreakFlame />
-          <StudyTimerButton />
-          <Personalise />
-          <SettingsButton />
+          <div className="topbar-tools flex items-center gap-1">
+            <StreakFlame />
+            <StudyTimerButton />
+            <Personalise />
+            <SettingsButton />
+          </div>
         </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-8 lg:pb-16 lg:pt-2" style={zoom !== 1 ? { zoom } : undefined}>
           {children}

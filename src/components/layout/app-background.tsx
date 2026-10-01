@@ -483,9 +483,8 @@ export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; 
     return (
       // Runs under the left bar too, which is frosted glass, so the photo blurs softly into it.
       <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
+        {/* Shown as it is (no wash): the page's own panels are frosted instead, so text stays easy to read. */}
         <img src={photo} alt="" className="size-full object-cover" />
-        {/* A soft wash in the theme's colour so text on top stays easy to read. */}
-        <div className="absolute inset-0" style={{ background: `hsl(var(--background) / ${dark ? 0.5 : 0.35})` }} />
       </div>
     );
   if (scene === "none" || !SCENE_ORDER.includes(scene)) return null;

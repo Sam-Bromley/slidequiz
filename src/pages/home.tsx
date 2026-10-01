@@ -34,10 +34,10 @@ export function HomePage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-10rem)] flex-col items-center justify-center py-8">
+    <div className="home-page flex min-h-[calc(100dvh-10rem)] flex-col items-center justify-center py-8">
       <div className="w-full max-w-2xl">
         {showQuote && (
-          <figure className="mb-6 px-2 text-center">
+          <figure className="home-quote mx-auto mb-6 w-fit max-w-full px-2 text-center">
             <blockquote className="text-[16px] italic leading-relaxed text-foreground/80">“{quote.text}”</blockquote>
             <figcaption className="mt-1.5 text-[13px] text-muted-foreground">{quote.by}</figcaption>
           </figure>
