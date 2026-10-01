@@ -1,3 +1,4 @@
+import { trackConversion } from "@/services/ads";
 import { Check, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AuthDialog } from "@/components/account/auth-dialog";
@@ -58,6 +59,7 @@ export function PlusPage() {
       if (stop) return;
       if (s.plus) {
         setWaiting(false);
+        trackConversion("purchase", { value: 3.99, id: `${account.user!.id}:${s.until ?? ""}` });
         toast("Welcome to Pro! Thank you for supporting SlideQuiz.");
         navigate("/pro", { replace: true });
       } else if (++tries < 10) setTimeout(tick, 2000);

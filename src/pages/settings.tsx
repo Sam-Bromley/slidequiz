@@ -1,3 +1,4 @@
+import { ADS_READY, setAdConsent, useAdConsent } from "@/services/ads";
 import { Check, Copy, Download, LogIn, LogOut, RotateCcw, Sparkles, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
@@ -72,6 +73,7 @@ function AllowanceRow() {
 export function SettingsPage() {
   const data = useData();
   const s = data.settings;
+  const adConsent = useAdConsent();
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -184,6 +186,11 @@ export function SettingsPage() {
         <Row label="Colour subjects" hint="Each subject gets its own soft colour on your materials" htmlFor="set-subjects" inline>
           <Switch id="set-subjects" checked={!!s.subjectColours} onChange={(v) => set({ subjectColours: v })} label="Colour subjects" />
         </Row>
+        {ADS_READY && (
+          <Row label="Ad cookies" hint="Lets us see which of our ads bring people here. No ads are shown on SlideQuiz." htmlFor="set-adcookies" inline>
+            <Switch id="set-adcookies" checked={adConsent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Ad cookies" />
+          </Row>
+        )}
         <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>

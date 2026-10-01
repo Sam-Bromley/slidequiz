@@ -1,3 +1,5 @@
+import { CookieBanner } from "@/components/layout/cookie-banner";
+import { initAds } from "@/services/ads";
 import { EssaySetPage, EssaysPage } from "@/pages/essays";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -113,6 +115,7 @@ export function App() {
     document.title = title ? `${title} – SlideQuiz` : "SlideQuiz – notes, practice questions and flashcards from your slides";
   }, [title]);
   useThemeSync(data.settings);
+  useEffect(() => initAds(), []);
   useGlobalShortcuts();
   useClickBounce();
   useEffect(() => {
@@ -144,6 +147,7 @@ export function App() {
       <ShortcutsDialog />
       <StartQuizDialog />
       <Toaster />
+      <CookieBanner />
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { trackConversion } from "@/services/ads";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -37,6 +38,8 @@ export function AuthDialog({ initial = "login", onClose }: { initial?: AuthMode;
         onClose();
       } else if (mode === "signup") {
         const r = await signUp(email, password);
+        // A one-way code (not the email itself), so the same sign-up isn't counted twice.
+        trackConversion("signup", { id: [...email.trim().toLowerCase()].reduce((h, c) => (Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0), 2166136261).toString(36) });
         if (r === "done") {
           toast("Account created");
           onClose();

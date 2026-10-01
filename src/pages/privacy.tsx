@@ -48,7 +48,8 @@ export function PrivacyPage() {
       <p>We count visits with Cloudflare Web Analytics. It doesn't use cookies, doesn't track you across other websites and doesn't identify you. It tells us things like how many people visited and which pages they opened.</p>
 
       <H>Cookies and browser storage</H>
-      <p>We don't use advertising or tracking cookies. The site saves your work, your settings and (if you log in) your login in your browser's storage so it works when you come back.</p>
+      <p>The site saves your work, your settings and (if you log in) your login in your browser's storage so it works when you come back.</p>
+      <p className="mt-2">We advertise SlideQuiz on Google. If you say yes to ad cookies, Google's tag is loaded so Google Ads can tell us when someone who clicked one of our ads creates an account or buys Pro. This helps us see which ads work. If you say no, the tag isn't loaded at all. There are never any ads on SlideQuiz itself, and we don't share your notes or files with Google. You can change your choice any time in Settings → Appearance → Ad cookies.</p>
 
       <H>Who else handles your data</H>
       <p>We use a few services to run SlideQuiz. They only process data to provide their service to us:</p>
@@ -58,6 +59,7 @@ export function PrivacyPage() {
         <li>Stripe: payments for SlideQuiz Pro.</li>
         <li>GitHub Pages: hosts the website. Like any web host, it may log visitors' IP addresses for security.</li>
         <li>Cloudflare: visitor numbers (see above).</li>
+        <li>Google Ads: only if you accept ad cookies, to measure which of our ads lead to sign-ups and Pro purchases.</li>
       </ul>
 
       <H>How long we keep it</H>
