@@ -14,7 +14,7 @@ import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import { nowISO, uid } from "@/lib/utils";
-import type { AINoteSection, EssayPlan, EssayQuestion, EssayWork, ID, Material, SourceRef, Topic } from "@/types/models";
+import type { WrittenMark, WrittenQuestion, AINoteSection, EssayPlan, EssayQuestion, EssayWork, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
@@ -410,4 +410,49 @@ export async function cloudEssayPlan(materials: Material[], w: EssayWork, title:
     tips: (Array.isArray(r.tips) ? r.tips : []).map(str).filter(Boolean).slice(0, 4),
     at: nowISO(),
   };
+}
+
+/* ---------------------------------------------------------------- written answers */
+
+/** New written-answer questions with mark schemes. Throws an AIError if it can't. */
+export async function cloudWrittenQuestions(m: Material, count = 6): Promise<WrittenQuestion[]> {
+  const pages = essayPages([m]);
+  const labelOf = new Map(m.pages.map((p) => [p.id, p.label]));
+  const r = await call<{ questions: { question: string; marks: number; points: { text: string; pageId?: string }[]; model: string }[] }>("writtenQuestions", {
+    title: m.title,
+    pages,
+    count,
+    avoid: (m.written ?? []).map((q) => q.question),
+  });
+  return (r.questions ?? [])
+    .filter((q) => q.question?.trim() && Array.isArray(q.points) && q.points.length)
+    .map((q) => {
+      const marks = Math.max(1, Math.min(6, Math.round(Number(q.marks) || 1)));
+      return {
+        id: uid("wq"),
+        question: q.question.trim(),
+        marks,
+        points: q.points
+          .map((p) => ({ text: String(p?.text ?? p).trim(), pageId: p?.pageId && labelOf.has(p.pageId) ? p.pageId : undefined, label: p?.pageId ? labelOf.get(p.pageId) : undefined }))
+          .filter((p) => p.text),
+        model: String(q.model ?? "").trim(),
+        at: nowISO(),
+      };
+    })
+    .filter((q) => q.points.length);
+}
+
+/** Marks a written answer against its mark scheme. Throws an AIError if it can't. */
+export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Promise<WrittenMark> {
+  const r = await call<{ awarded: number; hit: number[]; feedback: string; improve?: string }>("markWritten", {
+    pages: [],
+    question: q.question,
+    marks: q.marks,
+    points: q.points.map((p) => p.text),
+    model: q.model,
+    answer,
+  });
+  const hit = [...new Set((Array.isArray(r.hit) ? r.hit : []).map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < q.points.length))];
+  const awarded = Math.max(0, Math.min(q.marks, Math.round(Number(r.awarded ?? hit.length) || 0)));
+  return { answer, awarded, hit, feedback: String(r.feedback ?? "").trim(), improve: String(r.improve ?? "").trim() || undefined, at: nowISO() };
 }

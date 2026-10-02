@@ -166,6 +166,8 @@ export interface Material {
   title: string;
   /** Pro: the student's highlights and notes on the AI notes. */
   marks?: NoteMark[];
+  /** Written-answer questions (1 to 6 marks) with their mark schemes. */
+  written?: WrittenQuestion[];
   /** Pro: essay questions and plans for this lecture. */
   essays?: EssayWork;
   subject: string;
@@ -491,4 +493,27 @@ export interface EssaySet extends EssayWork {
   createdAt: ISODate;
   /** The folder it was made from, if any. */
   folderId?: ID;
+}
+
+/* ---------------------------------------------------------------- written answers */
+
+export interface WrittenMark {
+  answer: string;
+  awarded: number;
+  hit: number[];
+  feedback: string;
+  improve?: string;
+  at: ISODate;
+}
+
+export interface WrittenQuestion {
+  id: ID;
+  question: string;
+  marks: number;
+  points: { text: string; pageId?: ID; label?: string }[];
+  model: string;
+  /** Latest attempt (and the best mark so far). */
+  last?: WrittenMark;
+  best?: number;
+  at: ISODate;
 }

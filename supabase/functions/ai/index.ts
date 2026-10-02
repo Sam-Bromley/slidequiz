@@ -131,6 +131,42 @@ Reply with JSON only:
   },
 });
 
+/* ---------------------------------------------------------------- written answers (free, fair use) */
+
+Object.assign(TASKS, {
+  writtenQuestions: {
+    maxTokens: 6000,
+    system: `${STYLE}
+You write short written-answer exam questions (worth 1 to 6 marks) with clear mark schemes, like real exam papers.`,
+    prompt: (b: any, pages: string) => `Lecture: "${b.title}"
+Slides (each starts with [id]):
+${pages}
+
+Write ${Math.min(10, Math.max(3, Number(b.count) || 6))} different written-answer questions on this lecture, worth between 1 and 6 marks, mixing sizes (mostly 2 to 4 marks). Use real command words (State, Describe, Explain, Outline, Compare, Suggest). The marks must match how much is needed: one mark per creditworthy point. Cover the main topics and don't repeat anything below.${Array.isArray(b.avoid) && b.avoid.length ? `\nAlready asked:\n${b.avoid.slice(0, 30).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
+For each, give a mark scheme: the creditworthy points (at least as many as the marks; extra alternatives are fine), each with the id of the slide it comes from, and a short model answer that would get full marks.
+Reply with JSON only:
+{"questions":[{"question":"…","marks":3,"points":[{"text":"…","pageId":"…"}],"model":"…"}]}`,
+  },
+  markWritten: {
+    maxTokens: 1200,
+    system: `${STYLE}
+You are a fair, encouraging examiner marking a student's short written answer against a mark scheme. Give credit for any wording that shows the same understanding; don't require exact phrases. Never award more than the marks available. Speak to the student as "you".`,
+    prompt: (b: any) => `Question (${Number(b.marks) || 1} marks): ${String(b.question ?? "").slice(0, 600)}
+Mark scheme points (one mark each, up to the total):
+${(Array.isArray(b.points) ? b.points : []).slice(0, 12).map((p: any, i: number) => `${i}. ${String(p?.text ?? p).slice(0, 300)}`).join("\n")}
+Model answer: ${String(b.model ?? "").slice(0, 800)}
+
+Student's answer:
+<<<
+${String(b.answer ?? "").slice(0, 3000)}
+>>>
+
+Mark it. List which mark scheme points (by number) the answer earns. Then one or two short sentences of feedback, and the single most useful thing to add or fix for more marks (empty if full marks).
+Reply with JSON only:
+{"awarded":2,"hit":[0,2],"feedback":"…","improve":"…"}`,
+  },
+});
+
 const PRO_ONLY = new Set(["essayQuestions", "essayPlan"]);
 
 const json = (data: unknown, status: number, origin: string | null) =>
@@ -182,7 +218,7 @@ Deno.serve(async (req) => {
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used your AI lectures for now.", limit: true }, 429, origin);
   } else {
-    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length;
+    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + (body.task === "markWritten" ? 1500 : 0);
     const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: pages.length + extra }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used today's fair use of AI. It resets tomorrow.", limit: true }, 429, origin);

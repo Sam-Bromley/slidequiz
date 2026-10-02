@@ -11,6 +11,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Menu } from "@/components/ui/menu";
 import { Tabs, tabPanelProps } from "@/components/ui/tabs";
 import { EssaysView } from "@/components/essays/essays-view";
+import { WrittenView } from "@/components/practice/written-view";
+import { Segmented } from "@/components/ui/segmented";
 import { usePlanQuiet } from "@/services/plus";
 import { Link, useLocation } from "@/lib/router";
 import { notesExportDoc } from "@/services/notes";
@@ -58,6 +60,11 @@ export function MaterialDetailPage({ id }: { id: string }) {
   }, [id]);
 
   const pro = usePlanQuiet().plus;
+  const [mode, setMode] = useState<"mcq" | "written">(query.get("mode") === "written" ? "written" : "mcq");
+  const changeMode = (v: "mcq" | "written") => {
+    setMode(v);
+    if (m) history.replaceState(null, "", `#/materials/${m.id}?tab=practice${v === "written" ? "&mode=written" : ""}`);
+  };
 
   if (!m) return <EmptyState icon={FileText} title="Material not found" description="It may have been deleted." action={<Link to="/materials" className={buttonClass()}>My Materials</Link>} />;
 
@@ -124,7 +131,21 @@ export function MaterialDetailPage({ id }: { id: string }) {
       <div {...tabPanelProps("mat", tab)}>
         {tab === "notes" && <NotesView material={m} />}
         {tab === "essays" && <EssaysView material={m} />}
-        {tab === "practice" && <PracticeView material={m} topicIds={topics} onTopicsChange={setTopics} onOpenNotes={openNotes} />}
+        {tab === "practice" && (
+          <>
+            <Segmented
+              label="Question type"
+              className="mb-5"
+              value={mode}
+              onChange={changeMode}
+              options={[
+                { value: "mcq", label: "Multiple choice" },
+                { value: "written", label: "Written answers" },
+              ]}
+            />
+            {mode === "mcq" ? <PracticeView material={m} topicIds={topics} onTopicsChange={setTopics} onOpenNotes={openNotes} /> : <WrittenView material={m} />}
+          </>
+        )}
         {tab === "progress" && (
           <ProgressView
             material={m}
