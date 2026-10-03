@@ -1,7 +1,7 @@
 // SlideQuiz offline support.
 // Always tries the internet first, so updates show straight away; if there's no connection,
 // it uses the copy saved last time. Only SlideQuiz's own files are saved (not accounts or stats).
-const CACHE = "slidequiz-v1";
+const CACHE = "slidequiz-v2";
 const CORE = ["./", "index.html", "app.css", "assets/app.js", "favicon.svg", "manifest.webmanifest", "icon-192.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,8 +18,10 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
+  // Always ask the server for the newest copy (never a stale one from the browser's cache).
+  const fresh = req.mode === "navigate" ? new Request(req.url, { cache: "no-cache", credentials: "same-origin" }) : new Request(req, { cache: "no-cache" });
   e.respondWith(
-    fetch(req)
+    fetch(fresh)
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
