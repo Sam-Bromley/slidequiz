@@ -1,5 +1,5 @@
 import { ADS_READY, setAdConsent, useAdConsent } from "@/services/ads";
-import { Check, Copy, Crown, Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Crown, Download, Gift, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
 import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CONTACT_EMAIL } from "@/pages/privacy";
 import { openBilling, PLUS, PLUS_ON, usePlan } from "@/services/plus";
 import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
+import { openInvite } from "@/services/invites";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -66,6 +67,7 @@ function AllowanceRow() {
         <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
       {a ? <span className="shrink-0 text-[13.5px] font-medium tabular-nums">{`${left}/${total} left`}</span> : <Shimmer className="h-4 w-16" />}
+      {a && (a.bonus ?? 0) >= a.lecture / 2 && <span className="shrink-0 rounded-md bg-primary-soft px-1.5 py-0.5 text-[11.5px] font-semibold text-primary">{`incl. ${Math.round(a.bonus! / a.lecture)} bonus`}</span>}
     </div>
   );
 }
@@ -148,6 +150,14 @@ export function SettingsPage() {
 
       <Section title="Credits">
         <AllowanceRow />
+        <p className="text-[12.5px] text-muted-foreground">Credits are used to make notes and questions from a new lecture, flashcards, written answer questions and essay feedback.</p>
+        {account.user && (
+          <Row label="Invite friends" hint="You both get 3 free credits when they make their first lecture.">
+            <Button variant="outline" onClick={openInvite}>
+              <Gift /> Invite friends
+            </Button>
+          </Row>
+        )}
       </Section>
 
       <Section title="Appearance">

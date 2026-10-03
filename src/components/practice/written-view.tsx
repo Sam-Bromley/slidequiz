@@ -5,7 +5,7 @@ import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
 import { confetti } from "@/lib/confetti";
 import { cn } from "@/lib/utils";
-import { AIError, cloudMarkWritten, cloudWrittenQuestions, refreshAllowance } from "@/services/ai/cloud";
+import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, ensureCredits, refreshAllowance, textSize } from "@/services/ai/cloud";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material, WrittenQuestion } from "@/types/models";
@@ -27,7 +27,10 @@ export function WrittenView({ material: m }: { material: Material }) {
   const [i, setI] = useState(0);
   const idx = Math.min(i, Math.max(0, qs.length - 1));
 
+  // A set of written questions uses about half the lecture's credits.
+  const cost = Math.ceil(textSize(m) / 2);
   const generate = async () => {
+    if (!ensureCredits(cost)) return;
     setBusy(true);
     try {
       const fresh = await cloudWrittenQuestions(getState().materials.find((x) => x.id === m.id)!, 6);
@@ -36,7 +39,7 @@ export function WrittenView({ material: m }: { material: Material }) {
       save(m.id, [...before, ...fresh]);
       setI(before.length);
     } catch (e) {
-      toast.error(aiMessage(e));
+      if (!(e as AIError).credits) toast.error(aiMessage(e));
     } finally {
       setBusy(false);
       refreshAllowance();
@@ -60,9 +63,12 @@ export function WrittenView({ material: m }: { material: Material }) {
             <Shimmer className="h-4 w-2/3 rounded" />
           </div>
         ) : (
-          <Button className="mt-2" onClick={generate}>
-            <PenLine /> Write questions
-          </Button>
+          <div className="mt-2 flex flex-col items-center gap-1.5">
+            <Button onClick={generate}>
+              <PenLine /> Write questions
+            </Button>
+            <span className="text-[12px] text-muted-foreground">Uses {costText(cost)}</span>
+          </div>
         )}
       </div>
     );
@@ -83,7 +89,7 @@ export function WrittenView({ material: m }: { material: Material }) {
             · Best so far {totalBest}/{totalMarks} marks
           </span>
         )}
-        <Button variant="outline" size="sm" className="ml-auto" onClick={generate} loading={busy}>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={generate} loading={busy} title={`Uses ${costText(cost)}`}>
           <Plus /> More questions
         </Button>
       </div>

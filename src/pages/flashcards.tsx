@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, ChevronDown, Layers, List, MoreHorizontal, Pencil, Plus, Shuffle, Trash2 } from "lucide-react";
+import { AIError, costText, ensureCredits, refreshAllowance, textSizeFor } from "@/services/ai/cloud";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -49,7 +50,15 @@ function CreateDialog({ onClose, initial = [] }: { onClose: () => void; initial?
       return next;
     });
 
+  // Roughly what this will use (flashcards from a whole lecture cost about the same as the lecture).
+  const cost = chosen.reduce((n, mid) => {
+    const m = mats.find((x) => x.id === mid);
+    const sel = picked[mid];
+    return m ? n + textSizeFor(m, sel === "all" || !sel ? [] : sel) : n;
+  }, 0);
+
   const create = async () => {
+    if (!ensureCredits(cost)) return;
     setBusy(true);
     try {
       const cards = [];
@@ -68,9 +77,10 @@ function CreateDialog({ onClose, initial = [] }: { onClose: () => void; initial?
       onClose();
       navigate(`/flashcards/${id}`);
     } catch (e) {
-      toast.error((e as Error).message);
+      if (!(e as AIError).credits) toast.error((e as Error).message);
     } finally {
       setBusy(false);
+      refreshAllowance();
     }
   };
 
@@ -82,6 +92,7 @@ function CreateDialog({ onClose, initial = [] }: { onClose: () => void; initial?
       size="lg"
       footer={
         <>
+          {chosen.length > 0 && <span className="mr-auto self-center text-[12.5px] text-muted-foreground">Uses {costText(cost)}</span>}
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>

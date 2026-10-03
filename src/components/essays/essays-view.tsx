@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/toast";
 import { confetti } from "@/lib/confetti";
 import { Link } from "@/lib/router";
 import { cn } from "@/lib/utils";
-import { AIError, cloudEssayFeedback, cloudEssayQuestion, refreshAllowance } from "@/services/ai/cloud";
+import { AIError, cloudEssayFeedback, cloudEssayQuestion, ensureCredits, refreshAllowance } from "@/services/ai/cloud";
 import {
   CONCLUSION_KEYS,
   INTRO_KEYS,
@@ -371,7 +371,7 @@ function FeedbackPanel({ e, onAgain, busy }: { e: EssayDraft; onAgain: () => voi
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2 pl-12 text-[12.5px] text-muted-foreground">
         {f.notes.length - loose.length > 0 && <span>The other notes are under the boxes they're about.</span>}
-        <Button variant="outline" size="xs" onClick={onAgain} loading={busy} className="ml-auto">
+        <Button variant="outline" size="xs" onClick={onAgain} loading={busy} className="ml-auto" title="Uses 1 credit">
           <RefreshCw /> Check again
         </Button>
       </div>
@@ -414,6 +414,8 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
   };
 
   const feedback = async () => {
+    // Feedback uses 1 credit each time (checking the same essay again is free).
+    if (!ensureCredits(30000)) return;
     setFbBusy(true);
     try {
       // Make sure the very latest typing is saved first.
@@ -423,7 +425,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
       patchEssay(e.id, { feedback: f });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      toast.error(aiMessage(err));
+      if (!(err as AIError).credits) toast.error(aiMessage(err));
     } finally {
       setFbBusy(false);
       refreshAllowance();
@@ -502,7 +504,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
         <Button variant="outline" size="sm" onClick={() => setPreview(true)} disabled={!w.total}>
           <Eye /> Preview
         </Button>
-        <Button size="sm" onClick={feedback} loading={fbBusy} disabled={!canCheck} title={canCheck ? undefined : "Add a question and write a little first"}>
+        <Button size="sm" onClick={feedback} loading={fbBusy} disabled={!canCheck} title={canCheck ? "Uses 1 credit" : "Add a question and write a little first"}>
           <ListChecks /> Get feedback
         </Button>
       </div>

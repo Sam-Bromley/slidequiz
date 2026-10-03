@@ -372,19 +372,25 @@ Deno.serve(async (req) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
   let left: number | null = null;
-  if (body.task === "notes" || body.task === "questions") {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pages));
-    const hash = [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, "0")).join("");
-    const use = await fetch(`${base}/rest/v1/rpc/use_lecture_text`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_hash: hash, p_chars: Math.max(1, pages.length) }) });
+  const sha = async (t: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((x) => x.toString(16).padStart(2, "0")).join("");
+  // What uses credits, and how much (1 credit = 30,000 characters). The same request is only
+  // charged once a month, so "Try again" after an error is free.
+  let charge: { key: string; chars: number } | null = null;
+  if (body.task === "notes" || body.task === "questions") charge = { key: await sha(pages), chars: pages.length };
+  else if (body.task === "flashcards") charge = { key: "cards:" + (await sha(pages)), chars: pages.length };
+  else if (body.task === "writtenQuestions") charge = { key: "written:" + (await sha(pages + JSON.stringify(body.avoid ?? []) + String(body.count ?? ""))), chars: Math.ceil(pages.length / 2) };
+  else if (body.task === "essayFeedback") charge = { key: "essay:" + (await sha(String(body.essay ?? "") + String(body.question ?? ""))), chars: 30000 };
+  if (charge) {
+    const use = await fetch(`${base}/rest/v1/rpc/use_lecture_text`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_hash: charge.key, p_chars: Math.max(1, charge.chars) }) });
     left = use.ok ? await use.json() : null;
-    if (left === -1) return json({ error: "You've used your AI lectures for now.", limit: true }, 429, origin);
+    if (left === -1) return json({ error: "You've run out of credits.", limit: true, credits: true }, 429, origin);
   } else {
-    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : body.task === "essayFeedback" ? 5000 : 0);
+    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : 0);
     const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, pages.length + extra) }) });
     left = use.ok ? await use.json() : null;
-    if (left === -1) return json({ error: "You've used today's fair use of AI. It resets tomorrow.", limit: true }, 429, origin);
+    if (left === -1) return json({ error: "You've reached today's limit. It resets tomorrow.", limit: true }, 429, origin);
   }
-  if (left === null) return json({ error: "Couldn't check your AI allowance." }, 500, origin);
+  if (left === null) return json({ error: "Couldn't check your credits. Try again." }, 500, origin);
   if (left === -2) return json({ error: "SlideQuiz is very busy today. Try again tomorrow.", limit: true, busy: true }, 429, origin);
 
   // 3. Ask Claude.
@@ -396,8 +402,8 @@ Deno.serve(async (req) => {
   if (!r.ok) {
     const detail = String((await r.json().catch(() => null))?.error?.message ?? r.status);
     console.error("Anthropic error:", detail);
-    const reason = /credit|billing|balance/i.test(detail) ? "the AI account is out of credit" : r.status === 401 ? "the AI key isn't set up" : r.status === 429 || r.status === 529 ? "the AI is busy" : `AI error ${r.status}`;
-    return json({ error: `Couldn't write this right now (${reason}). Try again in a minute.` }, 502, origin);
+    const busy = r.status === 429 || r.status === 529;
+    return json({ error: busy ? "SlideQuiz is busy right now. Try again in a minute." : `Couldn't write this right now (error ${r.status}). Try again in a minute.` }, 502, origin);
   }
   const out = await r.json();
   const text: string = (out.content ?? []).map((c: any) => c.text ?? "").join("");
@@ -406,6 +412,6 @@ Deno.serve(async (req) => {
   try {
     return json(JSON.parse(text.slice(start, end + 1)), 200, origin);
   } catch {
-    return json({ error: "The AI's reply was cut short. Try again." }, 502, origin);
+    return json({ error: "The reply was cut short. Try again." }, 502, origin);
   }
 });

@@ -9,6 +9,7 @@
  * isn't set up at all ("off"), where the built-in notes keep the site usable.
  */
 import { useEffect, useSyncExternalStore } from "react";
+import { openOutOfCredits } from "@/services/invites";
 import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/account";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
@@ -30,6 +31,8 @@ export class AIError extends Error {
     public limit = false,
     /** The AI helper isn't set up (not deployed, or guest passes switched off). */
     public off = false,
+    /** Out of credits (the "invite a friend or get Pro" box has been shown already). */
+    public credits = false,
   ) {
     super(message);
   }
@@ -101,6 +104,11 @@ async function call<T>(task: string, body: Record<string, unknown>): Promise<T> 
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 404) throw new AIError("AI isn't set up yet.", false, true);
+  if (res.status === 429 && data?.credits) {
+    openOutOfCredits();
+    refreshAllowance();
+    throw new AIError("You've run out of credits.", true, false, true);
+  }
   if (!res.ok) throw new AIError(data?.busy ? "busy" : `${data?.error ?? data?.msg ?? data?.message ?? "The AI couldn't help this time."} (${res.status})`, !!data?.limit);
   return data as T;
 }
@@ -116,6 +124,9 @@ export interface Allowance {
   lecture: number;
   /** When it resets (null for guests, whose 2 lectures are a one-off). */
   resets: string | null;
+  /** The monthly credits, and bonus credits from invites (which don't expire), in characters. */
+  base?: number;
+  bonus?: number;
 }
 /** Matches the leeway in use_lecture_text, so a lecture that only just fits isn't refused. */
 const LEEWAY = 5000;
@@ -153,6 +164,28 @@ export function useAllowance(): Allowance | null {
 export function textSize(m: Material): number {
   return cloudPages(m).reduce((n, p) => n + p.label.length + p.title.length + Math.min(p.text.length, 4000) + 50, 0);
 }
+/** The same, for some topics only (flashcards from a few topics cost less). */
+export function textSizeFor(m: Material, topicIds: ID[] = []): number {
+  return cloudPages(m, topicIds).reduce((n, p) => n + p.label.length + p.title.length + Math.min(p.text.length, 4000) + 50, 0);
+}
+
+/**
+ * Before something that uses credits: true if there's room for it, otherwise shows the
+ * "invite a friend or get Pro" box and returns false. Unknown allowance (offline) is let through.
+ */
+export function ensureCredits(chars: number): boolean {
+  if (fits(chars, allowance)) return true;
+  openOutOfCredits();
+  return false;
+}
+
+/** "about 1 credit", "less than 1 credit", "about 3 credits": what something will use. */
+export function costText(chars: number): string {
+  const n = chars / (allowance?.lecture ?? 30000);
+  if (n < 0.75) return n < 0.35 ? "a small part of a credit" : "about half a credit";
+  return lecturesText(Math.max(1, Math.round(n)));
+}
+
 /** How many "lectures" some text uses, to the nearest whole one (0 means less than one). */
 export const lecturesFor = (chars: number, a: Allowance | null) => {
   const n = chars / (a?.lecture ?? 30000);

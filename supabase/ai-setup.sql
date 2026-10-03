@@ -12,7 +12,13 @@
 --   Safety net: all free students together can use up to 2,000,000 characters of new text a day
 --   (roughly 70–100 lectures, a few pounds). Plus students aren't limited by it.
 --
--- FAIR USE (flashcards and "Ask about these notes", which are cheap): characters sent per day
+-- CREDITS also pay for: flashcards (about the same as the lecture text), written answer questions
+--   (half of that per set) and essay feedback (1 credit each).
+-- BONUS CREDITS (from inviting friends) don't expire: they're used once the monthly credits run out.
+--   Inviting a friend: both get 3 once the friend has confirmed their email and made their first
+--   lecture (up to 10 friends a month).
+--
+-- FAIR USE ("Ask about these notes", marking written answers, essay questions; cheap): characters sent per day
 --     without an account: 100,000 · free account: 300,000 · Plus: 1,500,000
 --     all free students together: 1,000,000 a day
 
@@ -72,6 +78,32 @@ drop policy if exists "Read own AI text" on public.ai_text;
 create policy "Read own AI text" on public.ai_text
   for select to authenticated using ((select auth.uid()) = user_id);
 
+-- ---------------------------------------------------------------- bonus credits and invites
+-- Bonus credits, in characters (1 credit = 30,000). Only the database functions change these.
+create table if not exists public.credit_bonus (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  balance integer not null default 0 check (balance >= 0)
+);
+alter table public.credit_bonus enable row level security;
+-- How much of each charge came out of bonus credits (so this month's total stays right).
+alter table public.ai_text add column if not exists from_bonus integer not null default 0;
+
+-- Each student's invite code (the ?ref= in their link).
+create table if not exists public.invite_codes (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  code text not null unique
+);
+alter table public.invite_codes enable row level security;
+
+-- Friends who joined through an invite (each friend only counts once).
+create table if not exists public.invites (
+  friend_id uuid primary key references auth.users(id) on delete cascade,
+  inviter_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists invites_inviter on public.invites (inviter_id, created_at);
+alter table public.invites enable row level security;
+
 -- What an account has used and has left.
 create or replace function public.allowance_for(p_user uuid)
 returns json
@@ -83,16 +115,21 @@ as $$
 declare
   p text := public.plan_for(p_user);
   lecture integer := 30000;
-  allowance integer := (case p when 'plus' then 100 when 'guest' then 2 else 10 end) * lecture;
+  base integer := (case p when 'plus' then 100 when 'guest' then 2 else 10 end) * lecture;
   used integer;
+  bonus_used integer;
+  bonus integer;
 begin
-  select coalesce(sum(chars), 0) into used
+  select coalesce(sum(chars), 0), coalesce(sum(from_bonus), 0) into used, bonus_used
   from public.ai_text
   where user_id = p_user and (p = 'guest' or month = date_trunc('month', now())::date);
+  select coalesce((select balance from public.credit_bonus where user_id = p_user), 0) into bonus;
   return json_build_object(
     'plan', p,
     'used', used,
-    'allowance', allowance,
+    'allowance', base + bonus + bonus_used,
+    'base', base,
+    'bonus', bonus,
     'lecture', lecture,
     'resets', case when p = 'guest' then null else (date_trunc('month', now()) + interval '1 month')::date end
   );
@@ -108,6 +145,81 @@ security definer
 set search_path = ''
 as $$
   select public.allowance_for(auth.uid())
+$$;
+
+-- Gives the friend and whoever invited them 3 bonus credits each, once: the friend must have joined
+-- in the last 30 days with an invite code, confirmed their email, and not be the inviter. Each
+-- inviter is rewarded for up to 10 friends a month.
+create or replace function public.reward_invite(p_user uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  u record;
+  inviter uuid;
+  added integer;
+  reward integer := 3 * 30000;
+begin
+  select raw_user_meta_data ->> 'ref' as ref, email_confirmed_at, created_at, coalesce(is_anonymous, false) as anon
+  into u from auth.users where id = p_user;
+  if u.ref is null or u.email_confirmed_at is null or u.anon or u.created_at < now() - interval '30 days' then
+    return false;
+  end if;
+  if exists (select 1 from public.invites where friend_id = p_user) then
+    return false;
+  end if;
+  select user_id into inviter from public.invite_codes where code = upper(trim(u.ref));
+  if inviter is null or inviter = p_user then
+    return false;
+  end if;
+  if (select count(*) from public.invites where inviter_id = inviter and created_at >= date_trunc('month', now())) >= 10 then
+    return false;
+  end if;
+  insert into public.invites (friend_id, inviter_id) values (p_user, inviter) on conflict do nothing;
+  get diagnostics added = row_count;
+  if added = 0 then
+    return false;
+  end if;
+  insert into public.credit_bonus (user_id, balance) values (p_user, reward), (inviter, reward)
+  on conflict (user_id) do update set balance = public.credit_bonus.balance + excluded.balance;
+  return true;
+end;
+$$;
+
+-- The student's invite link code (made the first time), and how many friends have joined.
+create or replace function public.my_invite()
+returns json
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  c text;
+begin
+  if me is null or public.plan_for(me) = 'guest' then
+    return null;
+  end if;
+  select code into c from public.invite_codes where user_id = me;
+  while c is null loop
+    -- 7 letters and numbers, without ones that are easy to mix up (0/O, 1/I/L).
+    c := (select string_agg(substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', 1 + floor(random() * 31)::int, 1), '') from generate_series(1, 7));
+    begin
+      insert into public.invite_codes (user_id, code) values (me, c);
+    exception when unique_violation then
+      c := (select code from public.invite_codes where user_id = me);
+    end;
+  end loop;
+  return json_build_object(
+    'code', c,
+    'month', (select count(*) from public.invites where inviter_id = me and created_at >= date_trunc('month', now())),
+    'total', (select count(*) from public.invites where inviter_id = me),
+    'max', 10,
+    'reward', 3
+  );
+end;
 $$;
 
 -- Counts a piece of slide text against the allowance. Returns a positive number if it's fine,
@@ -127,6 +239,10 @@ declare
   allowance integer;
   site bigint;
   site_limit bigint := 2000000;
+  base integer;
+  bonus integer;
+  take integer;
+  added integer;
 begin
   if p_user is null or p_chars is null or p_chars <= 0 or coalesce(p_hash, '') = '' then
     return -1;
@@ -155,8 +271,20 @@ begin
       return -2;
     end if;
   end if;
-  insert into public.ai_text (user_id, hash, chars) values (p_user, p_hash, p_chars)
+  -- Past the monthly credits: the rest comes out of bonus credits.
+  base := (a ->> 'base')::integer;
+  bonus := (a ->> 'bonus')::integer;
+  take := least(bonus, greatest(used + p_chars - base, 0) - greatest(used - base, 0));
+  insert into public.ai_text (user_id, hash, chars, from_bonus) values (p_user, p_hash, p_chars, take)
   on conflict do nothing;
+  get diagnostics added = row_count;
+  if added > 0 and take > 0 then
+    update public.credit_bonus set balance = balance - take where user_id = p_user;
+  end if;
+  -- A friend who joined through an invite has now made their first lecture: reward them both.
+  if added > 0 and p <> 'guest' then
+    perform public.reward_invite(p_user);
+  end if;
   return greatest(allowance - used - p_chars, 0) + 1;
 end;
 $$;
@@ -223,6 +351,10 @@ grant execute on function public.plan_for(uuid) to service_role;
 grant execute on function public.allowance_for(uuid) to service_role;
 grant execute on function public.use_lecture_text(uuid, text, integer) to service_role;
 grant execute on function public.use_ai(uuid, integer) to service_role;
+revoke execute on function public.reward_invite(uuid) from public, anon, authenticated;
+grant execute on function public.reward_invite(uuid) to service_role;
+revoke execute on function public.my_invite() from public, anon;
+grant execute on function public.my_invite() to authenticated;
 revoke execute on function public.sq_plan() from public, anon;
 revoke execute on function public.ai_allowance() from public, anon;
 grant execute on function public.sq_plan() to authenticated;

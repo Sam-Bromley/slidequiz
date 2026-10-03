@@ -4,6 +4,7 @@ import { Link } from "@/lib/router";
 import { fits, lecturesFor, lecturesLeft, lecturesText, textSize, useAllowance, type Allowance } from "@/services/ai/cloud";
 import type { Material } from "@/types/models";
 import { PLUS_ON } from "@/services/plus";
+import { openInvite } from "@/services/invites";
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const resetDate = (a: Allowance) => (a.resets ? new Date(a.resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
@@ -30,18 +31,25 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
         {auth && <AuthDialog initial="signup" onClose={() => setAuth(false)} />}
       </>
     );
+  const invite = (
+    <button type="button" className={link} onClick={openInvite}>
+      {fewer ? "invite" : "Invite"} a friend
+    </button>
+  );
   if (a.plan === "free" && !PLUS_ON)
     return (
       <>
-        {fewer && "Choose fewer slides. "}Free credits reset on {resetDate(a)}.
+        {fewer && "Choose fewer slides, or "}
+        {invite} and you both get 3 free credits. Free credits reset on {resetDate(a)}.
       </>
     );
   if (a.plan === "free")
     return (
       <>
-        {fewer && "Choose fewer slides, or "}
+        {fewer && "Choose fewer slides, "}
+        {invite} (you both get 3 free credits) or{" "}
         <Link to="/pro" className={link}>
-          {fewer ? "get" : "Get"} Pro
+          get Pro
         </Link>{" "}
         for 100 a month. Free credits reset on {resetDate(a)}.
       </>

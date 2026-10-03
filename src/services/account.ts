@@ -158,6 +158,15 @@ export const authToken = () => accessToken();
 /** Where email links send people back to (this page, whichever address it's on). */
 const redirectTo = () => encodeURIComponent(window.location.origin + window.location.pathname);
 
+/** The invite code from a friend's link, if they arrived through one (see services/invites). */
+function inviteRef(): string {
+  try {
+    return (localStorage.getItem("slidequiz:ref") ?? "").slice(0, 12);
+  } catch {
+    return "";
+  }
+}
+
 /* ------------------------------------------------------------------ public actions */
 
 export async function logIn(email: string, password: string) {
@@ -177,7 +186,8 @@ export async function signUp(email: string, password: string, name = ""): Promis
   } catch {
     /* storage blocked */
   }
-  const data = { ...(first ? { name: first } : {}), ...(source ? { source: source.slice(0, 120) } : {}) };
+  const ref = inviteRef();
+  const data = { ...(first ? { name: first } : {}), ...(source ? { source: source.slice(0, 120) } : {}), ...(ref ? { ref } : {}) };
   const r = await call<TokenResponse | { id: string; identities?: unknown[] }>(`/auth/v1/signup?redirect_to=${redirectTo()}`, { method: "POST", body: JSON.stringify({ email: email.trim(), password, ...(Object.keys(data).length ? { data } : {}) }) });
   if ("access_token" in r && r.access_token) {
     setSession(toSession(r));
@@ -244,7 +254,8 @@ async function afterGoogle() {
       /* storage blocked */
     }
     const via = (u as { app_metadata?: { provider?: string } }).app_metadata?.provider ?? "google";
-    await call("/auth/v1/user", { method: "PUT", auth: true, body: JSON.stringify({ data: { joined: via, ...(source ? { source: source.slice(0, 120) } : {}) } }) });
+    const ref = inviteRef();
+    await call("/auth/v1/user", { method: "PUT", auth: true, body: JSON.stringify({ data: { joined: via, ...(source ? { source: source.slice(0, 120) } : {}), ...(ref ? { ref } : {}) } }) });
     const ads = await import("@/services/ads");
     ads.trackConversion("signup", { value: 1, id: ads.oneWay(u.email.trim().toLowerCase()) });
   } catch {
