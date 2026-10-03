@@ -11,7 +11,7 @@ export const ADS_ID = "AW-18485189868";
 /** Conversion labels from Google Ads (Goals → Conversions → the action → Tag setup). Empty = not set up yet. */
 const LABELS: Record<"purchase" | "signup", string> = {
   purchase: "bf-wCOKe2YwdEOy5tu5E",
-  signup: "",
+  signup: "iqp0CNPWq48dEOy5tu5E",
 };
 
 /** Measurement is only switched on once at least one conversion label is filled in. */

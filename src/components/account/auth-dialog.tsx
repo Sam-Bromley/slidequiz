@@ -39,7 +39,7 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
       } else if (mode === "signup") {
         const r = await signUp(email, password);
         // A one-way code (not the email itself), so the same sign-up isn't counted twice.
-        trackConversion("signup", { id: oneWay(email.trim().toLowerCase()) });
+        trackConversion("signup", { value: 1, id: oneWay(email.trim().toLowerCase()) });
         if (r === "done") {
           toast("Account created");
           onClose();
