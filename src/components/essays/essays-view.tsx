@@ -147,7 +147,7 @@ function Box({ id, value, onCommit, placeholder, className, minRows = 2, label, 
           commitRef.current(latest.current);
         }, 400);
       }}
-      className={cn("block w-full resize-none overflow-hidden rounded-xl border bg-background px-3.5 py-2.5 text-[14.5px] leading-relaxed placeholder:text-muted-foreground/60 focus-ring", className)}
+      className={cn("block w-full resize-none overflow-hidden rounded-xl border bg-background px-3.5 py-2.5 text-[14.5px] leading-relaxed placeholder:text-muted-foreground/60", noCite ? "outline-none" : "focus-ring", className)}
     />
   );
 }
@@ -374,7 +374,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-16">
       {/* The question */}
-      <section className="rounded-2xl border bg-card p-4 sm:p-5" aria-label="Essay question">
+      <section className="rounded-2xl border bg-card p-4 transition-colors focus-within:border-foreground/30 sm:p-5" aria-label="Essay question">
         <div className="mb-2 flex items-center gap-2">
           <label htmlFor="essay-q" className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Essay question
@@ -384,7 +384,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
             <Settings2 /> {LEVELS.find((l) => l.value === (e.level ?? "uni"))?.label} · {target} words
           </Button>
         </div>
-        <Box id="essay-q" noCite value={e.question} onCommit={(v) => patchEssay(e.id, { question: v })} placeholder="Type your essay question, or generate one from your lectures" className="border-0 bg-transparent px-0 py-1 text-[17px] font-semibold leading-snug shadow-none focus-visible:ring-0" minRows={1} />
+        <Box id="essay-q" noCite value={e.question} onCommit={(v) => patchEssay(e.id, { question: v })} placeholder="Type your essay question, or generate one from your lectures" className="border-0 bg-transparent px-0 py-1 text-[17px] font-semibold leading-snug shadow-none" minRows={1} />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant={e.question.trim() ? "outline" : "default"} size="sm" onClick={generate} loading={genBusy}>
             {e.question.trim() ? <RefreshCw /> : <PenLine />} {e.question.trim() ? "Another question" : "Generate a question"}

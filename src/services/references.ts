@@ -411,6 +411,37 @@ export async function fromDoi(doi: string): Promise<{ type: RefType; fields: Ref
   };
 }
 
+/** A PubMed Central (PMC…) or PubMed article id in a link or pasted text. */
+export function findPubmedId(s: string): { pmcid?: string; pmid?: string } | null {
+  const pmc = s.match(/\bPMC\d{4,9}\b/i);
+  if (pmc) return { pmcid: pmc[0].toUpperCase() };
+  const pm = s.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{4,9})/i) ?? s.match(/\bPMID:?\s*(\d{4,9})\b/i);
+  return pm ? { pmid: pm[1] } : null;
+}
+
+/** Looks a PubMed / PubMed Central article up on Europe PMC. */
+export async function fromEuropePmc(id: { pmcid?: string; pmid?: string }, link: string): Promise<{ type: RefType; fields: RefFields }> {
+  const q = id.pmcid ? `PMCID:${id.pmcid}` : `EXT_ID:${id.pmid} AND SRC:MED`;
+  const r = await fetch(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&resultType=core&format=json`);
+  const a = r.ok ? (await r.json())?.resultList?.result?.[0] : null;
+  if (!a?.title) throw new Error("not found");
+  const ji = a.journalInfo ?? {};
+  return {
+    type: "article",
+    fields: {
+      authors: (a.authorList?.author ?? []).map((x: { lastName?: string; firstName?: string; collectiveName?: string; fullName?: string }) => (x.lastName ? `${x.lastName}${x.firstName ? `, ${x.firstName}` : ""}` : (x.collectiveName ?? x.fullName ?? ""))).filter(Boolean),
+      year: String(ji.yearOfPublication ?? a.pubYear ?? ""),
+      title: String(a.title).replace(/<[^>]+>/g, "").replace(/\.$/, "").trim(),
+      container: ji.journal?.title ?? "",
+      volume: ji.volume ?? "",
+      issue: ji.issue ?? "",
+      pages: a.pageInfo ?? "",
+      doi: a.doi ?? "",
+      url: a.doi ? "" : link,
+    },
+  };
+}
+
 /** Looks an ISBN up on Open Library. */
 export async function fromIsbn(isbn: string): Promise<{ type: RefType; fields: RefFields }> {
   const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);

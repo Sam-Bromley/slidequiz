@@ -15,6 +15,8 @@ import {
   formatReference,
   fromBareUrl,
   fromDoi,
+  fromEuropePmc,
+  findPubmedId,
   fromIsbn,
   fromPageInfo,
   inTextCitation,
@@ -192,7 +194,9 @@ export function ReferencesPanel({ e }: { e: EssayDraft }) {
     try {
       const doi = findDoi(input);
       const isbn = !/^https?:/i.test(input) || /isbn/i.test(input) ? findIsbn(input) : null;
+      const pubmed = !doi ? findPubmedId(input) : null;
       if (doi) found = await fromDoi(doi).catch(() => null);
+      else if (pubmed) found = await fromEuropePmc(pubmed, /^https?:/i.test(input) ? input : "").catch(() => null);
       else if (isbn) found = await fromIsbn(isbn).catch(() => null);
       if (!found) {
         const url = /^https?:\/\//i.test(input) ? input : /^[\w-]+(\.[\w-]+)+(\/|$)/.test(input) ? `https://${input}` : "";
@@ -205,7 +209,7 @@ export function ReferencesPanel({ e }: { e: EssayDraft }) {
             found = fromBareUrl(url);
             toast("Couldn't read all the details from that page. Fill in the rest below.");
           }
-        } else if (!doi && !isbn) toast.error("Paste a link, a DOI (10.xxxx/…) or an ISBN.");
+        } else if (!doi && !isbn && !pubmed) toast.error("Paste a link, a DOI (10.xxxx/…) or an ISBN.");
         else toast.error(doi ? "Couldn't find that DOI." : "Couldn't find that ISBN.");
       }
     } finally {
@@ -214,6 +218,7 @@ export function ReferencesPanel({ e }: { e: EssayDraft }) {
     if (found) {
       setEditing({ id: uid("ref"), text: "", type: found.type, fields: found.fields });
       setLink("");
+      setTimeout(() => document.getElementById("ref-editor-new")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
     }
   };
 
@@ -274,6 +279,7 @@ export function ReferencesPanel({ e }: { e: EssayDraft }) {
         ))}
       </div>
 
+      {editing && !e.references.some((r) => r.id === editing.id) && <div id="ref-editor-new" />}
       {editing && !e.references.some((r) => r.id === editing.id) && <RefEditor initial={editing} style={style} onSave={save} onCancel={() => setEditing(null)} />}
 
       {refs.length > 0 ? (
