@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { Switch } from "@/components/ui/switch";
+import { ADS_READY, setAdConsent, useAdConsent } from "@/services/ads";
 import { PageHeader } from "@/components/layout/page-header";
 
 export const CONTACT_EMAIL = "slidequiz.help@outlook.com";
@@ -53,7 +55,8 @@ export function PrivacyPage() {
 
       <H>Cookies and browser storage</H>
       <p>The site saves your work, your settings and (if you log in) your login in your browser's storage so it works when you come back.</p>
-      <p className="mt-2">We advertise SlideQuiz on Google. Google's tag is on our pages so Google Ads can tell us when someone who clicked one of our ads creates an account or buys Pro. This helps us see which ads work. If you say yes to ad cookies, it can use cookies to do this. If you say no (or don't choose), it uses no ad cookies and sends Google nothing that identifies you or your device: only anonymous signals that a page was visited or a sign-up happened, which Google uses to estimate how well the ads work overall. We never use it to show you personalised ads. There are never any ads on SlideQuiz itself, and we don't share your notes or files with Google. You can change your choice any time in Settings → Appearance → Ad cookies.</p>
+      <p className="mt-2">We advertise SlideQuiz on Google. Google's tag is on our pages so Google Ads can tell us when someone who clicked one of our ads creates an account or buys Pro. This helps us see which ads work. If you say yes to ad cookies, it can use cookies to do this. If you say no (or don't choose), it uses no ad cookies and sends Google nothing that identifies you or your device: only anonymous signals that a page was visited or a sign-up happened, which Google uses to estimate how well the ads work overall. We never use it to show you personalised ads. There are never any ads on SlideQuiz itself, and we don't share your notes or files with Google. You can change your choice any time here:</p>
+      <CookieChoice />
 
       <H>Who else handles your data</H>
       <p>We use a few services to run SlideQuiz. They only process data to provide their service to us:</p>
@@ -87,6 +90,21 @@ export function PrivacyPage() {
 
       <H>Changes</H>
       <p>If we change how we use your data, we'll update this page and the date at the top.</p>
+    </div>
+  );
+}
+
+/** Change the ad cookie choice (as easy to change as it was to make). */
+function CookieChoice() {
+  const consent = useAdConsent();
+  if (!ADS_READY) return null;
+  return (
+    <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3">
+      <label htmlFor="privacy-adcookies" className="text-[14px]">
+        <span className="block font-medium">Ad cookies</span>
+        <span className="block text-[12.5px] text-muted-foreground">{consent === "yes" ? "Allowed" : "Not allowed"}</span>
+      </label>
+      <Switch id="privacy-adcookies" checked={consent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Ad cookies" />
     </div>
   );
 }
