@@ -100,11 +100,10 @@ function CookieChoice() {
   if (!ADS_READY) return null;
   return (
     <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3">
-      <label htmlFor="privacy-adcookies" className="text-[14px]">
-        <span className="block font-medium">Ad cookies</span>
-        <span className="block text-[12.5px] text-muted-foreground">{consent === "yes" ? "Allowed" : "Not allowed"}</span>
+      <label htmlFor="privacy-adcookies" className="text-[14px] font-medium">
+        Cookies
       </label>
-      <Switch id="privacy-adcookies" checked={consent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Ad cookies" />
+      <Switch id="privacy-adcookies" checked={consent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Cookies" />
     </div>
   );
 }
