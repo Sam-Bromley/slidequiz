@@ -1,6 +1,7 @@
 import type { SourceFileType } from "@/types/models";
 
-export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+// Files are read on the device (pictures are shrunk), so big decks with lots of images or videos are fine.
+export const MAX_FILE_BYTES = 300 * 1024 * 1024;
 
 const BY_EXT: Record<string, SourceFileType> = {
   pptx: "pptx",
@@ -51,7 +52,7 @@ export function validateFile(file: File): ValidationResult {
     if (file.size > MEDIA_MAX_BYTES) return { ok: false, error: "This recording is larger than 500 MB." };
     return { ok: true, type };
   }
-  if (file.size > MAX_FILE_BYTES) return { ok: false, error: "This file is larger than 25 MB." };
+  if (file.size > MAX_FILE_BYTES) return { ok: false, error: "This file is larger than 300 MB. Try saving it without embedded videos, or as a PDF." };
   return { ok: true, type };
 }
 
