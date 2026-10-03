@@ -167,8 +167,10 @@ export async function logIn(email: string, password: string) {
 }
 
 /** Returns "confirm" when Supabase wants the email confirmed before the first login. */
-export async function signUp(email: string, password: string): Promise<"done" | "confirm"> {
-  const r = await call<TokenResponse | { id: string; identities?: unknown[] }>(`/auth/v1/signup?redirect_to=${redirectTo()}`, { method: "POST", body: JSON.stringify({ email: email.trim(), password }) });
+export async function signUp(email: string, password: string, name = ""): Promise<"done" | "confirm"> {
+  // The first name (optional) is only used to greet them, e.g. "Hey Alex," in the welcome email.
+  const first = name.trim().replace(/\s+/g, " ").slice(0, 40);
+  const r = await call<TokenResponse | { id: string; identities?: unknown[] }>(`/auth/v1/signup?redirect_to=${redirectTo()}`, { method: "POST", body: JSON.stringify({ email: email.trim(), password, ...(first ? { data: { name: first } } : {}) }) });
   if ("access_token" in r && r.access_token) {
     setSession(toSession(r));
     await syncNow(true);

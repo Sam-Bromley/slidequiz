@@ -16,6 +16,7 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
   const [mode, setMode] = useState<AuthMode>(initial);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState<null | "confirm" | "reset">(null);
@@ -37,7 +38,7 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
         toast("Logged in");
         onClose();
       } else if (mode === "signup") {
-        const r = await signUp(email, password);
+        const r = await signUp(email, password, name);
         // A one-way code (not the email itself), so the same sign-up isn't counted twice.
         trackConversion("signup", { value: 1, id: oneWay(email.trim().toLowerCase()) });
         if (r === "done") {
@@ -95,8 +96,13 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
         }}
       >
         {reason && mode !== "forgot" && <p className="text-[14px] leading-relaxed text-foreground/85">{reason}</p>}
+        {mode === "signup" && (
+          <Field label="First name" htmlFor="auth-name" hint="Optional.">
+            <Input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" maxLength={40} data-autofocus />
+          </Field>
+        )}
         <Field label="Email" htmlFor="auth-email">
-          <Input id="auth-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" data-autofocus />
+          <Input id="auth-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" data-autofocus={mode !== "signup" || undefined} />
         </Field>
         {mode !== "forgot" && (
           <Field label="Password" htmlFor="auth-password" hint={mode === "signup" ? "At least 6 characters." : undefined}>

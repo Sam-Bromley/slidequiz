@@ -33,13 +33,14 @@ export function PrivacyPage() {
       <p>If you create an account, we keep:</p>
       <ul>
         <li>Your email address and password. Passwords are stored scrambled (hashed), so nobody can read them, including us.</li>
+        <li>Your first name, if you choose to give it. We only use it to greet you, for example in the email that confirms your account.</li>
         <li>Your study work: the text of your notes, your questions, flashcards, folders, progress and settings, so you can use them on any device.</li>
       </ul>
       <p className="mt-2">We don't keep your original files or the pictures from your slides. Those stay on your device.</p>
       <H>AI notes and questions</H>
       <p>SlideQuiz uses AI to write your notes, practice questions and flashcards, and to answer questions about your notes. To do that, the text of your slides (not the files or pictures) is sent to our AI provider, Anthropic, which processes it and sends back the result. We don't use your content for anything else.</p>
       <p className="mt-2">If you don't have an account, your browser gets an anonymous guest pass (no name or email) so we can give each person a fair allowance. We only store how much it has used.</p>
-      <p className="mt-2">We use this only to run your account. We don't sell it, share it for advertising, or send you marketing emails. The only emails you'll get are ones you ask for, like a password reset.</p>
+      <p className="mt-2">We use this only to run your account. We don't sell it, share it for advertising, or send you marketing emails. The only emails you'll get are about your account: one to confirm your email when you sign up, and ones you ask for, like a password reset.</p>
 
       <H>SlideQuiz Pro payments</H>
       <p>If you pay for Pro, the payment is handled by Stripe. You type your card details into Stripe's own page, so we never see or store them. We keep only whether you have Pro, when it renews or ends, and the reference numbers Stripe gives us for your subscription. Stripe keeps records of payments as the law requires; see Stripe's privacy policy at stripe.com/privacy.</p>
