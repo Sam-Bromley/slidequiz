@@ -334,6 +334,8 @@ Deno.serve(async (req) => {
   // 1. Only SlideQuiz users: a logged-in student or a guest pass from the website.
   const who = await fetch(`${base}/auth/v1/user`, { headers: { apikey: anon, Authorization: auth } });
   if (!who.ok) return json({ error: "Not allowed." }, 401, origin);
+  const userId = String((await who.json().catch(() => null))?.id ?? "");
+  if (!userId) return json({ error: "Not allowed." }, 401, origin);
 
   let body: any;
   try {
@@ -365,17 +367,20 @@ Deno.serve(async (req) => {
 
   // 2. Allowance. Notes and questions count towards the student's AI lectures (the same text
   //    only once); flashcards and questions about the notes are fair use, counted per day.
-  const headers = { apikey: anon, Authorization: auth, "Content-Type": "application/json" };
+  // Usage is counted by the server only (students can't call these themselves).
+  // SUPABASE_SERVICE_ROLE_KEY is provided to Edge Functions by Supabase automatically.
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
   let left: number | null = null;
   if (body.task === "notes" || body.task === "questions") {
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pages));
     const hash = [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, "0")).join("");
-    const use = await fetch(`${base}/rest/v1/rpc/use_lecture_text`, { method: "POST", headers, body: JSON.stringify({ p_hash: hash, p_chars: pages.length }) });
+    const use = await fetch(`${base}/rest/v1/rpc/use_lecture_text`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_hash: hash, p_chars: Math.max(1, pages.length) }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used your AI lectures for now.", limit: true }, 429, origin);
   } else {
     const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : body.task === "essayFeedback" ? 5000 : 0);
-    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: pages.length + extra }) });
+    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, pages.length + extra) }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used today's fair use of AI. It resets tomorrow.", limit: true }, 429, origin);
   }

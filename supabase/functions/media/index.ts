@@ -100,6 +100,11 @@ Deno.serve(async (req) => {
   // Pro members only.
   const who = await fetch(`${base}/auth/v1/user`, { headers: { apikey: anon, Authorization: auth } });
   if (!who.ok) return json({ error: "Log in with your Pro account first." }, 401, origin);
+  const userId = String((await who.json().catch(() => null))?.id ?? "");
+  if (!userId) return json({ error: "Log in with your Pro account first." }, 401, origin);
+  // Usage is counted by the server only. SUPABASE_SERVICE_ROLE_KEY is provided by Supabase automatically.
+  const service = env("SUPABASE_SERVICE_ROLE_KEY");
+  const admin = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
   const plan = await fetch(`${base}/rest/v1/rpc/sq_plan`, { method: "POST", headers, body: "{}" })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
@@ -114,7 +119,7 @@ Deno.serve(async (req) => {
     if (!audio.byteLength || audio.byteLength > MAX_PIECE) return json({ error: "That piece of audio is too big." }, 400, origin);
     // Fair use: counted like the other extras (about 10 "characters" per second of audio).
     const seconds = Math.max(1, Math.min(900, Number(new URL(req.url).searchParams.get("seconds")) || audio.byteLength / 32000));
-    const left = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: Math.round(seconds * 10) }) })
+    const left = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers: admin, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, Math.round(seconds * 10)) }) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (left === null) return json({ error: "Couldn't check your allowance. Try again." }, 500, origin);

@@ -31,8 +31,8 @@ drop policy if exists "Read own plan" on public.plans;
 create policy "Read own plan" on public.plans
   for select to authenticated using ((select auth.uid()) = user_id);
 
--- "guest", "free" or "plus" for whoever is asking.
-create or replace function public.sq_plan()
+-- "guest", "free" or "plus" for a given account.
+create or replace function public.plan_for(p_user uuid)
 returns text
 language sql
 stable
@@ -40,10 +40,21 @@ security definer
 set search_path = ''
 as $$
   select case
-    when exists (select 1 from public.plans where user_id = auth.uid() and plus_until > now()) then 'plus'
-    when coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then 'guest'
+    when exists (select 1 from public.plans where user_id = p_user and plus_until > now()) then 'plus'
+    when coalesce((select u.is_anonymous from auth.users u where u.id = p_user), false) then 'guest'
     else 'free'
   end
+$$;
+
+-- The same, for whoever is asking.
+create or replace function public.sq_plan()
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.plan_for(auth.uid())
 $$;
 
 -- ---------------------------------------------------------------- AI lectures
@@ -61,8 +72,8 @@ drop policy if exists "Read own AI text" on public.ai_text;
 create policy "Read own AI text" on public.ai_text
   for select to authenticated using ((select auth.uid()) = user_id);
 
--- What the student has used and has left (the website shows this).
-create or replace function public.ai_allowance()
+-- What an account has used and has left.
+create or replace function public.allowance_for(p_user uuid)
 returns json
 language plpgsql
 stable
@@ -70,14 +81,14 @@ security definer
 set search_path = ''
 as $$
 declare
-  p text := public.sq_plan();
+  p text := public.plan_for(p_user);
   lecture integer := 30000;
   allowance integer := (case p when 'plus' then 100 when 'guest' then 2 else 10 end) * lecture;
   used integer;
 begin
   select coalesce(sum(chars), 0) into used
   from public.ai_text
-  where user_id = auth.uid() and (p = 'guest' or month = date_trunc('month', now())::date);
+  where user_id = p_user and (p = 'guest' or month = date_trunc('month', now())::date);
   return json_build_object(
     'plan', p,
     'used', used,
@@ -88,9 +99,22 @@ begin
 end;
 $$;
 
+-- What the student asking has used and has left (the website shows this).
+create or replace function public.ai_allowance()
+returns json
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.allowance_for(auth.uid())
+$$;
+
 -- Counts a piece of slide text against the allowance. Returns a positive number if it's fine,
 -- -1 if the student's allowance is used up, or -2 if all free students have used today's safety net.
-create or replace function public.use_lecture_text(p_hash text, p_chars integer)
+-- Only the AI helper (the server) can call this, so nobody can skip their own limits.
+drop function if exists public.use_lecture_text(text, integer);
+create or replace function public.use_lecture_text(p_user uuid, p_hash text, p_chars integer)
 returns integer
 language plpgsql
 security definer
@@ -104,17 +128,17 @@ declare
   site bigint;
   site_limit bigint := 2000000;
 begin
-  if auth.uid() is null or p_chars < 0 then
+  if p_user is null or p_chars is null or p_chars <= 0 or coalesce(p_hash, '') = '' then
     return -1;
   end if;
-  a := public.ai_allowance();
+  a := public.allowance_for(p_user);
   p := a ->> 'plan';
   used := (a ->> 'used')::integer;
   allowance := (a ->> 'allowance')::integer;
   -- Already counted (the questions after the notes, or a retry): free.
   if exists (
     select 1 from public.ai_text
-    where user_id = auth.uid() and hash = p_hash and (p = 'guest' or month = date_trunc('month', now())::date)
+    where user_id = p_user and hash = p_hash and (p = 'guest' or month = date_trunc('month', now())::date)
   ) then
     return 1;
   end if;
@@ -131,7 +155,7 @@ begin
       return -2;
     end if;
   end if;
-  insert into public.ai_text (user_id, hash, chars) values (auth.uid(), p_hash, p_chars)
+  insert into public.ai_text (user_id, hash, chars) values (p_user, p_hash, p_chars)
   on conflict do nothing;
   return greatest(allowance - used - p_chars, 0) + 1;
 end;
@@ -150,7 +174,9 @@ create policy "Read own AI usage" on public.ai_usage
   for select to authenticated using ((select auth.uid()) = user_id);
 
 -- Returns what's left today, -1 if this student has used today's fair use, -2 if everyone has.
-create or replace function public.use_ai(p_chars integer)
+-- Only the AI helper (the server) can call this.
+drop function if exists public.use_ai(integer);
+create or replace function public.use_ai(p_user uuid, p_chars integer)
 returns integer
 language plpgsql
 security definer
@@ -159,10 +185,13 @@ as $$
 declare
   used integer;
   site_total bigint;
-  p text := public.sq_plan();
+  p text := public.plan_for(p_user);
   daily_limit integer := case p when 'plus' then 1500000 when 'guest' then 100000 else 300000 end;
   site_limit bigint := 1000000;
 begin
+  if p_user is null or p_chars is null or p_chars <= 0 then
+    return -1;
+  end if;
   if p <> 'plus' then
     select coalesce(sum(u.chars), 0) into site_total
     from public.ai_usage u
@@ -173,11 +202,11 @@ begin
     end if;
   end if;
   insert into public.ai_usage (user_id, day, chars)
-  values (auth.uid(), current_date, p_chars)
+  values (p_user, current_date, p_chars)
   on conflict (user_id, day) do update set chars = public.ai_usage.chars + excluded.chars
   returning chars into used;
   if used > daily_limit then
-    update public.ai_usage set chars = chars - p_chars where user_id = auth.uid() and day = current_date;
+    update public.ai_usage set chars = chars - p_chars where user_id = p_user and day = current_date;
     return -1;
   end if;
   return daily_limit - used;
@@ -185,11 +214,16 @@ end;
 $$;
 
 -- ---------------------------------------------------------------- who may call what
+-- The website may read the student's own plan and allowance. Counting usage is server-only.
+revoke execute on function public.plan_for(uuid) from public, anon, authenticated;
+revoke execute on function public.allowance_for(uuid) from public, anon, authenticated;
+revoke execute on function public.use_lecture_text(uuid, text, integer) from public, anon, authenticated;
+revoke execute on function public.use_ai(uuid, integer) from public, anon, authenticated;
+grant execute on function public.plan_for(uuid) to service_role;
+grant execute on function public.allowance_for(uuid) to service_role;
+grant execute on function public.use_lecture_text(uuid, text, integer) to service_role;
+grant execute on function public.use_ai(uuid, integer) to service_role;
 revoke execute on function public.sq_plan() from public, anon;
 revoke execute on function public.ai_allowance() from public, anon;
-revoke execute on function public.use_lecture_text(text, integer) from public, anon;
-revoke execute on function public.use_ai(integer) from public, anon;
 grant execute on function public.sq_plan() to authenticated;
 grant execute on function public.ai_allowance() to authenticated;
-grant execute on function public.use_lecture_text(text, integer) to authenticated;
-grant execute on function public.use_ai(integer) to authenticated;
