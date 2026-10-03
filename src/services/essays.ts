@@ -5,7 +5,7 @@
 import { nowISO, uid } from "@/lib/utils";
 import { getState, setState } from "@/store/store";
 import { referencesText } from "@/services/references";
-import type { EssayConclusion, EssayDraft, EssayIntro, EssayLevel, EssayPoint, ID } from "@/types/models";
+import type { EssayConclusion, EssayDraft, EssayIntro, EssayPoint, ID } from "@/types/models";
 
 export const essays = () => getState().essayDrafts ?? [];
 export const getEssay = (id: ID) => essays().find((e) => e.id === id);
@@ -14,8 +14,6 @@ export const emptyIntro = (): EssayIntro => ({ context: "", terms: "", problem: 
 export const emptyPoint = (): EssayPoint => ({ id: uid("pt"), topic: "", evidence: "", explain: "", link: "", text: "" });
 export const emptyConclusion = (): EssayConclusion => ({ restate: "", findings: "", implications: "", final: "", future: "", text: "" });
 
-/** The level last used, so a new essay starts with it. */
-const lastLevel = (): EssayLevel | undefined => essays().find((e) => e.level)?.level;
 
 export function createEssay(materialIds: ID[], question = ""): ID {
   const id = uid("ed");
@@ -24,7 +22,6 @@ export function createEssay(materialIds: ID[], question = ""): ID {
     id,
     question,
     materialIds,
-    level: lastLevel(),
     mode: "guided",
     intro: emptyIntro(),
     points: [emptyPoint(), emptyPoint(), emptyPoint()],

@@ -2,7 +2,7 @@ import { BookOpen, Check, ChevronDown, CircleCheck, Copy, Eye, Lightbulb, ListCh
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Select } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
 import { confetti } from "@/lib/confetti";
@@ -25,7 +25,7 @@ import {
   switchMode,
   wordCount,
 } from "@/services/essays";
-import type { EssayDraft, EssayLevel, EssayPoint, Material } from "@/types/models";
+import type { EssayDraft, EssayPoint, Material } from "@/types/models";
 import { ReferencesPanel, RefRuns, rememberBox } from "@/components/essays/references";
 import { formatReference, isNumbered, orderedReferences } from "@/services/references";
 
@@ -117,12 +117,8 @@ const TIPS = {
   },
 };
 
-const LEVELS: { value: EssayLevel; label: string }[] = [
-  { value: "gcse", label: "GCSE" },
-  { value: "alevel", label: "A-level" },
-  { value: "uni", label: "University" },
-];
-const DEFAULT_WORDS: Record<EssayLevel, number> = { gcse: 800, alevel: 1500, uni: 2000 };
+/** Word count for the guide when the student hasn't set one. */
+const DEFAULT_WORDS = 1500;
 
 const filled = (t: string) => wordCount(t) >= 3;
 
@@ -371,7 +367,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
   const [settings, setSettings] = useState(false);
   const notesFor = (box: string) => (e.feedback?.notes ?? []).filter((n) => n.box === box).map((n) => n.text);
   const w = essayWords(e);
-  const target = e.words || DEFAULT_WORDS[e.level ?? "uni"];
+  const target = e.words || DEFAULT_WORDS;
   const pct = (n: number) => (w.total ? Math.round((n / w.total) * 100) : 0);
 
   const generate = async () => {
@@ -426,7 +422,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
           </label>
           <span className="ml-auto" />
           <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setSettings(true)}>
-            <Settings2 /> {LEVELS.find((l) => l.value === (e.level ?? "uni"))?.label} · {target} words
+            <Settings2 /> {target} words
           </Button>
         </div>
         <Box id="essay-q" noCite value={e.question} onCommit={(v) => patchEssay(e.id, { question: v })} placeholder="Type your essay question, or generate one from your lectures" className="border-0 bg-transparent px-0 py-1 text-[17px] font-semibold leading-snug shadow-none" minRows={1} />
@@ -674,7 +670,6 @@ function PreviewDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) {
 }
 
 function SettingsDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) {
-  const [level, setLevel] = useState<EssayLevel>(e.level ?? "uni");
   const [words, setWords] = useState(String(e.words ?? ""));
   const [rubric, setRubric] = useState(e.rubric ?? "");
   return (
@@ -691,7 +686,7 @@ function SettingsDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) 
           <Button
             onClick={() => {
               const n = Math.round(Number(words));
-              patchEssay(e.id, { level, words: n >= 100 && n <= 20000 ? n : undefined, rubric: rubric.trim() || undefined });
+              patchEssay(e.id, { words: n >= 100 && n <= 20000 ? n : undefined, rubric: rubric.trim() || undefined });
               onClose();
             }}
           >
@@ -702,22 +697,10 @@ function SettingsDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) 
     >
       <div className="space-y-4">
         <div>
-          <label htmlFor="es-level" className="mb-1.5 block text-[13px] font-medium">
-            Level
-          </label>
-          <Select id="es-level" value={level} onChange={(x) => setLevel(x.target.value as EssayLevel)}>
-            {LEVELS.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
           <label htmlFor="es-words" className="mb-1.5 block text-[13px] font-medium">
             Word count
           </label>
-          <Input id="es-words" inputMode="numeric" value={words} onChange={(x) => setWords(x.target.value.replace(/\D/g, ""))} placeholder={`${DEFAULT_WORDS[level]}`} />
+          <Input id="es-words" inputMode="numeric" value={words} onChange={(x) => setWords(x.target.value.replace(/\D/g, ""))} placeholder={`${DEFAULT_WORDS}`} />
         </div>
         <div>
           <label htmlFor="es-rubric" className="mb-1.5 block text-[13px] font-medium">

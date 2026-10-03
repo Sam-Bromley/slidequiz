@@ -5,22 +5,15 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Select } from "@/components/ui/input";
 import { Menu } from "@/components/ui/menu";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
-import { CONCLUSION_KEYS, INTRO_KEYS, POINT_KEYS, createEssay, deleteEssay, essays as allEssays, essayWords, migrateOldEssays, patchEssay } from "@/services/essays";
+import { CONCLUSION_KEYS, INTRO_KEYS, POINT_KEYS, createEssay, deleteEssay, essayWords, migrateOldEssays, patchEssay } from "@/services/essays";
 import { usePlanQuiet } from "@/services/plus";
 import { useData } from "@/store/store";
-import type { EssayDraft, EssayLevel, ID } from "@/types/models";
-
-const LEVELS: { value: EssayLevel; label: string }[] = [
-  { value: "gcse", label: "GCSE" },
-  { value: "alevel", label: "A-level" },
-  { value: "uni", label: "University" },
-];
+import type { EssayDraft, ID } from "@/types/models";
 
 /** How much of the plan is filled in, 0 to 1. */
 function progressOf(e: EssayDraft) {
@@ -41,7 +34,6 @@ function NewEssayDialog({ onClose, initial = [] }: { onClose: () => void; initia
   const mats = data.materials;
   const [picked, setPicked] = useState<ID[]>(initial);
   const [folder, setFolder] = useState<ID | null>(null);
-  const [level, setLevel] = useState<EssayLevel>(allEssays().find((e) => e.level)?.level ?? "uni");
   const folders = data.folders.filter((f) => mats.some((m) => m.folderId === f.id));
 
   const toggle = (id: ID) => {
@@ -57,7 +49,6 @@ function NewEssayDialog({ onClose, initial = [] }: { onClose: () => void; initia
   const start = () => {
     const ids = mats.map((m) => m.id).filter((id) => picked.includes(id));
     const id = createEssay(ids);
-    patchEssay(id, { level });
     onClose();
     navigate(`/essays/${id}`);
   };
@@ -120,18 +111,6 @@ function NewEssayDialog({ onClose, initial = [] }: { onClose: () => void; initia
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="max-w-xs">
-            <label htmlFor="new-essay-level" className="mb-1.5 block text-[13px] font-medium">
-              Level
-            </label>
-            <Select id="new-essay-level" value={level} onChange={(e) => setLevel(e.target.value as EssayLevel)}>
-              {LEVELS.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </Select>
           </div>
         </div>
       )}

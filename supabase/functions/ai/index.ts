@@ -86,6 +86,8 @@ Reply with JSON only: {"answer":"…","pageIds":["ids of the slides you used"]}`
 /* ---------------------------------------------------------------- essays */
 
 const LEVEL: Record<string, string> = { gcse: "GCSE", alevel: "A-level", uni: "university" };
+/** The level, or (when the student hasn't said) a note to pitch it at the level of the lecture material. */
+const levelOf = (b: any) => LEVEL[b.level] ?? "not given: pitch it at the level the lecture material suggests";
 const rubricBlock = (b: any) => {
   const r = String(b.rubric ?? "").trim().slice(0, 8000);
   return r ? `The student's marking criteria / mark scheme (aim everything at these; use their own criterion names, e.g. "AO2" or "Critical analysis"):\n<<<\n${r}\n>>>` : "No marking criteria were given: use the usual criteria for this level (knowledge, application, analysis, evaluation, structure).";
@@ -97,7 +99,7 @@ Object.assign(TASKS, {
     maxTokens: 4000,
     system: ESSAY_STYLE,
     prompt: (b: any, pages: string) => `Course material: "${b.title}"
-Level: ${LEVEL[b.level] ?? "university"}${b.marks ? `. Typical essay: ${b.marks} marks` : ""}${b.words ? `, about ${b.words} words` : ""}.
+Level: ${levelOf(b)}${b.marks ? `. Typical essay: ${b.marks} marks` : ""}${b.words ? `, about ${b.words} words` : ""}.
 ${rubricBlock(b)}
 
 Lecture text (each slide starts with [id]):
@@ -112,7 +114,7 @@ Reply with JSON only:
     maxTokens: 5000,
     system: ESSAY_STYLE + " You write essay plans, never full essays: short, specific notes the student turns into their own writing.",
     prompt: (b: any, pages: string) => `Course material: "${b.title}"
-Level: ${LEVEL[b.level] ?? "university"}. Question (${Number(b.marks) || 25} marks${b.words ? `, about ${b.words} words` : ""}):
+Level: ${levelOf(b)}. Question (${Number(b.marks) || 25} marks${b.words ? `, about ${b.words} words` : ""}):
 "${String(b.question ?? "").slice(0, 600)}"
 ${rubricBlock(b)}
 
@@ -161,7 +163,7 @@ Object.assign(TASKS, {
   essayFeedback: {
     maxTokens: 3500,
     system: `You are a supportive, precise essay tutor for UK students. Use UK spelling. You give feedback on a student's essay plan or draft, written in labelled boxes. Plain text only inside JSON strings (no markdown, no bullet characters). Speak to the student as "you". Never rewrite the essay for them; say what to change and why, briefly, quoting a few of their words where useful.`,
-    prompt: (b: any, pages: string) => `Level: ${LEVEL[b.level] ?? "university"}. Subject: ${String(b.subject ?? "General").slice(0, 80)}. Target length: about ${Number(b.words) || 1500} words.
+    prompt: (b: any, pages: string) => `Level: ${levelOf(b)}. Subject: ${String(b.subject ?? "General").slice(0, 80)}. Target length: about ${Number(b.words) || 1500} words.
 Essay question: "${String(b.question ?? "").slice(0, 600)}"
 ${String(b.rubric ?? "").trim() ? `The student's own marking criteria (use them too):\n<<<\n${String(b.rubric).slice(0, 6000)}\n>>>\n` : ""}
 ${ESSAY_GUIDE}

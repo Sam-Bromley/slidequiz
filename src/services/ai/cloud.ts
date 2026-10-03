@@ -361,7 +361,6 @@ function essayPages(materials: Material[]): CloudPage[] {
     .filter((p) => (size += p.label.length + p.title.length + p.text.length + 40) <= BUDGET);
 }
 
-const LEVEL_WORDS: Record<string, number> = { gcse: 800, alevel: 1500, uni: 2000 };
 
 /** Up to 3 new essay questions on these lectures (the first is used, the rest offered as ideas). */
 export async function cloudEssayQuestion(e: EssayDraft, materials: Material[]): Promise<string[]> {
@@ -371,7 +370,6 @@ export async function cloudEssayQuestion(e: EssayDraft, materials: Material[]): 
     count: 3,
     avoid: [...(e.asked ?? []), e.question].filter(Boolean),
     rubric: e.rubric ?? "",
-    level: e.level ?? "uni",
     words: e.words ?? undefined,
   });
   const qs = (res.questions ?? []).map((q) => String(q.question ?? "").trim()).filter(Boolean);
@@ -414,8 +412,7 @@ export async function cloudEssayFeedback(e: EssayDraft, materials: Material[]): 
     title: materials.map((m) => m.title).join(", ").slice(0, 200),
     pages: essayPages(materials).slice(0, 60),
     question: e.question,
-    level: e.level ?? "uni",
-    words: e.words ?? LEVEL_WORDS[e.level ?? "uni"],
+    words: e.words ?? 1500,
     subject,
     rubric: e.rubric ?? "",
     essay,
