@@ -191,14 +191,15 @@ export async function signUp(email: string, password: string, name = ""): Promis
 
 /* ------------------------------------------------------------------ Google */
 
-let googleOn: Promise<boolean> | null = null;
-/** Whether "Continue with Google" is switched on in Supabase (Authentication → Providers). */
-export function googleAvailable(): Promise<boolean> {
-  googleOn ??= fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY } })
+export type Provider = "google" | "apple";
+let providersOn: Promise<Record<Provider, boolean>> | null = null;
+/** Which of "Sign in with Google / Apple" are switched on in Supabase (Authentication → Providers). */
+export function providersAvailable(): Promise<Record<Provider, boolean>> {
+  providersOn ??= fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY } })
     .then((r) => r.json())
-    .then((j) => !!j?.external?.google)
-    .catch(() => false);
-  return googleOn;
+    .then((j) => ({ google: !!j?.external?.google, apple: !!j?.external?.apple }))
+    .catch(() => ({ google: false, apple: false }));
+  return providersOn;
 }
 
 /**
@@ -206,8 +207,8 @@ export function googleAvailable(): Promise<boolean> {
  * upload in progress) stays as it is; if the browser blocks that, the whole page goes to Google
  * and comes back to the same place.
  */
-export function googleSignIn() {
-  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${redirectTo()}`;
+export function googleSignIn(provider: Provider = "google") {
+  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=${provider}&redirect_to=${redirectTo()}`;
   const w = 480;
   const h = 640;
   const left = Math.max(0, window.screenX + (window.outerWidth - w) / 2);
@@ -234,7 +235,7 @@ export function googleSignIn() {
 async function afterGoogle() {
   import("@/components/ui/toast").then(({ toast }) => toast("Logged in")).catch(() => {});
   try {
-    const u = await call<{ email: string; created_at: string; user_metadata?: Record<string, unknown> }>("/auth/v1/user", { auth: true });
+    const u = await call<{ email: string; created_at: string; user_metadata?: Record<string, unknown>; app_metadata?: { provider?: string } }>("/auth/v1/user", { auth: true });
     if (u.user_metadata?.joined || Date.now() - Date.parse(u.created_at) > 15 * 60 * 1000) return;
     let source = "";
     try {
@@ -242,7 +243,8 @@ async function afterGoogle() {
     } catch {
       /* storage blocked */
     }
-    await call("/auth/v1/user", { method: "PUT", auth: true, body: JSON.stringify({ data: { joined: "google", ...(source ? { source: source.slice(0, 120) } : {}) } }) });
+    const via = (u as { app_metadata?: { provider?: string } }).app_metadata?.provider ?? "google";
+    await call("/auth/v1/user", { method: "PUT", auth: true, body: JSON.stringify({ data: { joined: via, ...(source ? { source: source.slice(0, 120) } : {}) } }) });
     const ads = await import("@/services/ads");
     ads.trackConversion("signup", { value: 1, id: ads.oneWay(u.email.trim().toLowerCase()) });
   } catch {

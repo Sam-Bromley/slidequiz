@@ -34,7 +34,7 @@ export function PrivacyPage() {
       <ul>
         <li>Your email address and password. Passwords are stored scrambled (hashed), so nobody can read them, including us.</li>
         <li>Your first name, if you choose to give it. We only use it to greet you, for example in the email that confirms your account.</li>
-        <li>If you log in with Google: your email address, name and profile picture link from your Google account. We never see your Google password, and we can't access anything else in your Google account.</li>
+        <li>If you log in with Google or Apple: your email address and name from that account (and, for Google, a link to your profile picture). With Apple you can choose to hide your real email. We never see your password, and we can&apos;t access anything else in your Google or Apple account.</li>
         <li>Roughly how you found SlideQuiz when you signed up, for example “Google Ads”, “Google search” or “Direct”, and the page you arrived on. This helps us see which kinds of advertising work. It doesn't include anything that identifies you.</li>
         <li>Your study work: the text of your notes, your questions, flashcards, folders, progress and settings, so you can use them on any device.</li>
       </ul>
