@@ -80,11 +80,13 @@ export const imageStore = {
   },
 };
 
+/** Saves the upload's pictures in one go (they stay readable from memory while this runs). */
 export async function persistPendingImages(ids: string[]) {
-  for (const id of ids) {
-    const b = pendingImages.get(id);
-    if (!b) continue;
-    await imageStore.put(id, b);
-    pendingImages.delete(id);
-  }
+  const todo = ids.map((id) => [id, pendingImages.get(id)] as const).filter((x): x is readonly [string, Blob] => !!x[1]);
+  if (!todo.length) return;
+  for (const [id, b] of todo) memory.set(id, b);
+  await tx("readwrite", (s) => {
+    for (const [id, b] of todo) s.put(b, id);
+  });
+  for (const [id] of todo) pendingImages.delete(id);
 }

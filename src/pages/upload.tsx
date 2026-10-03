@@ -9,7 +9,6 @@ import { takeUpload } from "@/lib/handoff";
 import { navigate, useLocation } from "@/lib/router";
 import { cn, formatBytes, uid } from "@/lib/utils";
 import { ACCEPT_ATTR, buildMaterial, detectType, FILE_TYPE_LABEL, ParseError, parseFile, parsePastedText, validateFile } from "@/services/parsing";
-import { buildPracticeQuestions } from "@/services/practice";
 import { persistPendingImages } from "@/services/storage/images";
 import { enhanceMaterial } from "@/services/ai/cloud";
 import { AllowanceNote } from "@/components/ai/allowance-note";
@@ -188,16 +187,11 @@ export function UploadPage() {
     }
     setSaving(true);
     try {
-      setStep("Saving pictures…");
-      await persistPendingImages(mats.flatMap((m) => m.pages.flatMap((p) => (p.images ?? []).map((i) => i.id))));
+      // Pictures save in the background (they show from memory meanwhile), so the lecture opens straight away.
+      void persistPendingImages(mats.flatMap((m) => m.pages.flatMap((p) => (p.images ?? []).map((i) => i.id))));
       actions.addMaterials(mats);
-      for (const [i, m] of mats.entries()) {
-        setStep(mats.length > 1 ? `Making notes and questions (${i + 1} of ${mats.length})…` : "Making notes and questions…");
-        await new Promise((r) => setTimeout(r, 0));
-        await buildPracticeQuestions(m.id);
-      }
       navigate(mats.length === 1 ? `/materials/${mats[0].id}` : "/materials");
-      // The AI writes the notes and questions in the background, one lecture at a time.
+      // Notes and questions are written in the background, one lecture at a time.
       (async () => {
         for (const m of mats) await enhanceMaterial(m.id);
       })();

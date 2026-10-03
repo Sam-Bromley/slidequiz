@@ -211,25 +211,50 @@ export function enhanceMaterial(id: ID): Promise<void> {
       return;
     }
     actions.updateMaterial(id, { ai: { key, status: "working", at: nowISO() } });
+    // Merge into the current AI state (notes and questions arrive separately, in any order).
+    const setAi = (patch: Partial<NonNullable<Material["ai"]>>) => {
+      const cur = getState().materials.find((x) => x.id === id)?.ai;
+      actions.updateMaterial(id, { ai: { key, status: "working", ...(cur?.key === key ? cur : {}), ...patch, at: nowISO() } });
+    };
     try {
       const pages = cloudPages(m0);
-      // 1. Notes and topics.
-      const parts = await runLimited(chunks(pages), 4, (c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c }));
-      const sections = mergeSections(parts.flatMap((p) => p.sections ?? []), pages);
-      if (!sections.length) throw new AIError("No notes came back.");
-      applyTopics(id, sections);
-      const subject = parts.map((p) => String(p.subject ?? "").trim()).find((s) => s && s.length <= 40);
-      if (subject) actions.updateMaterial(id, { subject });
-      actions.updateMaterial(id, { ai: { key, status: "working", notes: sections, at: nowISO() } });
-      // 2. Questions, now the topics are set.
-      const m1 = getState().materials.find((x) => x.id === id);
-      if (!m1) return;
-      const topicOf = new Map(m1.pages.map((p) => [p.id, p.topicId]));
-      const labelOf = new Map(m1.pages.map((p) => [p.id, p.label]));
-      const qs = await runLimited(chunks(pages), 4, (c) => call<{ questions: CloudQuestion[] }>("questions", { title: m0.title, pages: c }));
-      const drafts = qs.flatMap((r) => r.questions ?? []).flatMap((q) => toDraft(q, m1, topicOf, labelOf));
-      if (drafts.length) actions.setPracticeQuestions(id, drafts);
-      actions.updateMaterial(id, { ai: { key, status: "done", notes: sections, questions: drafts.length > 0, at: nowISO() } });
+      const parts = chunks(pages);
+      let notesDone = false;
+      // Notes and questions are written at the same time. Each piece's questions can be
+      // practised as soon as they arrive, rather than waiting for the whole lecture.
+      const notesJob = (async () => {
+        const res = await runLimited(parts, 4, (c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c }));
+        const sections = mergeSections(res.flatMap((p) => p.sections ?? []), pages);
+        if (!sections.length) throw new AIError("No notes came back.");
+        applyTopics(id, sections);
+        notesDone = true;
+        actions.retopicPractice(id);
+        const subject = res.map((p) => String(p.subject ?? "").trim()).find((s) => s && s.length <= 40);
+        if (subject) actions.updateMaterial(id, { subject });
+        setAi({ notes: sections });
+        return sections;
+      })();
+      let first = true;
+      let count = 0;
+      const questionsJob = runLimited(parts, 4, async (c) => {
+        const r = await call<{ questions: CloudQuestion[] }>("questions", { title: m0.title, pages: c });
+        const m1 = getState().materials.find((x) => x.id === id);
+        if (!m1) return;
+        const topicOf = new Map(m1.pages.map((p) => [p.id, notesDone ? p.topicId : null]));
+        const labelOf = new Map(m1.pages.map((p) => [p.id, p.label]));
+        const drafts = (r.questions ?? []).flatMap((q) => toDraft(q, m1, topicOf, labelOf));
+        if (!drafts.length) return;
+        // The first piece replaces any questions from before the slides changed (keeping progress on the same ones).
+        if (first) {
+          first = false;
+          actions.setPracticeQuestions(id, drafts);
+          count += drafts.length;
+        } else count += actions.addPracticeQuestions(id, drafts);
+        setAi({ questions: true });
+      });
+      const [sections] = await Promise.all([notesJob, questionsJob]);
+      if (notesDone) actions.retopicPractice(id);
+      setAi({ status: "done", notes: sections, questions: count > 0 });
     } catch (e) {
       const cur = getState().materials.find((x) => x.id === id);
       const err = e instanceof AIError ? e : null;

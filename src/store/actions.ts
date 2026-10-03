@@ -255,6 +255,15 @@ export const actions = {
     });
     return added;
   },
+  /** After the topics are worked out, questions written before then get their topic from their slide. */
+  retopicPractice(materialId: ID) {
+    setState((s) => {
+      const m = s.materials.find((x) => x.id === materialId);
+      if (!m) return s;
+      const topicOf = new Map(m.pages.map((p) => [p.id, p.topicId ?? null]));
+      return { ...s, questions: s.questions.map((q) => (q.materialId === materialId && q.pool && q.sources[0] && topicOf.has(q.sources[0].pageId) ? { ...q, topicId: topicOf.get(q.sources[0].pageId)! } : q)) };
+    });
+  },
   resetPractice(materialId: ID): Undo {
     const before = getState().questions.filter((q) => q.materialId === materialId && q.pool);
     setState((s) => ({ ...s, questions: s.questions.map((q) => (q.materialId === materialId && q.pool ? { ...q, stats: { attempts: 0, correct: 0 } } : q)) }));
