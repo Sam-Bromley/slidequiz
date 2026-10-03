@@ -14,7 +14,7 @@ export function NotFound() {
           <Home /> Go home
         </Link>
         <Link to="/materials" className={buttonClass("outline")}>
-          <Library /> My Materials
+          <Library /> Notes
         </Link>
       </div>
       <button type="button" onClick={() => history.back()} className="mt-4 inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground focus-ring rounded">

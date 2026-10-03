@@ -25,7 +25,7 @@ export function MixedPracticePage() {
   }, [folder?.id]);
 
   if (!folder)
-    return <EmptyState icon={FolderIcon} title="Folder not found" description="It may have been deleted." action={<Link to="/materials" className={buttonClass()}>My Materials</Link>} />;
+    return <EmptyState icon={FolderIcon} title="Folder not found" description="It may have been deleted." action={<Link to="/materials" className={buttonClass()}>Notes</Link>} />;
 
   // A stand-in material so the practice screen can look up slides from any of them.
   const combined: Material = { ...mats[0], id: `folder-${folder.id}`, title: folder.name, pages: mats.flatMap((m) => m.pages), topics: [] };

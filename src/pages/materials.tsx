@@ -300,7 +300,7 @@ export function MaterialsPage() {
     const m = data.materials.find((x) => x.id === materialId);
     if (!m || (m.folderId ?? null) === target) return;
     actions.moveMaterial(materialId, target);
-    toast(target ? `Moved to ${data.folders.find((f) => f.id === target)?.name}` : "Moved to My Materials");
+    toast(target ? `Moved to ${data.folders.find((f) => f.id === target)?.name}` : "Moved to Notes");
   };
   // Drag materials to reorder them (switches to "Your order"), or onto a folder to move them in.
   const materialIds = list.map((m) => m.id);
@@ -339,7 +339,7 @@ export function MaterialsPage() {
             data-drop-target={trail.length ? "root" : undefined}
             className={cn("rounded-md px-1 transition-colors focus-ring", trail.length ? "text-muted-foreground hover:text-foreground" : "", (rootOver || moveMaterial.over === "root") && "bg-accent text-foreground")}
           >
-            My Materials
+            Notes
           </Link>
           {trail.map((f, i) => (
             <span key={f.id} className="flex min-w-0 items-center gap-1">
@@ -353,7 +353,7 @@ export function MaterialsPage() {
               )}
             </span>
           ))}
-          {!trail.length && <h1 className="sr-only">My Materials</h1>}
+          {!trail.length && <h1 className="sr-only">Notes</h1>}
         </nav>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setCreating(true)}>

@@ -61,7 +61,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
 
   usePlanQuiet();
 
-  if (!m) return <EmptyState icon={FileText} title="Material not found" description="It may have been deleted." action={<Link to="/materials" className={buttonClass()}>My Materials</Link>} />;
+  if (!m) return <EmptyState icon={FileText} title="Material not found" description="It may have been deleted." action={<Link to="/materials" className={buttonClass()}>Notes</Link>} />;
 
   const prog = overallProgress(data, m);
   const included = m.pages.filter((p) => p.included).length;
@@ -75,7 +75,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
   return (
     <div>
       <PageHeader
-        back={{ to: "/materials", label: "My Materials" }}
+        back={{ to: "/materials", label: "Notes" }}
         eyebrow={aiReady(m) || usesBuiltIn(m) ? m.subject : undefined}
         title={m.title}
         description={prog.total ? `${included} of ${m.pages.length} ${unitWord(m)} · ${prog.total} questions · ${prog.pct}% covered` : `${included} of ${m.pages.length} ${unitWord(m)}`}

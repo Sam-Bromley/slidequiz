@@ -102,7 +102,7 @@ function useGlobalShortcuts() {
 function pageTitle(path: string, query: URLSearchParams, data: ReturnType<typeof useData>): string {
   const [, first, id] = path.split("/");
   if (first === "materials" && id) return data.materials.find((m) => m.id === id)?.title ?? "Material";
-  if (first === "materials") return data.folders.find((f) => f.id === query.get("f"))?.name ?? "My Materials";
+  if (first === "materials") return data.folders.find((f) => f.id === query.get("f"))?.name ?? "Notes";
   if (first === "flashcards" && id) return (data.decks ?? []).find((d) => d.id === id)?.name ?? "Flashcards";
   if (first === "practice") return `Practise ${data.folders.find((f) => f.id === query.get("f"))?.name ?? ""}`.trim();
   const names: Record<string, string> = { upload: "Add material", flashcards: "Flashcards", settings: "Settings", privacy: "Privacy policy", plus: "SlideQuiz Pro", pro: "SlideQuiz Pro", generate: "Make questions", history: "History", ask: "Ask" };

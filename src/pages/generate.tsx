@@ -126,7 +126,7 @@ export function GeneratePage() {
 
   return (
     <div className="pb-28">
-      <PageHeader back={{ to: materials.length === 1 ? `/materials/${materials[0].id}` : "/materials", label: materials.length === 1 ? materials[0].title : "My Materials" }} title="Make questions" description="Questions, flashcards and summaries come only from the pages you've kept." />
+      <PageHeader back={{ to: materials.length === 1 ? `/materials/${materials[0].id}` : "/materials", label: materials.length === 1 ? materials[0].title : "Notes" }} title="Make questions" description="Questions, flashcards and summaries come only from the pages you've kept." />
 
       {/* Source material */}
       <section className="mb-6" aria-labelledby="src-h">

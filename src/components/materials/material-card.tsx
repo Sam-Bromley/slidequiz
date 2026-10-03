@@ -95,7 +95,7 @@ export function MoveDialog({ m, onClose }: { m: Material; onClose: () => void })
   const tree = folderTree(data.folders);
   const pick = (id: string | null) => {
     actions.moveMaterial(m.id, id);
-    toast(id ? `Moved to ${data.folders.find((f) => f.id === id)?.name}` : "Moved to My Materials");
+    toast(id ? `Moved to ${data.folders.find((f) => f.id === id)?.name}` : "Moved to Notes");
     onClose();
   };
   return (
@@ -107,14 +107,14 @@ export function MoveDialog({ m, onClose }: { m: Material; onClose: () => void })
             <li key={folder?.id ?? "root"}>
               <button disabled={current} onClick={() => pick(folder?.id ?? null)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors hover:bg-accent disabled:opacity-50 focus-ring" style={{ paddingLeft: 10 + depth * 18 }}>
                 <FolderIcon className="size-4 text-muted-foreground" />
-                <span className="flex-1 truncate">{folder ? folder.name : "My Materials (no folder)"}</span>
+                <span className="flex-1 truncate">{folder ? folder.name : "Notes (no folder)"}</span>
                 {current && <span className="text-[12px] text-muted-foreground">Current</span>}
               </button>
             </li>
           );
         })}
       </ul>
-      {!data.folders.length && <p className="mt-3 text-[13px] text-muted-foreground">You don't have any folders yet. Create one from My Materials.</p>}
+      {!data.folders.length && <p className="mt-3 text-[13px] text-muted-foreground">You don't have any folders yet. Create one from Notes.</p>}
     </Dialog>
   );
 }
