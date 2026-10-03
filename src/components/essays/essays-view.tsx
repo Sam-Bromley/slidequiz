@@ -55,23 +55,22 @@ const CONCLUSION_FIELDS: FieldDef[] = [
 
 const TIPS = {
   intro: {
-    role: "Explains the focus and why the subject matters.",
-    do: ["Start broad, then narrow down to your focus", "Set the stage; don't tell the whole story", "Formal, objective language", "Keep it concise: about 10–15% of the words"],
-    avoid: ["Starting with a dictionary definition", "Vague openers like “In this essay I will talk about…”", "Results or conclusions (they come later)", "Unsupported claims or opinions", "Too much background", "Forgetting the thesis statement", "Exaggeration, like “the perfect solution”"],
+    role: "Sets up what the essay is about and where it's going.",
+    do: ["Answer the question directly from the first lines", "Make your position clear early, so the reader knows your argument", "Give a quick roadmap of the points you'll make", "Keep it short and get to the point"],
+    avoid: ["Generic openers that could start any essay", "Retelling the whole topic before you start arguing", "Saving your argument for the end", "Bold claims you can't back up"],
   },
   body: {
     role: "Builds your argument, point by point, with evidence.",
-    do: ["One main idea per point", "Back every point with evidence", "Explain what the evidence means", "Use transitions: “Furthermore”, “In contrast”, “As a result”", "Be concise and precise", "Make the relevance clear"],
-    avoid: ["Several ideas in one paragraph", "Evidence without explaining why it matters", "Paragraphs that are too short or too long", "Not linking back to your argument", "Informal or chatty language"],
+    do: ["Make each paragraph do one clear job", "Back up claims with specific evidence, not general statements", "Say why each piece of evidence matters for the question", "Weigh up the other side, then explain why your view holds", "Connect each paragraph to the next so the argument builds"],
+    avoid: ["Describing what you know instead of arguing", "Listing facts without analysis", "Drifting away from the question", "Using quotes or data without saying what they show"],
   },
   conclusion: {
-    role: "Wraps up your argument and reinforces your key points.",
-    do: ["Keep it to about one paragraph (around 10%)", "No new information or evidence", "Formal, objective language", "End with a strong final sentence"],
-    avoid: ["Repeating the introduction word for word", "New data, citations or arguments", "Ending abruptly", "Vague lines like “In conclusion, microbiology is important”", "Unsupported claims or opinions"],
+    role: "Pulls your argument together and gives your final judgement.",
+    do: ["Give a clear final answer to the question", "Show how your points add up to that answer", "Explain why it matters", "Finish with a confident last line"],
+    avoid: ["Bringing in brand-new points", "Copying lines from earlier", "Sitting on the fence with no judgement", "Trailing off without a proper ending"],
   },
 };
 
-const SCIENCE = /biolog|chemi|physic|science|medic|microbio|biochem|genetic|ecolog|anatom|physiol|pharma|neuro|psycholog|biomed|nursing|immun/i;
 const LEVELS: { value: EssayLevel; label: string }[] = [
   { value: "gcse", label: "GCSE" },
   { value: "alevel", label: "A-level" },
@@ -325,7 +324,6 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
   const w = essayWords(e);
   const target = e.words || DEFAULT_WORDS[e.level ?? "uni"];
   const pct = (n: number) => (w.total ? Math.round((n / w.total) * 100) : 0);
-  const sci = materials.some((m) => SCIENCE.test(m.subject ?? "") || SCIENCE.test(m.title));
 
   const generate = async () => {
     setGenBusy(true);
@@ -533,7 +531,6 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
         ))}
       </Section>
 
-      <StyleGuide science={sci} />
 
       {preview && <PreviewDialog e={e} onClose={() => setPreview(false)} />}
       {settings && <SettingsDialog e={e} onClose={() => setSettings(false)} />}
@@ -593,62 +590,7 @@ function PointCard({ e, p, n, words, setPoint, notesFor }: { e: EssayDraft; p: E
   );
 }
 
-/* ---------------------------------------------------------------- style guide, preview, settings */
-
-function StyleGuide({ science }: { science: boolean }) {
-  const [open, setOpen] = useState(false);
-  const List = ({ items, ok }: { items: string[]; ok: boolean }) => (
-    <ul className="space-y-1">
-      {items.map((x) => (
-        <li key={x} className="flex gap-1.5">
-          {ok ? <Check className="mt-0.5 size-3.5 shrink-0 text-success" /> : <X className="mt-0.5 size-3.5 shrink-0 text-destructive" />}
-          <span>{x}</span>
-        </li>
-      ))}
-    </ul>
-  );
-  return (
-    <section className="rounded-2xl border bg-card">
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-2 rounded-2xl px-4 py-3 text-left focus-ring sm:px-5">
-        <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !open && "-rotate-90")} />
-        <span className="text-[15px] font-semibold">Style guide</span>
-        <span className="text-[12.5px] text-muted-foreground">Flow, writing style{science ? ", figures and tables" : ""}</span>
-      </button>
-      {open && (
-        <div className="space-y-5 border-t px-4 pb-5 pt-4 text-[13.5px] sm:px-5">
-          <div>
-            <p className="mb-1 font-semibold">A coherent narrative</p>
-            <p className="mb-2 text-muted-foreground">Each paragraph is a mini essay: its topic sentence flows from the last paragraph, and its last sentence links to the next. The reader should always see how each part supports your argument.</p>
-            <List ok items={["Start every paragraph with a topic sentence", "Put points in an order where each builds on the last", "Use transitions: “In contrast…”, “Furthermore…”, “This leads to…”", "Stay on topic: every paragraph supports your thesis", "Define key terms early and use them consistently", "Keep linking back to your thesis"]} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="mb-1 font-semibold text-success">{science ? "Scientific style: do" : "Academic style: do"}</p>
-              <List
-                ok
-                items={
-                  science
-                    ? ["Third person (they, it, Smith et al.)", "Past tense", "Correct grammar and spelling", "Define abbreviations once: Polymerase Chain Reaction (PCR), then PCR", "Italicise species names with a capital genus: Escherichia coli, then E. coli"]
-                    : ["Formal, objective language", "Third person where you can", "Correct grammar and spelling", "Define abbreviations the first time you use them", "Support claims with evidence or sources"]
-                }
-              />
-            </div>
-            <div>
-              <p className="mb-1 font-semibold text-destructive">Avoid</p>
-              <List ok={false} items={["Clichés (“stand out like a sore thumb”)", "Contractions (don't, it's)", "Subjective descriptions (“a fascinating discovery”)", "Over-complicated language", "Mixing tenses", "First person (“I propose that”)", "“It is believed that…”"]} />
-            </div>
-          </div>
-          {science && (
-            <div>
-              <p className="mb-1 font-semibold">Figures and tables</p>
-              <List ok items={["Only include them if they add value", "Clear title and caption: below a figure, above a table", "Number them in order and refer to them in the text", "Make them self-explanatory", "Ideally make your own; if copied, cite the source at the end of the legend"]} />
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
+/* ---------------------------------------------------------------- preview, settings */
 
 function PreviewDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) {
   const refs = e.references.map((r) => r.text.trim()).filter(Boolean);
