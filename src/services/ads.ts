@@ -1,7 +1,9 @@
 /**
  * Google Ads measurement: tells Google when someone who clicked an ad signs up or buys Pro,
- * so the ads can learn what works. Only runs after the visitor accepts ad cookies (UK law).
- * No ads are ever shown on SlideQuiz itself.
+ * so the ads can learn what works. The Google tag is on every page (index.html) in Consent
+ * Mode: it sets no ad cookies and sends nothing identifying unless the visitor accepts ad
+ * cookies (UK law); Google then only gets anonymous, cookieless signals.
+ * No ads are ever shown on SlideQuiz itself, and there's no ad personalisation.
  */
 import { useSyncExternalStore } from "react";
 
@@ -58,15 +60,19 @@ function restoreClickId() {
 }
 
 let loaded = false;
+/** Makes sure the tag is there (it's normally already in the page's HTML). */
 function load() {
   if (loaded || typeof document === "undefined") return;
   loaded = true;
   restoreClickId();
+  if (window.gtag) return;
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag() {
     // eslint-disable-next-line prefer-rest-params
     window.dataLayer!.push(arguments);
   };
+  const ok = consent === "yes" ? "granted" : "denied";
+  window.gtag("consent", "default", { ad_storage: ok, ad_user_data: ok, ad_personalization: "denied", analytics_storage: "denied" });
   window.gtag("js", new Date());
   window.gtag("config", ADS_ID);
   const s = document.createElement("script");
@@ -82,10 +88,11 @@ export function setAdConsent(v: "yes" | "no") {
   } catch {
     /* storage blocked */
   }
-  if (v === "yes" && ADS_READY) load();
-  else if (loaded) {
-    // Stop using cookies for the rest of this visit; the tag isn't loaded again next time.
-    window.gtag?.("consent", "update", { ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" });
+  if (ADS_READY) {
+    load();
+    const ok = v === "yes" ? "granted" : "denied";
+    window.gtag?.("consent", "update", { ad_storage: ok, ad_user_data: ok, ad_personalization: "denied" });
+    window.gtag?.("set", "ads_data_redaction", v !== "yes");
   }
   listeners.forEach((l) => l());
 }
@@ -99,16 +106,19 @@ export const useAdConsent = () =>
 
 /** Called once when the app starts. */
 export function initAds() {
-  if (ADS_READY && consent === "yes") load();
+  if (ADS_READY) load();
 }
 
 /** A short one-way code, so nothing identifying is sent to Google. */
 export const oneWay = (text: string) => [...text].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261).toString(36);
 
-/** Tells Google Ads about a sign-up or a Pro purchase (only with consent, and once per id). */
+/**
+ * Tells Google Ads about a sign-up or a Pro purchase (once per id). Without consent the tag
+ * sends it without cookies or identifiers, so Google can only count it anonymously.
+ */
 export function trackConversion(kind: "purchase" | "signup", opts: { value?: number; id?: string } = {}) {
   const label = LABELS[kind];
-  if (consent !== "yes" || !label) return;
+  if (!label) return;
   load();
   const onceKey = opts.id ? `slidequiz:conv:${kind}:${opts.id}` : "";
   try {
@@ -120,7 +130,7 @@ export function trackConversion(kind: "purchase" | "signup", opts: { value?: num
   window.gtag?.("event", "conversion", {
     send_to: `${ADS_ID}/${label}`,
     ...(opts.value != null ? { value: opts.value, currency: "GBP" } : {}),
-    ...(opts.id ? { transaction_id: opts.id } : {}),
+    ...(opts.id && consent === "yes" ? { transaction_id: opts.id } : {}),
     // A purchase here is always someone starting Pro, so a new customer.
     ...(kind === "purchase" ? { new_customer: true } : {}),
   });

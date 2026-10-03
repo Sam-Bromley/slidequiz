@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 
 export const CONTACT_EMAIL = "slidequiz.help@outlook.com";
-const UPDATED = "30 September 2026";
+const UPDATED = "3 October 2026";
 
 function H({ children }: { children: ReactNode }) {
   return <h2 className="mb-2 mt-8 text-[17px] font-semibold">{children}</h2>;
@@ -49,7 +49,7 @@ export function PrivacyPage() {
 
       <H>Cookies and browser storage</H>
       <p>The site saves your work, your settings and (if you log in) your login in your browser's storage so it works when you come back.</p>
-      <p className="mt-2">We advertise SlideQuiz on Google. If you say yes to ad cookies, Google's tag is loaded so Google Ads can tell us when someone who clicked one of our ads creates an account or buys Pro. This helps us see which ads work. If you say no, the tag isn't loaded at all. There are never any ads on SlideQuiz itself, and we don't share your notes or files with Google. You can change your choice any time in Settings → Appearance → Ad cookies.</p>
+      <p className="mt-2">We advertise SlideQuiz on Google. Google's tag is on our pages so Google Ads can tell us when someone who clicked one of our ads creates an account or buys Pro. This helps us see which ads work. If you say yes to ad cookies, it can use cookies to do this. If you say no (or don't choose), it uses no ad cookies and sends Google nothing that identifies you or your device: only anonymous signals that a page was visited or a sign-up happened, which Google uses to estimate how well the ads work overall. We never use it to show you personalised ads. There are never any ads on SlideQuiz itself, and we don't share your notes or files with Google. You can change your choice any time in Settings → Appearance → Ad cookies.</p>
 
       <H>Who else handles your data</H>
       <p>We use a few services to run SlideQuiz. They only process data to provide their service to us:</p>
@@ -59,7 +59,7 @@ export function PrivacyPage() {
         <li>Stripe: payments for SlideQuiz Pro.</li>
         <li>GitHub Pages: hosts the website. Like any web host, it may log visitors' IP addresses for security.</li>
         <li>Cloudflare: visitor numbers (see above).</li>
-        <li>Google Ads: only if you accept ad cookies, to measure which of our ads lead to sign-ups and Pro purchases.</li>
+        <li>Google Ads: to measure which of our ads lead to sign-ups and Pro purchases. Cookies only if you accept ad cookies; otherwise only anonymous, cookieless signals.</li>
       </ul>
 
       <H>How long we keep it</H>

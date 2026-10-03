@@ -212,6 +212,14 @@ export function renderPage(page, analytics) {
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- Google tag (Consent Mode): no ad cookies unless the visitor clicks Accept on SlideQuiz's cookie banner. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18485189868"></script>
+<script>
+window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
+(function(){var c=null;try{c=localStorage.getItem("slidequiz:cookies")}catch(e){}var ok=c==="yes"?"granted":"denied";
+gtag("consent","default",{ad_storage:ok,ad_user_data:ok,ad_personalization:"denied",analytics_storage:"denied",wait_for_update:500});
+gtag("set","ads_data_redaction",ok!=="granted");gtag("js",new Date());gtag("config","AW-18485189868");})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(page.title)} | SlideQuiz</title>
 <meta name="description" content="${esc(page.description)}" />
