@@ -137,7 +137,7 @@ export function PlusPage() {
           name="Free"
           price="£0"
           points={[
-            `${PLUS.freeLectures} credits a month with a free account (${PLUS.guestLectures} to try without one)`,
+            `${PLUS.freeLectures} credits a month with a free account`,
             "1 credit makes notes, practice questions and flashcards for a normal lecture",
             "Everything you've made stays yours to revise from",
             "Practice, flashcards and everything else",

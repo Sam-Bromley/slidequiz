@@ -370,4 +370,13 @@ export function startAccount() {
   // Pick up changes from other devices when coming back to the tab.
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && session && syncNow());
   window.addEventListener("online", () => session && syncNow());
+  // Logged in from another tab (e.g. the email-confirmation link): pick it up here too.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== SESSION_KEY || session) return;
+    const s = load<Session>(SESSION_KEY);
+    if (!s) return;
+    session = s;
+    set({ user: s.user });
+    syncNow();
+  });
 }

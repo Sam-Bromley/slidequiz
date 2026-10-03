@@ -12,7 +12,7 @@ export type AuthMode = "login" | "signup" | "forgot";
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
 /** Log in, create an account, or get a password-reset email. */
-export function AuthDialog({ initial = "login", onClose }: { initial?: AuthMode; onClose: () => void }) {
+export function AuthDialog({ initial = "login", onClose, reason }: { initial?: AuthMode; onClose: () => void; reason?: string }) {
   const [mode, setMode] = useState<AuthMode>(initial);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,6 +94,7 @@ export function AuthDialog({ initial = "login", onClose }: { initial?: AuthMode;
           submit();
         }}
       >
+        {reason && mode !== "forgot" && <p className="text-[14px] leading-relaxed text-foreground/85">{reason}</p>}
         <Field label="Email" htmlFor="auth-email">
           <Input id="auth-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" data-autofocus />
         </Field>

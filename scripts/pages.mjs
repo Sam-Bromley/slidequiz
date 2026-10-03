@@ -11,9 +11,9 @@ const STEPS = [
 ];
 
 const COMMON_FAQ = [
-  ["Is SlideQuiz free?", "Yes. A free account gets 10 credits a month, and you can try 2 without an account. One credit makes notes, practice questions and flashcards for a normal lecture. Everything you make stays yours to revise from. SlideQuiz Pro (£3.99 a month, cancel any time) gives 100 credits a month."],
+  ["Is SlideQuiz free?", "Yes. A free account gets 10 credits a month. One credit makes notes, practice questions and flashcards for a normal lecture. Everything you make stays yours to revise from. SlideQuiz Pro (£3.99 a month, cancel any time) gives 100 credits a month."],
   ["Are my files uploaded anywhere?", "Your files are read on your own device and never uploaded. To write your notes, questions and flashcards, the text of your slides is sent securely to our service provider (see the privacy policy). If you make an account, your notes and progress are also saved to it so you can use them on other devices. Your original files and slide pictures always stay on your device."],
-  ["Do I need an account?", "No. Everything works without one. An account just lets you pick up your work on another device."],
+  ["Do I need an account?", "Yes, a free one. It takes about 20 seconds with just an email and password, needs no card, and keeps your work saved on any device."],
   ["What files can I use?", "PowerPoint (.pptx), PDF, Word (.docx) and plain text. You can also paste notes straight in. Scanned pages and photos of slides can't be read yet, because there's no text in them to use."],
   ["Does it work on my phone?", "Yes. It works in any modern browser, and you can add it to your home screen so it opens like an app, even offline."],
 ];
@@ -42,7 +42,7 @@ export const PAGES = [
   {
     slug: "powerpoint-to-flashcards",
     title: "Turn PowerPoint slides into flashcards",
-    description: "Upload your lecture PowerPoint and SlideQuiz makes flashcards from it automatically. Free, no sign-up needed, and your files stay on your device.",
+    description: "Upload your lecture PowerPoint and SlideQuiz makes flashcards from it automatically. Free account, no card needed.",
     h1: "Turn PowerPoint slides into flashcards",
     lead: "Upload your lecture slides and SlideQuiz picks out the facts with one clear answer (key terms, names, figures) and turns them into flashcards for you.",
     sections: [
@@ -236,7 +236,7 @@ export function renderPage(page, analytics) {
 <h1>${esc(page.h1)}</h1>
 <p class="lead">${esc(page.lead)}</p>
 <a class="btn" href="${page.cta?.[1] ?? "/"}">${page.cta?.[0] ?? "Try SlideQuiz free"}</a>
-<p class="note">${esc(page.note ?? "No sign-up needed. Your files stay on your device.")}</p>
+<p class="note">${esc(page.note ?? "Free account, no card needed.")}</p>
 ${steps}
 ${body}
 <h2>Questions</h2>

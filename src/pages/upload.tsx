@@ -13,6 +13,8 @@ import { buildPracticeQuestions } from "@/services/practice";
 import { persistPendingImages } from "@/services/storage/images";
 import { enhanceMaterial } from "@/services/ai/cloud";
 import { AllowanceNote } from "@/components/ai/allowance-note";
+import { AuthDialog } from "@/components/account/auth-dialog";
+import { useAccount } from "@/services/account";
 import { transcribeFile, youtubeDocument } from "@/services/media";
 import { hasPlus, usePlan } from "@/services/plus";
 import { actions } from "@/store/actions";
@@ -53,6 +55,10 @@ export function UploadPage() {
   const pro = usePlan().plus;
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState("");
+  // Making material needs a free account: you can pick files first, then sign up to generate.
+  const user = useAccount().user;
+  const [auth, setAuth] = useState(false);
+  const [wantSave, setWantSave] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   const patch = (id: string, p: Partial<Item>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -156,6 +162,21 @@ export function UploadPage() {
 
   const ready = items.filter((i) => i.status === "ready" && i.material);
   const busy = items.some((i) => i.status === "reading");
+
+  const generate = () => {
+    if (user) return save();
+    setWantSave(true);
+    setAuth(true);
+  };
+  // Signed up or logged in (here or in another tab): carry on generating.
+  useEffect(() => {
+    if (user && wantSave) {
+      setWantSave(false);
+      setAuth(false);
+      save();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, wantSave]);
 
   const save = async () => {
     const folderId = getState().folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
@@ -280,16 +301,23 @@ export function UploadPage() {
 
       {items.length > 0 && (
         <div className="mt-6 flex flex-col items-center gap-2">
-          <Button size="lg" onClick={save} disabled={busy || !ready.length} loading={saving} className="min-w-44 rounded-full">
+          <Button size="lg" onClick={generate} disabled={busy || !ready.length} loading={saving} className="min-w-44 rounded-full">
             {busy ? "Reading…" : "Generate"}
           </Button>
-          {!saving && !busy && <AllowanceNote materials={ready.map((i) => i.material!)} />}
+          {!saving && !busy && (user ? <AllowanceNote materials={ready.map((i) => i.material!)} /> : <p className="text-[13px] text-muted-foreground">You'll need a free account. It takes 20 seconds.</p>)}
           {saving && step && (
             <p className="text-[13px] text-muted-foreground" aria-live="polite">
               {step}
             </p>
           )}
         </div>
+      )}
+      {auth && (
+        <AuthDialog
+          initial="signup"
+          reason="Create a free account to make your notes, practice questions and flashcards. You get 10 credits a month, and your work is saved on any device."
+          onClose={() => setAuth(false)}
+        />
       )}
     </div>
   );
