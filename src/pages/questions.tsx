@@ -1,5 +1,5 @@
 import { ChevronDown, Folder as FolderIcon, ListChecks, PenLine, Upload } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PracticeView } from "@/components/practice/practice-view";
 import { WrittenView } from "@/components/practice/written-view";
@@ -44,7 +44,13 @@ export function QuestionsPage() {
   };
   const [picking, setPicking] = useState(false);
   const recent = useMemo(() => [...data.materials].sort((a, b) => (b.lastOpenedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.createdAt)), [data.materials]);
-  const [pick, setPickState] = useState<Pick>(() => loadPick() ?? { ids: recent[0] ? [recent[0].id] : [] });
+  // Opened from a lecture's "Practise" button (?m=lecture, optionally &t=topic): practise that lecture.
+  const fromLecture = query.get("m");
+  const [pick, setPickState] = useState<Pick>(() => (fromLecture && data.materials.some((x) => x.id === fromLecture) ? { ids: [fromLecture] } : (loadPick() ?? { ids: recent[0] ? [recent[0].id] : [] })));
+  useEffect(() => {
+    if (fromLecture && data.materials.some((x) => x.id === fromLecture)) savePick({ ids: [fromLecture] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setPick = (p: Pick) => {
     setPickState(p);
     savePick(p);
@@ -64,8 +70,13 @@ export function QuestionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const [topics, setTopics] = useState<ID[]>([]);
-  useEffect(() => setTopics([]), [key]);
+  const startTopic = query.get("t");
+  const [topics, setTopics] = useState<ID[]>(() => (startTopic ? [startTopic] : []));
+  const firstKey = useRef(key);
+  useEffect(() => {
+    if (firstKey.current !== key) setTopics([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   const [writtenFor, setWrittenFor] = useState<ID | null>(null);
   const writtenMat = shown.find((m) => m.id === writtenFor) ?? shown[0];
 

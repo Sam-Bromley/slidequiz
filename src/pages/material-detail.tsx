@@ -1,38 +1,39 @@
-import { Download, FileText, Loader2, MoreHorizontal } from "lucide-react";
+import { Download, FileText, ListChecks, Loader2, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { useMaterialMenu } from "@/components/materials/material-card";
 import { NotesView } from "@/components/notes/notes-view";
-import { PracticeView } from "@/components/practice/practice-view";
 import { ProgressView } from "@/components/practice/progress-view";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Menu } from "@/components/ui/menu";
 import { Tabs, tabPanelProps } from "@/components/ui/tabs";
-import { WrittenView } from "@/components/practice/written-view";
-import { Segmented } from "@/components/ui/segmented";
 import { usePlanQuiet } from "@/services/plus";
-import { Link, useLocation } from "@/lib/router";
+import { Link, navigate, useLocation } from "@/lib/router";
 import { notesExportDoc } from "@/services/notes";
 import { aiQuestionsReady, aiReady, enhanceMaterial, usesBuiltIn } from "@/services/ai/cloud";
 import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
-import type { ID } from "@/types/models";
 
-type Tab = "notes" | "practice" | "progress";
+type Tab = "notes" | "progress";
 
 export function MaterialDetailPage({ id }: { id: string }) {
   const data = useData();
   const { query } = useLocation();
   const m = data.materials.find((x) => x.id === id);
   const initial = query.get("tab");
-  const [tab, setTab] = useState<Tab>(initial === "practice" || initial === "progress" ? initial : "notes");
-  const [topics, setTopics] = useState<ID[]>([]);
+  const [tab, setTab] = useState<Tab>(initial === "progress" ? initial : "notes");
   const [exporting, setExporting] = useState(false);
   const menu = useMaterialMenu(m ?? ({} as never));
+
+  // Practice moved to Questions in the sidebar: old links to a lecture's Practice tab go there.
+  useEffect(() => {
+    if (initial === "practice") navigate(`/questions?m=${id}${query.get("mode") === "written" ? "&mode=written" : ""}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!m) return;
@@ -59,11 +60,6 @@ export function MaterialDetailPage({ id }: { id: string }) {
   }, [id]);
 
   usePlanQuiet();
-  const [mode, setMode] = useState<"mcq" | "written">(query.get("mode") === "written" ? "written" : "mcq");
-  const changeMode = (v: "mcq" | "written") => {
-    setMode(v);
-    if (m) history.replaceState(null, "", `#/materials/${m.id}?tab=practice${v === "written" ? "&mode=written" : ""}`);
-  };
 
   if (!m) return <EmptyState icon={FileText} title="Material not found" description="It may have been deleted." action={<Link to="/materials" className={buttonClass()}>My Materials</Link>} />;
 
@@ -73,10 +69,6 @@ export function MaterialDetailPage({ id }: { id: string }) {
     setTab(t);
     history.replaceState(null, "", `#/materials/${m.id}?tab=${t}`);
     window.scrollTo({ top: 0 });
-  };
-  const openNotes = (pageId: string) => {
-    changeTab("notes");
-    setTimeout(() => document.getElementById(`note-${pageId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
   const count = Math.min(6, Math.max(3, data.settings.mcqOptions ?? 5));
 
@@ -89,6 +81,11 @@ export function MaterialDetailPage({ id }: { id: string }) {
         description={prog.total ? `${included} of ${m.pages.length} ${unitWord(m)} · ${prog.total} questions · ${prog.pct}% covered` : `${included} of ${m.pages.length} ${unitWord(m)}`}
         actions={
           <>
+            {prog.total > 0 && (
+              <Link to={`/questions?m=${m.id}`} className={buttonClass("outline", "sm", "rounded-full")}>
+                <ListChecks /> Practise
+              </Link>
+            )}
             <Menu
               label="Material actions"
               items={[{ label: "Export", icon: Download, onSelect: () => setExporting(true) }, ...menu.items.filter((x) => ["Rename", "Move to folder", "Delete"].includes(x.label))]}
@@ -114,34 +111,15 @@ export function MaterialDetailPage({ id }: { id: string }) {
         onChange={changeTab}
         items={[
           { value: "notes", label: "Notes" },
-          { value: "practice", label: "Practice" },
           { value: "progress", label: "Progress" },
         ]}
       />
       <div {...tabPanelProps("mat", tab)}>
         {tab === "notes" && <NotesView material={m} />}
-        {tab === "practice" && (
-          <>
-            <Segmented
-              label="Question type"
-              className="mb-5"
-              value={mode}
-              onChange={changeMode}
-              options={[
-                { value: "mcq", label: "Multiple choice" },
-                { value: "written", label: "Written answers" },
-              ]}
-            />
-            {mode === "mcq" ? <PracticeView material={m} topicIds={topics} onTopicsChange={setTopics} onOpenNotes={openNotes} /> : <WrittenView material={m} />}
-          </>
-        )}
         {tab === "progress" && (
           <ProgressView
             material={m}
-            onPractise={(t) => {
-              setTopics(t ? [t] : []);
-              changeTab("practice");
-            }}
+            onPractise={(t) => navigate(`/questions?m=${m.id}${t ? `&t=${t}` : ""}`)}
           />
         )}
       </div>
