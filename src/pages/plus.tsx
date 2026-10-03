@@ -1,5 +1,5 @@
 import { oneWay, trackConversion } from "@/services/ads";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Crown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AuthDialog } from "@/components/account/auth-dialog";
 import { PageHeader } from "@/components/layout/page-header";
@@ -16,7 +16,7 @@ function Plan({ name, price, points, highlight, children }: { name: string; pric
   return (
     <div className={`flex flex-col rounded-xl border bg-card p-5 ${highlight ? "border-foreground/30 shadow-sm" : ""}`}>
       <div className="flex items-center gap-2 text-[15px] font-semibold">
-        {highlight && <Sparkles className="size-4" />} {name}
+        {highlight && <Crown className="size-4" />} {name}
       </div>
       <div className="mt-1 text-[22px] font-semibold">{price}</div>
       <ul className="mt-4 flex-1 space-y-2 text-[14px]">

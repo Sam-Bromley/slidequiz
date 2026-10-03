@@ -1,4 +1,4 @@
-import { CalendarDays, Sparkles, Trophy } from "lucide-react";
+import { CalendarDays, Crown, Trophy } from "lucide-react";
 import { navigate } from "@/lib/router";
 import { cn, dayKey } from "@/lib/utils";
 import { hasPlus, PLUS_ON, usePlanQuiet } from "@/services/plus";
@@ -117,7 +117,7 @@ export function WeeklyRecap({ popover }: { popover?: boolean } = {}) {
       {!plus && (
         <button type="button" onClick={() => navigate("/pro")} className="absolute inset-0 top-10 grid place-items-center focus-ring">
           <span className="flex items-center gap-1.5 rounded-full border bg-background/95 px-3.5 py-2 text-[13px] font-medium shadow-pop">
-            <Sparkles className="size-3.5 text-amber-500" /> See your weekly recap with Pro
+            <Crown className="size-3.5 text-amber-500" /> See your weekly recap with Pro
           </span>
         </button>
       )}

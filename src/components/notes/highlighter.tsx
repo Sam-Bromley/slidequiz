@@ -1,4 +1,4 @@
-import { Sparkles, StickyNote, Trash2, X } from "lucide-react";
+import { Crown, StickyNote, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -137,7 +137,7 @@ export function Highlighter({ material, active, onClose }: { material: Material;
             ))}
             <span className="mx-0.5 h-5 w-px bg-border" />
             <button type="button" onClick={() => save("yellow", true)} className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium hover:bg-accent focus-ring">
-              {plus ? <StickyNote className="size-3.5" /> : <Sparkles className="size-3.5 text-amber-500" />}
+              {plus ? <StickyNote className="size-3.5" /> : <Crown className="size-3.5 text-amber-500" />}
               Note
             </button>
           </div>,

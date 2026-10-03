@@ -1,5 +1,5 @@
 import { ADS_READY, setAdConsent, useAdConsent } from "@/services/ads";
-import { Check, Copy, Download, LogIn, LogOut, RotateCcw, Sparkles, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Crown, Download, LogIn, LogOut, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AuthDialog, NewPasswordDialog, type AuthMode } from "@/components/account/auth-dialog";
 import { clearNotice, deleteAccount, deleteCloudData, logOut, useAccount, type SyncStatus } from "@/services/account";
@@ -139,7 +139,7 @@ export function SettingsPage() {
               </Button>
             ) : (
               <Link to="/pro" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium hover:bg-accent focus-ring">
-                <Sparkles className="size-4" /> See Pro
+                <Crown className="size-4" /> See Pro
               </Link>
             )}
           </Row>

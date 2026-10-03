@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Eye, Loader2, PenLine, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, Loader2, PenLine, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
@@ -61,7 +61,7 @@ export function WrittenView({ material: m }: { material: Material }) {
           </div>
         ) : (
           <Button className="mt-2" onClick={generate}>
-            <Sparkles /> Write questions
+            <PenLine /> Write questions
           </Button>
         )}
       </div>
@@ -84,7 +84,7 @@ export function WrittenView({ material: m }: { material: Material }) {
           </span>
         )}
         <Button variant="outline" size="sm" className="ml-auto" onClick={generate} loading={busy}>
-          <Sparkles /> More questions
+          <Plus /> More questions
         </Button>
       </div>
       <QuestionCard key={q.id} material={m} q={q} />

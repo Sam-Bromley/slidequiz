@@ -1,4 +1,4 @@
-import { Clock, RotateCcw, Sparkles, TriangleAlert } from "lucide-react";
+import { Clock, PenLine, RotateCcw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { enhanceMaterial } from "@/services/ai/cloud";
 import { UpgradeHint } from "@/components/ai/allowance-note";
@@ -41,7 +41,7 @@ export function AIWaiting({ material, what }: { material: Material; what: "notes
   return (
     <div className="rounded-2xl border bg-card p-6" aria-live="polite" aria-busy="true">
       <div className="flex items-center gap-2.5 text-[15px] font-medium">
-        <Sparkles className="size-4 animate-pulse" /> Writing your {noun}…
+        <PenLine className="size-4 animate-pulse" /> Writing your {noun}…
       </div>
       <p className="mt-1 text-[13.5px] text-muted-foreground">This usually takes under a minute. You can look around while you wait.</p>
       <div className="mt-6 space-y-3" aria-hidden>

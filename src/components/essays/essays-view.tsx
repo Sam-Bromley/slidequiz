@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Check, ClipboardList, Copy, Download, FileUp, Lightbulb, Loader2, PenLine, Pencil, RefreshCw, Scale, Sparkles, Star, Target, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ClipboardList, Copy, Crown, Download, FileUp, Lightbulb, Loader2, PenLine, Pencil, Plus, RefreshCw, Scale, Star, Target, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
@@ -113,7 +113,7 @@ export function EssaySetView({ set }: { set: EssaySet }) {
               />
             )}
             <Button variant="outline" size="sm" onClick={generate} loading={busy}>
-              <Sparkles /> More questions
+              <Plus /> More questions
             </Button>
           </div>
         </div>
@@ -235,7 +235,7 @@ function EssaySetup({ set, busy, onGenerate, onClose }: { set: EssaySet; busy: b
 
       <div className="mt-5 flex justify-end">
         <Button onClick={onGenerate} loading={busy}>
-          <Sparkles /> {w.questions.length ? "Write more questions" : "Write essay questions"}
+          <PenLine /> {w.questions.length ? "Write more questions" : "Write essay questions"}
         </Button>
       </div>
     </section>
@@ -542,7 +542,7 @@ export function EssaysTeaser() {
           <h2 className="mt-3 text-[17px] font-semibold">Essay practice is part of Pro</h2>
           <p className="mt-1.5 text-[13.5px] text-muted-foreground">Add your marking criteria, get exam-style essay questions on a lecture or a whole module, and a clear plan for any of them, with evidence from your slides.</p>
           <Button className="mt-4" onClick={() => navigate("/pro")}>
-            <Sparkles /> See Pro
+            <Crown /> See Pro
           </Button>
         </div>
       </div>
