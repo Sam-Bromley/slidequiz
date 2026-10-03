@@ -170,7 +170,15 @@ export async function logIn(email: string, password: string) {
 export async function signUp(email: string, password: string, name = ""): Promise<"done" | "confirm"> {
   // The first name (optional) is only used to greet them, e.g. "Hey Alex," in the welcome email.
   const first = name.trim().replace(/\s+/g, " ").slice(0, 40);
-  const r = await call<TokenResponse | { id: string; identities?: unknown[] }>(`/auth/v1/signup?redirect_to=${redirectTo()}`, { method: "POST", body: JSON.stringify({ email: email.trim(), password, ...(first ? { data: { name: first } } : {}) }) });
+  // Roughly how they found SlideQuiz ("Google Ads → home"), so it's clear which advertising works.
+  let source = "";
+  try {
+    source = sessionStorage.getItem("slidequiz:source") ?? "";
+  } catch {
+    /* storage blocked */
+  }
+  const data = { ...(first ? { name: first } : {}), ...(source ? { source: source.slice(0, 120) } : {}) };
+  const r = await call<TokenResponse | { id: string; identities?: unknown[] }>(`/auth/v1/signup?redirect_to=${redirectTo()}`, { method: "POST", body: JSON.stringify({ email: email.trim(), password, ...(Object.keys(data).length ? { data } : {}) }) });
   if ("access_token" in r && r.access_token) {
     setSession(toSession(r));
     await syncNow(true);

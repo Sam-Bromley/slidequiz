@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- How the visitor found SlideQuiz (e.g. "Google Ads → home"), kept for this visit only and saved with the account if they sign up. -->
+<script>
+(function(){try{if(sessionStorage.getItem("slidequiz:source"))return;var q=new URLSearchParams(location.search),s,me=location.hostname.replace(/^www\./,"");
+if(q.get("gclid")||q.get("gbraid")||q.get("wbraid"))s="Google Ads";else if(q.get("utm_source"))s=q.get("utm_source").slice(0,40);
+else{var r=document.referrer?new URL(document.referrer).hostname.replace(/^www\./,""):"";if(r===me)return;
+s=!r?"Direct":/(^|\.)google\./.test(r)?"Google search":/(^|\.)bing\./.test(r)?"Bing":/duckduckgo/.test(r)?"DuckDuckGo":/reddit\./.test(r)?"Reddit":/tiktok\./.test(r)?"TikTok":/instagram\./.test(r)?"Instagram":/(facebook|fb)\./.test(r)?"Facebook":/youtube\.|youtu\.be/.test(r)?"YouTube":/thestudentroom/.test(r)?"The Student Room":/(^|\.)slidequiz\./.test(r)?"Direct":r.slice(0,60);}
+sessionStorage.setItem("slidequiz:source",s+" → "+(location.pathname==="/"?"home":location.pathname.replace(/\/$/,"").slice(0,60)));}catch(e){}})();
+</script>
 <!-- Google tag (Consent Mode): no ad cookies unless the visitor clicks Accept on SlideQuiz's cookie banner. -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18485189868"></script>
 <script>
