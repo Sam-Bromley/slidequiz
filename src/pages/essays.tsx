@@ -1,6 +1,6 @@
 import { CircleCheck, Folder as FolderIcon, MoreHorizontal, PenLine, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { EssayEditor, EssaysTeaser } from "@/components/essays/essays-view";
+import { EssayEditor } from "@/components/essays/essays-view";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { CONCLUSION_KEYS, INTRO_KEYS, POINT_KEYS, createEssay, deleteEssay, essays as allEssays, essayWords, migrateOldEssays, patchEssay } from "@/services/essays";
-import { hasPlus, usePlanQuiet } from "@/services/plus";
+import { usePlanQuiet } from "@/services/plus";
 import { useData } from "@/store/store";
 import type { EssayDraft, EssayLevel, ID } from "@/types/models";
 
@@ -144,25 +144,16 @@ function NewEssayDialog({ onClose, initial = [] }: { onClose: () => void; initia
 export function EssaysPage() {
   usePlanQuiet();
   const data = useData();
-  const plus = hasPlus();
   const { query } = useLocation();
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<"todo" | "done">("todo");
   useEffect(() => {
-    if (plus) migrateOldEssays();
-  }, [plus]);
+    migrateOldEssays();
+  }, []);
   const all = data.essayDrafts ?? [];
   const todo = all.filter((e) => !e.completed);
   const done = all.filter((e) => e.completed);
   const shown = view === "done" ? done : todo;
-
-  if (!plus)
-    return (
-      <div>
-        <PageHeader title="Essays" description="Essay questions on your lectures, planned and written step by step, with feedback on every part." />
-        <EssaysTeaser />
-      </div>
-    );
 
   return (
     <div>
@@ -280,18 +271,10 @@ function EssayTile({ e }: { e: EssayDraft }) {
 export function EssayPage({ id }: { id: ID }) {
   usePlanQuiet();
   const data = useData();
-  const plus = hasPlus();
   useEffect(() => {
-    if (plus) migrateOldEssays();
-  }, [plus]);
+    migrateOldEssays();
+  }, []);
   const e = (data.essayDrafts ?? []).find((x) => x.id === id);
-  if (!plus)
-    return (
-      <div>
-        <PageHeader title="Essays" back={{ to: "/essays", label: "Essays" }} />
-        <EssaysTeaser />
-      </div>
-    );
   if (!e) return <EmptyState icon={PenLine} title="Not found" description="This essay may have been deleted." action={<Link to="/essays" className="font-medium underline">Essays</Link>} />;
   const mats = e.materialIds.map((mid) => data.materials.find((m) => m.id === mid)).filter((m): m is NonNullable<typeof m> => !!m);
   return (

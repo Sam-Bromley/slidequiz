@@ -1,4 +1,4 @@
-import { BookOpen, Check, ChevronDown, CircleCheck, Copy, Crown, Eye, Lightbulb, ListChecks, MessageSquareText, PenLine, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
+import { BookOpen, Check, ChevronDown, CircleCheck, Copy, Eye, Lightbulb, ListChecks, MessageSquareText, PenLine, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -6,7 +6,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
 import { confetti } from "@/lib/confetti";
-import { Link, navigate } from "@/lib/router";
+import { Link } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { AIError, cloudEssayFeedback, cloudEssayQuestion, refreshAllowance } from "@/services/ai/cloud";
 import {
@@ -761,39 +761,6 @@ function SettingsDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) 
         </div>
       </div>
     </Dialog>
-  );
-}
-
-/* ---------------------------------------------------------------- free users */
-
-export function EssaysTeaser() {
-  return (
-    <section className="relative overflow-hidden rounded-2xl border bg-card" aria-label="Essays">
-      <div className="pointer-events-none select-none space-y-3 p-5 opacity-70 blur-[3px]" aria-hidden>
-        <p className="text-[16px] font-semibold">To what extent is overuse in farming the main cause of antibiotic resistance?</p>
-        <div className="rounded-xl border p-3 text-[13.5px]">
-          <p className="font-semibold">Thesis statement</p>
-          <p className="mt-1 text-muted-foreground">Overuse in farming, more than in medicine, is the main driver of resistance.</p>
-        </div>
-        <div className="rounded-xl border p-3 text-[13.5px]">
-          <p className="font-semibold">Point 1 · Evidence</p>
-          <p className="mt-1 text-muted-foreground">Around 70% of medically important antibiotics are sold for use in animals…</p>
-        </div>
-        <div className="rounded-xl bg-warning-soft/70 p-3 text-[13px]">Explain what this figure shows for your argument, not just the number.</div>
-      </div>
-      <div className="absolute inset-0 grid place-items-center bg-gradient-to-b from-card/40 via-card/80 to-card p-6">
-        <div className="max-w-sm text-center">
-          <span className="mx-auto grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
-            <PenLine className="size-5" />
-          </span>
-          <h2 className="mt-3 text-[17px] font-semibold">Essays are part of Pro</h2>
-          <p className="mt-1.5 text-[13.5px] text-muted-foreground">Get essay questions on your lectures, plan and write them step by step, and get feedback on every part: your thesis, each point, your conclusion and your style.</p>
-          <Button className="mt-4" onClick={() => navigate("/pro")}>
-            <Crown /> See Pro
-          </Button>
-        </div>
-      </div>
-    </section>
   );
 }
 

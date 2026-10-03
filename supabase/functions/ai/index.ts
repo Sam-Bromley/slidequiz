@@ -83,7 +83,7 @@ Reply with JSON only: {"answer":"…","pageIds":["ids of the slides you used"]}`
   },
 };
 
-/* ---------------------------------------------------------------- essays (Pro) */
+/* ---------------------------------------------------------------- essays */
 
 const LEVEL: Record<string, string> = { gcse: "GCSE", alevel: "A-level", uni: "university" };
 const rubricBlock = (b: any) => {
@@ -131,7 +131,7 @@ Reply with JSON only:
   },
 });
 
-/* ---------------------------------------------------------------- essay feedback (Pro) */
+/* ---------------------------------------------------------------- essay feedback */
 
 const ESSAY_GUIDE = `WHAT A GOOD ESSAY DOES
 
@@ -216,7 +216,7 @@ Reply with JSON only:
   },
 });
 
-const PRO_ONLY = new Set(["essayQuestions", "essayPlan", "essayFeedback"]);
+const PRO_ONLY = new Set<string>([]); // essays are free for everyone now
 
 const json = (data: unknown, status: number, origin: string | null) =>
   new Response(JSON.stringify(data), { status, headers: { ...cors(origin), "Content-Type": "application/json" } });

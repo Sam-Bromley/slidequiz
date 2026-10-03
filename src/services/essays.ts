@@ -1,5 +1,5 @@
 /**
- * Essays (Pro): each essay is one question the student plans and writes in small boxes
+ * Essays: each essay is one question the student plans and writes in small boxes
  * (introduction, body points, conclusion, references). Kept with the rest of the student's data.
  */
 import { nowISO, uid } from "@/lib/utils";
