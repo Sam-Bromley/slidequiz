@@ -87,7 +87,7 @@ function Sidebar() {
     );
 
   return (
-    <aside className="sb-anim fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-background/30 backdrop-blur-md lg:flex" style={{ width }} aria-label="Sidebar">
+    <aside className="sb-anim fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-background/45 backdrop-blur-xl lg:flex" style={{ width }} aria-label="Sidebar">
       <div className="group/sb relative flex h-14 items-center overflow-hidden" style={{ paddingLeft: 16 + 6 * (1 - t) }}>
         <Link to="/" className="flex shrink-0 items-center gap-2 rounded-md focus-ring" aria-label="SlideQuiz home">
           <LogoMark className="size-6 shrink-0" />
