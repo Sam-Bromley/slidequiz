@@ -53,7 +53,6 @@ export function UploadPage() {
   const [ytUrl, setYtUrl] = useState("");
   const pro = usePlan().plus;
   const [saving, setSaving] = useState(false);
-  const [step, setStep] = useState("");
   // Making material needs a free account: you can pick files first, then sign up to generate.
   const user = useAccount().user;
   const [auth, setAuth] = useState(false);
@@ -197,7 +196,6 @@ export function UploadPage() {
       })();
     } finally {
       setSaving(false);
-      setStep("");
     }
   };
 
@@ -299,11 +297,6 @@ export function UploadPage() {
             {busy ? "Reading…" : "Generate"}
           </Button>
           {!saving && !busy && (user ? <AllowanceNote materials={ready.map((i) => i.material!)} /> : <p className="text-[13px] text-muted-foreground">You'll need a free account. It takes 20 seconds.</p>)}
-          {saving && step && (
-            <p className="text-[13px] text-muted-foreground" aria-live="polite">
-              {step}
-            </p>
-          )}
         </div>
       )}
       {auth && (
