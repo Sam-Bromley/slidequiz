@@ -14,6 +14,7 @@ import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import { nowISO, uid } from "@/lib/utils";
+import { referencesText, type PageInfo } from "@/services/references";
 import type { WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
@@ -395,9 +396,14 @@ function labelledEssay(e: EssayDraft) {
     });
     lines.push(box("conclusion.restate", "Conclusion, restated thesis", C.restate), box("conclusion.findings", "Conclusion, key findings", C.findings), box("conclusion.implications", "Conclusion, implications", C.implications), box("conclusion.future", "Conclusion, future directions (optional)", C.future), box("conclusion.final", "Conclusion, final sentence", C.final));
   }
-  const refs = e.references.map((r) => r.text.trim()).filter(Boolean);
-  lines.push(`[references] References: ${refs.length ? refs.join(" | ") : "(none)"}`);
+  const refs = referencesText(e.references, e.refStyle ?? "harvard");
+  lines.push(`[references] References (${e.refStyle ?? "harvard"} style): ${refs ? refs.replace(/\n/g, " | ") : "(none)"}`);
   return lines.join("\n");
+}
+
+/** Reads a web page's title, authors and date for a reference (no AI). */
+export async function cloudCite(url: string): Promise<PageInfo> {
+  return call<PageInfo>("cite", { url, pages: [] });
 }
 
 /** Feedback on the essay so far, against good essay structure and style. Throws an AIError if it can't. */

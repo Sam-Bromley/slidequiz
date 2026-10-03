@@ -4,6 +4,7 @@
  */
 import { nowISO, uid } from "@/lib/utils";
 import { getState, setState } from "@/store/store";
+import { referencesText } from "@/services/references";
 import type { EssayConclusion, EssayDraft, EssayIntro, EssayLevel, EssayPoint, ID } from "@/types/models";
 
 export const essays = () => getState().essayDrafts ?? [];
@@ -28,7 +29,7 @@ export function createEssay(materialIds: ID[], question = ""): ID {
     intro: emptyIntro(),
     points: [emptyPoint(), emptyPoint(), emptyPoint()],
     conclusion: emptyConclusion(),
-    references: [{ id: uid("ref"), text: "" }],
+    references: [],
     createdAt: at,
     updatedAt: at,
   };
@@ -79,8 +80,8 @@ export function essayWords(e: EssayDraft) {
 
 /** The whole essay as plain text (for the preview and copying). */
 export function essayPlainText(e: EssayDraft) {
-  const refs = e.references.map((r) => r.text.trim()).filter(Boolean);
-  return [e.question.trim(), introText(e), ...e.points.map((p) => pointText(e, p)), conclusionText(e), refs.length ? `References\n${refs.join("\n")}` : ""].filter(Boolean).join("\n\n");
+  const refs = referencesText(e.references, e.refStyle ?? "harvard");
+  return [e.question.trim(), introText(e), ...e.points.map((p) => pointText(e, p)), conclusionText(e), refs ? `References\n${refs}` : ""].filter(Boolean).join("\n\n");
 }
 
 /** Switch between small boxes and one box per section without losing anything. */
@@ -130,7 +131,7 @@ export function migrateOldEssays() {
             ? plan.paragraphs.map((p) => ({ ...emptyPoint(), topic: p.point, evidence: p.evidence.map((x) => x.text).join(" "), explain: p.analysis }))
             : [emptyPoint(), emptyPoint(), emptyPoint()],
           conclusion: { ...emptyConclusion(), final: plan?.conclusion ?? "" },
-          references: [{ id: uid("ref"), text: "" }],
+          references: [],
           createdAt: q.at || at,
           updatedAt: at,
         });

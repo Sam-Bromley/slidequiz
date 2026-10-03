@@ -25,8 +25,9 @@ import {
   switchMode,
   wordCount,
 } from "@/services/essays";
-import { uid } from "@/lib/utils";
 import type { EssayDraft, EssayLevel, EssayPoint, Material } from "@/types/models";
+import { ReferencesPanel, RefRuns, rememberBox } from "@/components/essays/references";
+import { formatReference, isNumbered, orderedReferences } from "@/services/references";
 
 /* ---------------------------------------------------------------- what goes in each box */
 
@@ -89,7 +90,7 @@ function aiMessage(e: unknown) {
 /* ---------------------------------------------------------------- a writing box */
 
 /** A textarea that grows with its text and saves shortly after you stop typing. */
-function Box({ id, value, onCommit, placeholder, className, minRows = 2, label }: { id?: string; value: string; onCommit: (v: string) => void; placeholder?: string; className?: string; minRows?: number; label?: string }) {
+function Box({ id, value, onCommit, placeholder, className, minRows = 2, label, noCite }: { id?: string; value: string; onCommit: (v: string) => void; placeholder?: string; className?: string; minRows?: number; label?: string; noCite?: boolean }) {
   const [v, setV] = useState(value);
   const ref = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -129,7 +130,10 @@ function Box({ id, value, onCommit, placeholder, className, minRows = 2, label }
       value={v}
       rows={minRows}
       placeholder={placeholder}
-      onFocus={() => (focused.current = true)}
+      onFocus={(ev) => {
+        focused.current = true;
+        if (!noCite) rememberBox(ev.currentTarget);
+      }}
       onBlur={() => {
         focused.current = false;
         if (latest.current !== value) flush();
@@ -380,7 +384,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
             <Settings2 /> {LEVELS.find((l) => l.value === (e.level ?? "uni"))?.label} · {target} words
           </Button>
         </div>
-        <Box id="essay-q" value={e.question} onCommit={(v) => patchEssay(e.id, { question: v })} placeholder="Type your essay question, or generate one from your lectures" className="border-0 bg-transparent px-0 py-1 text-[17px] font-semibold leading-snug shadow-none focus-visible:ring-0" minRows={1} />
+        <Box id="essay-q" noCite value={e.question} onCommit={(v) => patchEssay(e.id, { question: v })} placeholder="Type your essay question, or generate one from your lectures" className="border-0 bg-transparent px-0 py-1 text-[17px] font-semibold leading-snug shadow-none focus-visible:ring-0" minRows={1} />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant={e.question.trim() ? "outline" : "default"} size="sm" onClick={generate} loading={genBusy}>
             {e.question.trim() ? <RefreshCw /> : <PenLine />} {e.question.trim() ? "Another question" : "Generate a question"}
@@ -503,34 +507,12 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
       </Section>
 
       {/* References */}
-      <Section id="sec-refs" title="References" role="One source per box, in the style your course uses." progress={`${e.references.filter((r) => r.text.trim()).length}`}>
-        <ul className="space-y-2">
-          {e.references.map((r, i) => (
-            <li key={r.id} className="flex items-start gap-2">
-              <span className="mt-2.5 w-5 shrink-0 text-right text-[12.5px] tabular-nums text-muted-foreground">{i + 1}.</span>
-              <Box
-                value={r.text}
-                minRows={1}
-                label={`Reference ${i + 1}`}
-                placeholder="e.g. Smith, J. et al. (2021) Antibiotic use in livestock. Journal of Microbiology, 12(3), pp. 45–60."
-                onCommit={(v) => patchEssay(e.id, (cur) => ({ references: cur.references.map((x) => (x.id === r.id ? { ...x, text: v } : x)) }))}
-              />
-              {e.references.length > 1 && (
-                <Button variant="ghost" size="icon-sm" className="mt-1 text-muted-foreground" aria-label={`Remove reference ${i + 1}`} onClick={() => patchEssay(e.id, (cur) => ({ references: cur.references.filter((x) => x.id !== r.id) }))}>
-                  <X />
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-        <Button variant="outline" size="sm" onClick={() => patchEssay(e.id, (cur) => ({ references: [...cur.references, { id: uid("ref"), text: "" }] }))}>
-          <Plus /> Add reference
-        </Button>
+      <Section id="sec-refs" title="References" role="Paste a link and it's referenced for you, then cite it in your essay." progress={`${orderedReferences(e.references, e.refStyle ?? "harvard").length}`}>
+        <ReferencesPanel e={e} />
         {notesFor("references").map((n, i) => (
           <Note key={i} text={n} />
         ))}
       </Section>
-
 
       {preview && <PreviewDialog e={e} onClose={() => setPreview(false)} />}
       {settings && <SettingsDialog e={e} onClose={() => setSettings(false)} />}
@@ -593,7 +575,8 @@ function PointCard({ e, p, n, words, setPoint, notesFor }: { e: EssayDraft; p: E
 /* ---------------------------------------------------------------- preview, settings */
 
 function PreviewDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) {
-  const refs = e.references.map((r) => r.text.trim()).filter(Boolean);
+  const style = e.refStyle ?? "harvard";
+  const refs = orderedReferences(e.references, style);
   const paras = [introText(e), ...e.points.map((p) => pointText(e, p)), conclusionText(e)].filter(Boolean);
   const w = essayWords(e);
   return (
@@ -632,7 +615,10 @@ function PreviewDialog({ e, onClose }: { e: EssayDraft; onClose: () => void }) {
             <p className="font-semibold">References</p>
             <ul className="mt-1 space-y-1 text-[13.5px]">
               {refs.map((r, i) => (
-                <li key={i}>{r}</li>
+                <li key={r.id} style={{ paddingLeft: isNumbered(style) ? 0 : "1.5em", textIndent: isNumbered(style) ? 0 : "-1.5em" }}>
+                  {isNumbered(style) ? (style === "ieee" ? `[${i + 1}] ` : `${i + 1}. `) : ""}
+                  <RefRuns runs={formatReference(r, style)} />
+                </li>
               ))}
             </ul>
           </div>

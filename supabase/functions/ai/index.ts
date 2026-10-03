@@ -216,6 +216,104 @@ Reply with JSON only:
   },
 });
 
+/* ---------------------------------------------------------------- references: read a web page's details (no AI) */
+
+const PRIVATE_HOST = /^(localhost|.*\.local|.*\.internal|0\.0\.0\.0|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|169\.254\.\d+\.\d+|\[?::1\]?|\[?f[cd][0-9a-f]{2}:.*)$/i;
+const safeUrl = (raw: string) => {
+  try {
+    const u = new URL(raw);
+    if (!/^https?:$/.test(u.protocol) || PRIVATE_HOST.test(u.hostname) || /^\d+$/.test(u.hostname)) return null;
+    return u;
+  } catch {
+    return null;
+  }
+};
+const decodeHtml = (s: string) =>
+  s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n))).replace(/\s+/g, " ").trim();
+
+async function readPage(raw: string) {
+  let u = safeUrl(raw.trim());
+  if (!u) return { error: "That link doesn't look right." };
+  // YouTube: its own small API gives the title and channel.
+  if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/i.test(u.hostname)) {
+    const o = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(u.href)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (o?.title) return { type: "video", title: o.title, authors: o.author_name ? [o.author_name] : [], site: "YouTube", url: u.href };
+  }
+  let res: Response | null = null;
+  for (let hop = 0; hop < 4; hop++) {
+    res = await fetch(u.href, { redirect: "manual", headers: { "User-Agent": "Mozilla/5.0 (compatible; SlideQuizCite/1.0; +https://slidequiz.co.uk)", Accept: "text/html,application/xhtml+xml" }, signal: AbortSignal.timeout(8000) }).catch(() => null);
+    if (!res) return { error: "Couldn't open that page." };
+    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+      const next = safeUrl(new URL(res.headers.get("location")!, u).href);
+      if (!next) return { error: "Couldn't open that page." };
+      u = next;
+      continue;
+    }
+    break;
+  }
+  if (!res || !res.ok || !/html/i.test(res.headers.get("content-type") ?? "html")) return { error: "Couldn't read that page." };
+  // Only the start of the page is needed (the details are in the <head>).
+  const reader = res.body!.getReader();
+  let html = "";
+  const dec = new TextDecoder();
+  while (html.length < 600_000) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    html += dec.decode(value, { stream: true });
+    if (/<\/head>/i.test(html) && html.length > 20_000) break;
+  }
+  reader.cancel().catch(() => {});
+
+  const metas: [string, string][] = [];
+  for (const m of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = m[0];
+    const key = (tag.match(/\b(?:name|property|itemprop)\s*=\s*["']([^"']+)["']/i) ?? [])[1];
+    const val = (tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i) ?? [])[1];
+    if (key && val) metas.push([key.toLowerCase(), decodeHtml(val)]);
+  }
+  const one = (...keys: string[]) => keys.map((k) => metas.find(([n]) => n === k)?.[1]).find(Boolean) ?? "";
+  const all = (k: string) => metas.filter(([n]) => n === k).map(([, v]) => v);
+
+  // Structured data many news sites and blogs include.
+  let ld: any = {};
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const j = JSON.parse(m[1]);
+      const items = (Array.isArray(j) ? j : j["@graph"] ?? [j]).flat();
+      const best = items.find((x: any) => /Article|BlogPosting|Report|ScholarlyArticle|WebPage|VideoObject/i.test(String(x?.["@type"])) && (x.headline || x.name));
+      if (best) {
+        ld = best;
+        break;
+      }
+    } catch {
+      /* ignore broken JSON */
+    }
+  }
+  const ldAuthors = (Array.isArray(ld.author) ? ld.author : ld.author ? [ld.author] : []).map((a: any) => (typeof a === "string" ? a : a?.name)).filter(Boolean);
+
+  const scholarly = !!one("citation_title");
+  const authors = scholarly ? all("citation_author") : ldAuthors.length ? ldAuthors : all("author").concat(all("article:author").filter((a) => !/^https?:/.test(a))).concat(all("dc.creator"));
+  const title = one("citation_title", "og:title", "twitter:title", "dc.title") || String(ld.headline ?? ld.name ?? "") || decodeHtml((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) ?? [])[1] ?? "");
+  const site = one("og:site_name", "application-name") || String(ld.publisher?.name ?? "");
+  const date = one("citation_publication_date", "citation_date", "citation_online_date", "article:published_time", "dc.date", "date", "datepublished", "uploaddate") || String(ld.datePublished ?? "");
+  const first = one("citation_firstpage"), last = one("citation_lastpage");
+  const doi = one("citation_doi", "dc.identifier").replace(/^doi:\s*/i, "");
+  return {
+    type: scholarly && one("citation_journal_title") ? "article" : /video/i.test(one("og:type")) ? "video" : one("citation_technical_report_number") ? "report" : "website",
+    title: title.replace(/\s+[|\-–—]\s+[^|\-–—]{2,40}$/, (m) => (site && m.toLowerCase().includes(site.toLowerCase()) ? "" : m)).slice(0, 400),
+    authors: [...new Set(authors.map((a: string) => decodeHtml(a)).filter((a: string) => a && a.length < 100))].slice(0, 12),
+    site,
+    date: String(date).replace(/\//g, "-").slice(0, 10),
+    doi: /^10\.\d{4,9}\//.test(doi) ? doi : "",
+    container: one("citation_journal_title"),
+    volume: one("citation_volume"),
+    issue: one("citation_issue"),
+    pages: first ? (last ? `${first}-${last}` : first) : "",
+    publisher: one("citation_publisher", "dc.publisher"),
+    url: one("og:url") && safeUrl(one("og:url")) ? one("og:url") : u.href,
+  };
+}
+
 const PRO_ONLY = new Set<string>([]); // essays are free for everyone now
 
 const json = (data: unknown, status: number, origin: string | null) =>
@@ -240,6 +338,12 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: "Bad request" }, 400, origin);
   }
+  // References: read a web page's title, authors and date. No AI, so it doesn't use any allowance.
+  if (body?.task === "cite") {
+    const info = await readPage(String(body.url ?? "")).catch(() => ({ error: "Couldn't read that page." }));
+    return json(info, "error" in info ? 422 : 200, origin);
+  }
+
   const task = TASKS[body?.task];
   if (!task || !Array.isArray(body.pages)) return json({ error: "Unknown task" }, 400, origin);
 

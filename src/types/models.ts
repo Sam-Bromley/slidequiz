@@ -495,7 +495,43 @@ export interface EssaySet extends EssayWork {
   folderId?: ID;
 }
 
-/** One essay the student is planning and writing (Pro). Writing is in small boxes, or one box per section. */
+export type RefStyle = "harvard" | "apa" | "mla" | "chicago" | "ieee" | "vancouver";
+export type RefType = "article" | "book" | "chapter" | "website" | "report" | "video";
+
+export interface RefFields {
+  /** One per entry: "Surname, First name" for a person, or an organisation's full name. */
+  authors: string[];
+  editors?: string[];
+  year?: string;
+  /** Full date for websites and videos (YYYY-MM-DD, or YYYY-MM). */
+  date?: string;
+  title: string;
+  /** Journal, website name, book title (for a chapter) or platform (for a video). */
+  container?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  publisher?: string;
+  place?: string;
+  edition?: string;
+  /** Report number. */
+  number?: string;
+  url?: string;
+  doi?: string;
+  /** When the student looked at it online (YYYY-MM-DD). */
+  accessed?: string;
+}
+
+/** A source in an essay's reference list. */
+export interface EssayReference {
+  id: string;
+  /** A reference typed out by hand (also how references from before this feature are kept). */
+  text: string;
+  type?: RefType;
+  fields?: RefFields;
+}
+
+/** One essay the student is planning and writing. Writing is in small boxes, or one box per section. */
 export interface EssayIntro { context: string; terms: string; problem: string; scope: string; thesis: string; text: string }
 export interface EssayPoint { id: ID; topic: string; evidence: string; explain: string; link: string; text: string }
 export interface EssayConclusion { restate: string; findings: string; implications: string; final: string; future: string; text: string }
@@ -519,7 +555,9 @@ export interface EssayDraft {
   intro: EssayIntro;
   points: EssayPoint[];
   conclusion: EssayConclusion;
-  references: { id: ID; text: string }[];
+  references: EssayReference[];
+  /** Referencing style; Harvard if not set. */
+  refStyle?: RefStyle;
   /** Other generated questions to pick from, and every question generated so far (so new ones differ). */
   ideas?: string[];
   asked?: string[];
