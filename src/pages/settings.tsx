@@ -152,7 +152,7 @@ export function SettingsPage() {
         <AllowanceRow />
         <p className="text-[12.5px] text-muted-foreground">Credits are used to make notes and questions from a new lecture, flashcards, written answer questions and essay feedback.</p>
         {account.user && (
-          <Row label="Invite friends" hint="You both get 3 free credits when they make their first lecture.">
+          <Row label="Invite friends" hint="Earn 3 free credits for every friend who signs up with your link and makes their first lecture. They get 3 too.">
             <Button variant="outline" onClick={openInvite}>
               <Gift /> Invite friends
             </Button>

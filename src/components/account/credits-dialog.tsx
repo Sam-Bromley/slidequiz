@@ -34,7 +34,7 @@ function OutOfCreditsDialog() {
           </span>
           <span>
             <span className="block text-[14.5px] font-semibold">Invite a friend</span>
-            <span className="block text-[13px] text-muted-foreground">You both get 3 free credits when they make their first lecture.</span>
+            <span className="block text-[13px] text-muted-foreground">Earn 3 free credits when a friend signs up with your link and makes their first lecture. They get 3 too.</span>
           </span>
         </button>
         {PLUS_ON && a?.plan !== "plus" && (
@@ -86,7 +86,7 @@ function InviteDialog() {
             <Gift className="size-5" />
           </span>
           <p className="text-[14px] leading-relaxed">
-            Give a friend <b>3 free credits</b>. When they sign up with your link and make their first lecture, you get <b>3 too</b>.
+            Earn <b>3 free credits</b> for every friend who signs up with your link and makes their first lecture. They get <b>3 free credits</b> too.
           </p>
         </div>
         {error ? (

@@ -133,32 +133,28 @@ function Sidebar() {
               </li>
             );
           })}
+          {loggedIn && (
+            <li>
+              <button
+                type="button"
+                onClick={openInvite}
+                title={compact ? "Invite friends" : undefined}
+                className="flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-lg pr-2.5 text-[14px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
+                style={{ paddingLeft: 10 + 5 * (1 - t) }}
+              >
+                <Gift className="size-[18px] shrink-0" />
+                <span className="whitespace-nowrap" style={{ opacity: labels }}>
+                  Invite friends
+                </span>
+              </button>
+            </li>
+          )}
         </ul>
       </nav>
-      <div className="mt-auto" />
-      {loggedIn && (
-        <div className="px-2.5 pb-2">
-          <button
-            type="button"
-            onClick={openInvite}
-            title={compact ? "Invite friends" : undefined}
-            className="flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-lg pr-2.5 text-[14px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
-            style={{ paddingLeft: 10 + 5 * (1 - t) }}
-          >
-            <Gift className="size-[18px] shrink-0" />
-            <span className="flex-1 whitespace-nowrap text-left" style={{ opacity: labels }}>
-              Invite friends
-            </span>
-            <span className="shrink-0 rounded-md bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary" style={{ opacity: labels }}>
-              +3
-            </span>
-          </button>
-        </div>
-      )}
       <button
         type="button"
         onClick={() => actions.updateSettings({ sidebarHidden: true })}
-        className={cn("mb-3 grid size-9 place-items-center self-center rounded-lg text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-ring", labels > 0.95 && "pointer-events-none")}
+        className={cn("mb-3 mt-auto grid size-9 place-items-center self-center rounded-lg text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-ring", labels > 0.95 && "pointer-events-none")}
         style={{ opacity: 1 - labels }}
         tabIndex={labels > 0.95 ? -1 : 0}
         aria-hidden={labels > 0.95}
@@ -271,21 +267,22 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                 </Link>
               </li>
             ))}
+            {loggedIn && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openInvite();
+                  }}
+                  className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-[15px] font-medium text-muted-foreground focus-ring"
+                >
+                  <Gift className="size-5" /> Invite friends
+                </button>
+              </li>
+            )}
           </ul>
         </nav>
-        {loggedIn && (
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              openInvite();
-            }}
-            className="mt-auto flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] font-medium text-muted-foreground focus-ring"
-          >
-            <Gift className="size-5" /> Invite friends
-            <span className="ml-auto rounded-md bg-primary-soft px-1.5 py-0.5 text-[12px] font-semibold text-primary">+3 credits</span>
-          </button>
-        )}
       </div>
     </div>
   );
