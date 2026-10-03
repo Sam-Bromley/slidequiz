@@ -10,7 +10,6 @@ import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Menu } from "@/components/ui/menu";
 import { Tabs, tabPanelProps } from "@/components/ui/tabs";
-import { EssaysView } from "@/components/essays/essays-view";
 import { WrittenView } from "@/components/practice/written-view";
 import { Segmented } from "@/components/ui/segmented";
 import { usePlanQuiet } from "@/services/plus";
@@ -23,14 +22,14 @@ import { unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
 import type { ID } from "@/types/models";
 
-type Tab = "notes" | "practice" | "progress" | "essays";
+type Tab = "notes" | "practice" | "progress";
 
 export function MaterialDetailPage({ id }: { id: string }) {
   const data = useData();
   const { query } = useLocation();
   const m = data.materials.find((x) => x.id === id);
   const initial = query.get("tab");
-  const [tab, setTab] = useState<Tab>(initial === "practice" || initial === "progress" || initial === "essays" ? initial : "notes");
+  const [tab, setTab] = useState<Tab>(initial === "practice" || initial === "progress" ? initial : "notes");
   const [topics, setTopics] = useState<ID[]>([]);
   const [exporting, setExporting] = useState(false);
   const menu = useMaterialMenu(m ?? ({} as never));
@@ -59,7 +58,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const pro = usePlanQuiet().plus;
+  usePlanQuiet();
   const [mode, setMode] = useState<"mcq" | "written">(query.get("mode") === "written" ? "written" : "mcq");
   const changeMode = (v: "mcq" | "written") => {
     setMode(v);
@@ -117,20 +116,10 @@ export function MaterialDetailPage({ id }: { id: string }) {
           { value: "notes", label: "Notes" },
           { value: "practice", label: "Practice" },
           { value: "progress", label: "Progress" },
-          {
-            value: "essays",
-            label: (
-              <>
-                Essays
-                {!pro && <span className="rounded-full bg-foreground px-1.5 py-px text-[10px] font-semibold text-background">Pro</span>}
-              </>
-            ),
-          },
         ]}
       />
       <div {...tabPanelProps("mat", tab)}>
         {tab === "notes" && <NotesView material={m} />}
-        {tab === "essays" && <EssaysView material={m} />}
         {tab === "practice" && (
           <>
             <Segmented

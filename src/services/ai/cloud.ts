@@ -14,7 +14,7 @@ import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import { nowISO, uid } from "@/lib/utils";
-import type { WrittenMark, WrittenQuestion, AINoteSection, EssayPlan, EssayQuestion, EssayWork, ID, Material, SourceRef, Topic } from "@/types/models";
+import type { WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
@@ -360,54 +360,70 @@ function essayPages(materials: Material[]): CloudPage[] {
     .filter((p) => (size += p.label.length + p.title.length + p.text.length + 40) <= BUDGET);
 }
 
-const essayOpts = (w: EssayWork | undefined) => ({ rubric: w?.rubric ?? "", level: w?.level ?? "uni", marks: w?.marks ?? 25, words: w?.words ?? undefined });
+const LEVEL_WORDS: Record<string, number> = { gcse: 800, alevel: 1500, uni: 2000 };
 
-/** New essay questions. Throws an AIError if it can't. */
-export async function cloudEssayQuestions(materials: Material[], w: EssayWork, title: string, count = 6): Promise<EssayQuestion[]> {
-  const res = await call<{ questions: { question: string; command?: string; marks?: number; difficulty?: string; criteria?: string[]; focus?: string }[] }>("essayQuestions", {
-    title,
+/** Up to 3 new essay questions on these lectures (the first is used, the rest offered as ideas). */
+export async function cloudEssayQuestion(e: EssayDraft, materials: Material[]): Promise<string[]> {
+  const res = await call<{ questions: { question: string }[] }>("essayQuestions", {
+    title: materials.length === 1 ? materials[0].title : materials.map((m) => m.title).join(", ").slice(0, 200),
     pages: essayPages(materials),
-    count,
-    avoid: w.questions.map((q) => q.question),
-    ...essayOpts(w),
+    count: 3,
+    avoid: [...(e.asked ?? []), e.question].filter(Boolean),
+    rubric: e.rubric ?? "",
+    level: e.level ?? "uni",
+    words: e.words ?? undefined,
   });
-  return (res.questions ?? [])
-    .filter((q) => q.question?.trim())
-    .map((q) => ({
-      id: uid("eq"),
-      question: q.question.trim(),
-      command: q.command?.trim() || undefined,
-      marks: Number(q.marks) || w.marks || undefined,
-      difficulty: (["easy", "medium", "hard"] as const).find((d) => d === q.difficulty),
-      criteria: (q.criteria ?? []).map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
-      focus: q.focus?.trim() || undefined,
-      at: nowISO(),
-    }));
+  const qs = (res.questions ?? []).map((q) => String(q.question ?? "").trim()).filter(Boolean);
+  if (!qs.length) throw new AIError("No question came back. Try again.");
+  return qs;
 }
 
-/** A plan for one essay question. Throws an AIError if it can't. */
-export async function cloudEssayPlan(materials: Material[], w: EssayWork, title: string, q: EssayQuestion): Promise<EssayPlan> {
-  const r = await call<any>("essayPlan", { title, pages: essayPages(materials), question: q.question, ...essayOpts(w), marks: q.marks ?? w.marks ?? 25 });
-  const multi = materials.length > 1;
-  const labelOf = new Map(materials.flatMap((m) => m.pages.map((p) => [p.id, multi ? `${m.title} · ${p.label}` : p.label] as const)));
+/** The essay as labelled boxes, so feedback can point at the exact box. */
+function labelledEssay(e: EssayDraft) {
+  const box = (key: string, label: string, text: string) => `[${key}] ${label}: ${text.trim() || "(empty)"}`;
+  const lines: string[] = [];
+  if (e.mode === "simple") {
+    lines.push(box("intro", "Introduction", e.intro.text));
+    e.points.forEach((p, i) => lines.push(box(`point${i + 1}`, `Body point ${i + 1}`, p.text)));
+    lines.push(box("conclusion", "Conclusion", e.conclusion.text));
+  } else {
+    const I = e.intro, C = e.conclusion;
+    lines.push(box("intro.context", "Introduction, background context", I.context), box("intro.terms", "Introduction, key terms", I.terms), box("intro.problem", "Introduction, the question or problem", I.problem), box("intro.scope", "Introduction, scope", I.scope), box("intro.thesis", "Introduction, thesis statement", I.thesis));
+    e.points.forEach((p, i) => {
+      const n = i + 1;
+      lines.push(box(`point${n}.topic`, `Point ${n}, topic sentence`, p.topic), box(`point${n}.evidence`, `Point ${n}, evidence`, p.evidence), box(`point${n}.explain`, `Point ${n}, explanation`, p.explain), box(`point${n}.link`, `Point ${n}, link`, p.link));
+    });
+    lines.push(box("conclusion.restate", "Conclusion, restated thesis", C.restate), box("conclusion.findings", "Conclusion, key findings", C.findings), box("conclusion.implications", "Conclusion, implications", C.implications), box("conclusion.future", "Conclusion, future directions (optional)", C.future), box("conclusion.final", "Conclusion, final sentence", C.final));
+  }
+  const refs = e.references.map((r) => r.text.trim()).filter(Boolean);
+  lines.push(`[references] References: ${refs.length ? refs.join(" | ") : "(none)"}`);
+  return lines.join("\n");
+}
+
+/** Feedback on the essay so far, against good essay structure and style. Throws an AIError if it can't. */
+export async function cloudEssayFeedback(e: EssayDraft, materials: Material[]): Promise<EssayFeedback> {
+  const subject = [...new Set(materials.map((m) => m.subject).filter(Boolean))].join(", ") || "General";
+  const essay = labelledEssay(e);
+  const r = await call<any>("essayFeedback", {
+    title: materials.map((m) => m.title).join(", ").slice(0, 200),
+    pages: essayPages(materials).slice(0, 60),
+    question: e.question,
+    level: e.level ?? "uni",
+    words: e.words ?? LEVEL_WORDS[e.level ?? "uni"],
+    subject,
+    rubric: e.rubric ?? "",
+    essay,
+  });
   const str = (x: unknown) => String(x ?? "").trim();
-  const paragraphs = (Array.isArray(r.paragraphs) ? r.paragraphs : [])
-    .map((p: any) => ({
-      id: uid("ep"),
-      point: str(p.point),
-      evidence: (Array.isArray(p.evidence) ? p.evidence : []).map((e: any) => ({ text: str(e.text ?? e), pageId: labelOf.has(e.pageId) ? e.pageId : undefined, label: labelOf.get(e.pageId) })).filter((e: any) => e.text),
-      analysis: str(p.analysis),
-      criteria: (Array.isArray(p.criteria) ? p.criteria : []).map(str).filter(Boolean).slice(0, 3),
-    }))
-    .filter((p: any) => p.point);
-  if (!paragraphs.length || !str(r.thesis)) throw new AIError("The plan came back incomplete. Try again.");
+  const overall = str(r.overall);
+  if (!overall) throw new AIError("The feedback came back incomplete. Try again.");
   return {
-    thesis: str(r.thesis),
-    intro: str(r.intro),
-    paragraphs,
-    counter: r.counter && str(r.counter.point) ? { point: str(r.counter.point), response: str(r.counter.response) } : undefined,
-    conclusion: str(r.conclusion),
-    tips: (Array.isArray(r.tips) ? r.tips : []).map(str).filter(Boolean).slice(0, 4),
+    overall,
+    strengths: (Array.isArray(r.strengths) ? r.strengths : []).map(str).filter(Boolean).slice(0, 5),
+    notes: (Array.isArray(r.notes) ? r.notes : [])
+      .map((n: any) => ({ box: str(n.box).replace(/^\[|\]$/g, ""), text: str(n.text) }))
+      .filter((n: { box: string; text: string }) => n.text)
+      .slice(0, 30),
     at: nowISO(),
   };
 }

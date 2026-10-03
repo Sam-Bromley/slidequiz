@@ -131,6 +131,55 @@ Reply with JSON only:
   },
 });
 
+/* ---------------------------------------------------------------- essay feedback (Pro) */
+
+const ESSAY_GUIDE = `WHAT A GOOD ESSAY DOES
+
+Structure. The introduction explains the focus and establishes why the subject matters. The body builds logical arguments supported by evidence and data, clearly organised. The conclusion wraps up the argument and reinforces the key points.
+
+Introduction should have: 1) brief background context (why the topic matters, without detail that belongs in the body); 2) key terms defined; 3) the problem or question the essay addresses; 4) the scope (what it covers, sometimes what it won't); 5) a clear, concise thesis statement giving the main argument.
+Introduction tips: start broad, then narrow to the specific focus; set the stage, don't tell the whole story; formal, objective language; no results or conclusions; concise, usually 10 to 15% of the word count.
+Introduction mistakes: starting with a dictionary definition; vague openers like "In this essay I will talk about"; unsupported claims or opinions; so much background it overwhelms the reader; no thesis statement; exaggeration or sensationalism ("the perfect solution", "the most important").
+
+Body: each paragraph focuses on one main idea that supports the thesis and starts with a topic sentence; evidence (data, examples, credible sources) supports each point; the evidence is explained and analysed, not just stated (what it means and how it relates to the argument); paragraphs are in a logical order with transitions; it stays focused and objective.
+Body tips: one main idea per paragraph; evidence such as studies, data and experiments; objective analysis, not personal opinion; transitions like "Furthermore", "In contrast", "As a result"; concise and precise; the relevance is clear.
+Body mistakes: several ideas in one paragraph; evidence without explaining its relevance; paragraphs too short (underdeveloped) or too long (confusing); not connecting the paragraph to the overall argument; informal or conversational language.
+
+A paragraph is a mini essay: its topic sentence flows from the previous paragraph and its last sentence links to the next.
+
+Conclusion should: 1) restate the thesis (not word for word); 2) summarise the key findings; 3) discuss implications (why the findings matter in the subject); 4) optionally suggest future directions or unanswered questions.
+Conclusion tips: concise, usually one paragraph or about 10% of the essay; no new information or evidence; formal, objective language; a strong final sentence that reinforces why the argument matters.
+Conclusion mistakes: repeating the introduction or body word for word; new data, citations or arguments; ending abruptly without summarising or reflecting; vague lines like "In conclusion, microbiology is important."; unsupported claims or personal opinions.
+
+Coherent narrative: ideas flow logically and smoothly; each paragraph connects clearly to the next and the argument builds. Built by: topic sentences; logical order with transitions ("In contrast", "Furthermore", "This leads to"); staying focused (every paragraph supports the thesis); consistent terminology (terms defined early, used consistently); linking back to the thesis throughout.
+
+Style for science subjects: third person (he, she, it, they, Smith et al.); past tense; correct grammar and spelling; abbreviations defined at first use, e.g. Polymerase Chain Reaction (PCR), then PCR thereafter; Latin species names italicised with a capital genus (Escherichia coli first, then E. coli). Avoid: clichés; contractions; subjective descriptions ("a fascinating discovery"); over-complicated language; mixing tenses; first person ("I propose that"); passive phrases like "it is believed that".
+Figures and tables (science): only if they add value; clear title and caption (below a figure, above a table); numbered in order and referred to in the text; self-explanatory; cite the source at the end of the legend if copied.
+For other subjects use the same principles in that subject's terms: evidence might be sources, quotations, case law or examples rather than experiments; keep formal, objective, consistent style and the subject's usual conventions.`;
+
+Object.assign(TASKS, {
+  essayFeedback: {
+    maxTokens: 3500,
+    system: `You are a supportive, precise essay tutor for UK students. Use UK spelling. You give feedback on a student's essay plan or draft, written in labelled boxes. Plain text only inside JSON strings (no markdown, no bullet characters). Speak to the student as "you". Never rewrite the essay for them; say what to change and why, briefly, quoting a few of their words where useful.`,
+    prompt: (b: any, pages: string) => `Level: ${LEVEL[b.level] ?? "university"}. Subject: ${String(b.subject ?? "General").slice(0, 80)}. Target length: about ${Number(b.words) || 1500} words.
+Essay question: "${String(b.question ?? "").slice(0, 600)}"
+${String(b.rubric ?? "").trim() ? `The student's own marking criteria (use them too):\n<<<\n${String(b.rubric).slice(0, 6000)}\n>>>\n` : ""}
+${ESSAY_GUIDE}
+
+Lecture material, for checking facts and suggesting evidence (each slide starts with [id]):
+${pages}
+
+The student's essay, box by box (empty boxes say "(empty)"):
+<<<
+${String(b.essay ?? "").slice(0, 20000)}
+>>>
+
+Give feedback against the guide above (use the science style and figures rules only if the subject is a science). It may be a plan with short notes or a full draft: judge it for what it is and don't punish note form in a plan. Check facts against the lecture. Point out empty boxes that matter (e.g. no thesis) but don't list every empty box. Each note goes on the exact box it's about, using the label in square brackets (e.g. "intro.thesis", "point2.evidence", "conclusion.final", "references"); use "flow" for how the paragraphs connect, "style" for language and tone across the essay, and "question" if the essay doesn't answer the question. Keep each note to one or two sentences and make it actionable. Up to 12 notes, most important first.
+Reply with JSON only:
+{"overall":"two or three sentences on how it's going and the single most important next step","strengths":["…"],"notes":[{"box":"intro.thesis","text":"…"}]}`,
+  },
+});
+
 /* ---------------------------------------------------------------- written answers (free, fair use) */
 
 Object.assign(TASKS, {
@@ -167,7 +216,7 @@ Reply with JSON only:
   },
 });
 
-const PRO_ONLY = new Set(["essayQuestions", "essayPlan"]);
+const PRO_ONLY = new Set(["essayQuestions", "essayPlan", "essayFeedback"]);
 
 const json = (data: unknown, status: number, origin: string | null) =>
   new Response(JSON.stringify(data), { status, headers: { ...cors(origin), "Content-Type": "application/json" } });
@@ -218,7 +267,7 @@ Deno.serve(async (req) => {
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used your AI lectures for now.", limit: true }, 429, origin);
   } else {
-    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + (body.task === "markWritten" ? 1500 : 0);
+    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : body.task === "essayFeedback" ? 5000 : 0);
     const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_chars: pages.length + extra }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've used today's fair use of AI. It resets tomorrow.", limit: true }, 429, origin);

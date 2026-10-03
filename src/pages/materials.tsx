@@ -1,7 +1,4 @@
-import { CalendarDays, Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, PenLine, Pencil, Play, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
-import { setFor } from "@/services/essays";
-import { hasPlus } from "@/services/plus";
-import { getState } from "@/store/store";
+import { CalendarDays, Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Play, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useState, type DragEvent } from "react";
 import { MaterialCard } from "@/components/materials/material-card";
 import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
@@ -202,8 +199,6 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: {
               },
             },
             { label: f.examDate ? "Change exam date" : "Add exam date", icon: CalendarDays, onSelect: () => setDating(true) },
-            { label: "Flashcards from this folder", icon: Layers, onSelect: () => openFolderFlashcards(f.id) },
-            { label: "Essays on this folder", icon: PenLine, onSelect: () => openFolderEssays(f.id, f.name) },
             { label: "Delete folder", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
           ]}
           trigger={(p) => (
@@ -495,26 +490,4 @@ export function MaterialsPage() {
 }
 
 /** Lectures in a folder and its subfolders. */
-function folderMaterialIds(fid: string): string[] {
-  const d = getState();
-  const ids = new Set([fid]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const f of d.folders) if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) (ids.add(f.id), (grew = true));
-  }
-  return d.materials.filter((m) => m.folderId && ids.has(m.folderId)).map((m) => m.id);
-}
 
-function openFolderFlashcards(fid: string) {
-  const ids = folderMaterialIds(fid);
-  if (!ids.length) return toast("This folder is empty");
-  navigate(`/flashcards?from=${ids.join(",")}`);
-}
-
-function openFolderEssays(fid: string, name: string) {
-  const ids = folderMaterialIds(fid);
-  if (!ids.length) return toast("This folder is empty");
-  if (!hasPlus()) return navigate("/essays");
-  navigate(`/essays/${setFor(ids, name, fid)}`);
-}

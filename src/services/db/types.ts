@@ -1,4 +1,5 @@
 import type {
+  EssayDraft,
   EssaySet,
   ChatMessage,
   Deck, Folder, Flashcard, GenerationRecord, ID, Material, Question, QuizAttempt, SavedQuestion, Settings, StudyPlan, StudySession, SummaryDoc, User,
@@ -15,6 +16,8 @@ export interface AppData {
   decks?: Deck[];
   /** Pro: essay questions and plans. */
   essays?: EssaySet[];
+  /** Pro: essays being planned and written. */
+  essayDrafts?: EssayDraft[];
   attempts: QuizAttempt[];
   sessions: StudySession[];
   saved: SavedQuestion[];

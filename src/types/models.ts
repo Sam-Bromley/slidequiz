@@ -495,6 +495,40 @@ export interface EssaySet extends EssayWork {
   folderId?: ID;
 }
 
+/** One essay the student is planning and writing (Pro). Writing is in small boxes, or one box per section. */
+export interface EssayIntro { context: string; terms: string; problem: string; scope: string; thesis: string; text: string }
+export interface EssayPoint { id: ID; topic: string; evidence: string; explain: string; link: string; text: string }
+export interface EssayConclusion { restate: string; findings: string; implications: string; final: string; future: string; text: string }
+export interface EssayFeedback {
+  overall: string;
+  strengths: string[];
+  /** `box` is where the note belongs, e.g. "intro.thesis", "point2.evidence", "conclusion", "style". */
+  notes: { box: string; text: string }[];
+  at: ISODate;
+}
+export interface EssayDraft {
+  id: ID;
+  question: string;
+  materialIds: ID[];
+  level?: EssayLevel;
+  /** Target length, for the word-count guide. */
+  words?: number;
+  /** The student's own marking criteria, if they add them. */
+  rubric?: string;
+  mode: "guided" | "simple";
+  intro: EssayIntro;
+  points: EssayPoint[];
+  conclusion: EssayConclusion;
+  references: { id: ID; text: string }[];
+  /** Other generated questions to pick from, and every question generated so far (so new ones differ). */
+  ideas?: string[];
+  asked?: string[];
+  completed?: boolean;
+  feedback?: EssayFeedback;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
 /* ---------------------------------------------------------------- written answers */
 
 export interface WrittenMark {

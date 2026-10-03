@@ -1,6 +1,6 @@
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { initAds } from "@/services/ads";
-import { EssaySetPage, EssaysPage } from "@/pages/essays";
+import { EssayPage, EssaysPage } from "@/pages/essays";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CommandMenu, ShortcutsDialog } from "@/components/layout/command-menu";
@@ -43,7 +43,7 @@ const ROUTES: Route[] = [
   { pattern: "/questions", render: () => <QuestionBankPage /> },
   { pattern: "/flashcards", render: () => <FlashcardsPage /> },
   { pattern: "/essays", render: () => <EssaysPage /> },
-  { pattern: "/essays/:id", render: (p) => <EssaySetPage key={p.id} id={p.id} /> },
+  { pattern: "/essays/:id", render: (p) => <EssayPage key={p.id} id={p.id} /> },
   { pattern: "/flashcards/:id", render: (p) => <DeckPage key={p.id} id={p.id} /> },
   { pattern: "/study", render: () => <StudyPage /> },
   { pattern: "/quiz/:id", render: (p) => <QuizPage id={p.id} />, bare: true },

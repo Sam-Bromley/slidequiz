@@ -1,31 +1,48 @@
-import { ChevronRight, Folder as FolderIcon, MoreHorizontal, PenLine, Pencil, Plus, Trash2 } from "lucide-react";
+import { CircleCheck, Folder as FolderIcon, MoreHorizontal, PenLine, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { EssaySetView, EssaysTeaser } from "@/components/essays/essays-view";
+import { EssayEditor, EssaysTeaser } from "@/components/essays/essays-view";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { Menu } from "@/components/ui/menu";
+import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
-import { deleteSet, migrateMaterialEssays, patchSet, setFor } from "@/services/essays";
+import { CONCLUSION_KEYS, INTRO_KEYS, POINT_KEYS, createEssay, deleteEssay, essays as allEssays, essayWords, migrateOldEssays, patchEssay } from "@/services/essays";
 import { hasPlus, usePlanQuiet } from "@/services/plus";
 import { useData } from "@/store/store";
-import type { EssaySet, ID } from "@/types/models";
+import type { EssayDraft, EssayLevel, ID } from "@/types/models";
+
+const LEVELS: { value: EssayLevel; label: string }[] = [
+  { value: "gcse", label: "GCSE" },
+  { value: "alevel", label: "A-level" },
+  { value: "uni", label: "University" },
+];
+
+/** How much of the plan is filled in, 0 to 1. */
+function progressOf(e: EssayDraft) {
+  const has = (t: string) => t.trim().split(/\s+/).filter(Boolean).length >= 3;
+  if (e.mode === "simple") {
+    const parts = [e.intro.text, ...e.points.map((p) => p.text), e.conclusion.text];
+    return parts.filter(has).length / parts.length;
+  }
+  const parts = [...INTRO_KEYS.map((k) => e.intro[k]), ...e.points.flatMap((p) => POINT_KEYS.map((k) => p[k])), ...CONCLUSION_KEYS.filter((k) => k !== "future").map((k) => e.conclusion[k])];
+  return parts.filter(has).length / parts.length;
+}
 
 /* ---------------------------------------------------------------- choose lectures */
 
-/** Pick a folder (a whole module) or any lectures to write essays on. */
-function NewEssaysDialog({ onClose, initial = [] }: { onClose: () => void; initial?: ID[] }) {
+/** Pick a folder (a whole module) or any lectures to write an essay on. */
+function NewEssayDialog({ onClose, initial = [] }: { onClose: () => void; initial?: ID[] }) {
   const data = useData();
   const mats = data.materials;
   const [picked, setPicked] = useState<ID[]>(initial);
   const [folder, setFolder] = useState<ID | null>(null);
-  const [name, setName] = useState("");
+  const [level, setLevel] = useState<EssayLevel>(allEssays().find((e) => e.level)?.level ?? "uni");
   const folders = data.folders.filter((f) => mats.some((m) => m.folderId === f.id));
-  const suggested = folder ? (data.folders.find((f) => f.id === folder)?.name ?? "") : picked.length === 1 ? (mats.find((m) => m.id === picked[0])?.title ?? "") : picked.length > 1 ? `${picked.length} lectures` : "";
 
   const toggle = (id: ID) => {
     setFolder(null);
@@ -39,8 +56,8 @@ function NewEssaysDialog({ onClose, initial = [] }: { onClose: () => void; initi
   };
   const start = () => {
     const ids = mats.map((m) => m.id).filter((id) => picked.includes(id));
-    const id = setFor(ids, name.trim() || suggested || "Essays", folder ?? undefined);
-    if (name.trim()) patchSet(id, { title: name.trim() });
+    const id = createEssay(ids);
+    patchEssay(id, { level });
     onClose();
     navigate(`/essays/${id}`);
   };
@@ -49,8 +66,8 @@ function NewEssaysDialog({ onClose, initial = [] }: { onClose: () => void; initi
     <Dialog
       open
       onClose={onClose}
-      title="Essays on…"
-      description="Choose a whole module folder, or any lectures."
+      title="New essay"
+      description="Which lectures is it on? Choose a whole module folder, or any lectures."
       size="lg"
       footer={
         <>
@@ -104,14 +121,18 @@ function NewEssaysDialog({ onClose, initial = [] }: { onClose: () => void; initi
               ))}
             </ul>
           </div>
-          {picked.length > 0 && (
-            <div>
-              <label htmlFor="essay-set-name" className="mb-1.5 block text-[13px] font-medium">
-                Name
-              </label>
-              <Input id="essay-set-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggested} />
-            </div>
-          )}
+          <div className="max-w-xs">
+            <label htmlFor="new-essay-level" className="mb-1.5 block text-[13px] font-medium">
+              Level
+            </label>
+            <Select id="new-essay-level" value={level} onChange={(e) => setLevel(e.target.value as EssayLevel)}>
+              {LEVELS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
       )}
     </Dialog>
@@ -126,15 +147,19 @@ export function EssaysPage() {
   const plus = hasPlus();
   const { query } = useLocation();
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<"todo" | "done">("todo");
   useEffect(() => {
-    if (plus) migrateMaterialEssays();
+    if (plus) migrateOldEssays();
   }, [plus]);
-  const sets = (data.essays ?? []).filter((s) => s.questions.length || s.rubric);
+  const all = data.essayDrafts ?? [];
+  const todo = all.filter((e) => !e.completed);
+  const done = all.filter((e) => e.completed);
+  const shown = view === "done" ? done : todo;
 
   if (!plus)
     return (
       <div>
-        <PageHeader title="Essays" description="Essay questions and plans on a lecture or a whole module, aimed at your marking criteria." />
+        <PageHeader title="Essays" description="Essay questions on your lectures, planned and written step by step, with feedback on every part." />
         <EssaysTeaser />
       </div>
     );
@@ -143,34 +168,50 @@ export function EssaysPage() {
     <div>
       <PageHeader
         title="Essays"
-        description={sets.length ? undefined : "Essay questions and plans on a lecture or a whole module, aimed at your marking criteria."}
+        description={all.length ? undefined : "Get an essay question on your lectures, then plan and write it step by step."}
         actions={
-          sets.length ? (
+          all.length ? (
             <Button onClick={() => setCreating(true)}>
-              <Plus /> New essays
+              <Plus /> New essay
             </Button>
           ) : null
         }
       />
-      {!sets.length ? (
+      {!all.length ? (
         <div className="flex min-h-[44vh] flex-col items-center justify-center gap-3 text-center">
           <span className="grid size-12 place-items-center rounded-2xl bg-primary-soft text-primary">
             <PenLine className="size-6" />
           </span>
           <Button size="lg" className="mt-2 h-12 rounded-full px-7 text-[15px]" onClick={() => setCreating(true)}>
-            <Plus /> Start essay practice
+            <Plus /> Start an essay
           </Button>
-          <p className="max-w-sm text-[13.5px] text-muted-foreground">Pick a module folder or any lectures, add your marking criteria, and get essay questions with plans.</p>
+          <p className="max-w-sm text-[13.5px] text-muted-foreground">Pick your lectures, generate a question, then fill in the introduction, your points and the conclusion one small box at a time.</p>
         </div>
       ) : (
-        <ul className="grid gap-2.5 sm:grid-cols-2">
-          {sets.map((s) => (
-            <SetTile key={s.id} s={s} />
-          ))}
-        </ul>
+        <>
+          <Segmented
+            className="mb-4"
+            label="Show"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "todo", label: `In progress${todo.length ? ` (${todo.length})` : ""}` },
+              { value: "done", label: `Completed${done.length ? ` (${done.length})` : ""}` },
+            ]}
+          />
+          {!shown.length ? (
+            <p className="py-10 text-center text-[14px] text-muted-foreground">{view === "done" ? "Essays you mark as completed show up here." : "Nothing in progress. Start a new essay."}</p>
+          ) : (
+            <ul className="grid gap-2.5 sm:grid-cols-2">
+              {shown.map((e) => (
+                <EssayTile key={e.id} e={e} />
+              ))}
+            </ul>
+          )}
+        </>
       )}
       {(creating || query.get("new") === "1") && (
-        <NewEssaysDialog
+        <NewEssayDialog
           initial={(query.get("from") ?? "").split(",").filter(Boolean)}
           onClose={() => {
             setCreating(false);
@@ -182,113 +223,106 @@ export function EssaysPage() {
   );
 }
 
-function SetTile({ s }: { s: EssaySet }) {
-  const plans = s.questions.filter((q) => q.plan).length;
-  const [renaming, setRenaming] = useState(false);
+function EssayTile({ e }: { e: EssayDraft }) {
+  const data = useData();
+  const titles = e.materialIds.map((id) => data.materials.find((m) => m.id === id)?.title).filter(Boolean) as string[];
+  const p = progressOf(e);
+  const words = essayWords(e).total;
   return (
     <li className="group relative rounded-2xl border bg-card transition-colors hover:border-foreground/20">
-      <Link to={`/essays/${s.id}`} className="flex items-center gap-3 rounded-2xl p-4 pr-12 focus-ring">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">{s.materialIds.length > 1 ? <FolderIcon className="size-5" /> : <PenLine className="size-5" />}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14.5px] font-semibold">{s.title}</span>
-          <span className="block text-[12.5px] text-muted-foreground">
-            {plural(s.materialIds.length, "lecture")} · {plural(s.questions.length, "question")}
-            {plans ? ` · ${plural(plans, "plan")}` : ""}
-          </span>
+      <Link to={`/essays/${e.id}`} className="block rounded-2xl p-4 pr-12 focus-ring">
+        <span className={cn("line-clamp-2 text-[14.5px] font-semibold leading-snug", !e.question.trim() && "text-muted-foreground")}>{e.question.trim() || "No question yet"}</span>
+        <span className="mt-1 block truncate text-[12.5px] text-muted-foreground">
+          {titles.length > 1 ? plural(titles.length, "lecture") : (titles[0] ?? "Lecture deleted")} · {plural(words, "word")}
         </span>
-        <ChevronRight className="size-4 text-muted-foreground" />
+        <span className="mt-3 flex items-center gap-2">
+          {e.completed ? (
+            <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-success">
+              <CircleCheck className="size-4" /> Completed
+            </span>
+          ) : (
+            <>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={Math.round(p * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Plan filled in">
+                <span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.round(p * 100)}%` }} />
+              </span>
+              <span className="text-[12px] tabular-nums text-muted-foreground">{Math.round(p * 100)}%</span>
+            </>
+          )}
+        </span>
       </Link>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+      <div className="absolute right-2 top-2">
         <Menu
-          label={`${s.title} actions`}
+          label="Essay actions"
           items={[
-            { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
+            e.completed
+              ? { label: "Mark as in progress", icon: RotateCcw, onSelect: () => patchEssay(e.id, { completed: false }) }
+              : { label: "Mark as completed", icon: CircleCheck, onSelect: () => patchEssay(e.id, { completed: true }) },
             {
               label: "Delete",
               icon: Trash2,
               danger: true,
-              onSelect: () => {
-                const undo = deleteSet(s.id);
-                toast.undo("Essays deleted", undo);
-              },
+              onSelect: () => toast.undo("Essay deleted", deleteEssay(e.id)),
             },
           ]}
-          trigger={(p) => (
-            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${s.title}`} {...p}>
+          trigger={(t) => (
+            <Button variant="ghost" size="icon-sm" aria-label="Essay actions" {...t}>
               <MoreHorizontal />
             </Button>
           )}
         />
       </div>
-      {renaming && <RenameSet s={s} onClose={() => setRenaming(false)} />}
     </li>
   );
 }
 
-function RenameSet({ s, onClose }: { s: EssaySet; onClose: () => void }) {
-  const [name, setName] = useState(s.title);
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title="Rename"
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="rename-set" disabled={!name.trim()}>
-            Save
-          </Button>
-        </>
-      }
-    >
-      <form
-        id="rename-set"
-        onSubmit={(e) => {
-          e.preventDefault();
-          patchSet(s.id, { title: name.trim() });
-          onClose();
-        }}
-      >
-        <Input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} data-autofocus />
-      </form>
-    </Dialog>
-  );
-}
+/* ---------------------------------------------------------------- one essay */
 
-/* ---------------------------------------------------------------- one set */
-
-export function EssaySetPage({ id }: { id: ID }) {
+export function EssayPage({ id }: { id: ID }) {
   usePlanQuiet();
   const data = useData();
-  const s = (data.essays ?? []).find((x) => x.id === id);
-  if (!hasPlus())
+  const plus = hasPlus();
+  useEffect(() => {
+    if (plus) migrateOldEssays();
+  }, [plus]);
+  const e = (data.essayDrafts ?? []).find((x) => x.id === id);
+  if (!plus)
     return (
       <div>
         <PageHeader title="Essays" back={{ to: "/essays", label: "Essays" }} />
         <EssaysTeaser />
       </div>
     );
-  if (!s) return <EmptyState icon={PenLine} title="Not found" description="These essays may have been deleted." action={<Link to="/essays" className="font-medium underline">Essays</Link>} />;
-  const mats = s.materialIds.map((mid) => data.materials.find((m) => m.id === mid)).filter((m): m is NonNullable<typeof m> => !!m);
+  if (!e) return <EmptyState icon={PenLine} title="Not found" description="This essay may have been deleted." action={<Link to="/essays" className="font-medium underline">Essays</Link>} />;
+  const mats = e.materialIds.map((mid) => data.materials.find((m) => m.id === mid)).filter((m): m is NonNullable<typeof m> => !!m);
   return (
     <div>
       <PageHeader
-        title={s.title}
+        title="Essay"
         back={{ to: "/essays", label: "Essays" }}
-        description={
-          <span className="flex flex-wrap gap-1.5 pt-1">
-            {mats.map((m) => (
-              <Link key={m.id} to={`/materials/${m.id}`} className="rounded-full border bg-card px-2.5 py-0.5 text-[12.5px] text-muted-foreground hover:text-foreground focus-ring">
-                {m.title}
-              </Link>
-            ))}
-          </span>
+        actions={
+          <Menu
+            label="Essay actions"
+            items={[
+              {
+                label: "Delete essay",
+                icon: Trash2,
+                danger: true,
+                onSelect: () => {
+                  const undo = deleteEssay(e.id);
+                  navigate("/essays");
+                  toast.undo("Essay deleted", undo);
+                },
+              },
+            ]}
+            trigger={(t) => (
+              <Button variant="ghost" size="icon-sm" aria-label="Essay actions" {...t}>
+                <MoreHorizontal />
+              </Button>
+            )}
+          />
         }
       />
-      {mats.length ? <EssaySetView set={s} /> : <p className="text-[14px] text-muted-foreground">The lectures for these essays have been deleted.</p>}
+      {mats.length ? <EssayEditor essay={e} materials={mats} /> : <p className="text-[14px] text-muted-foreground">The lectures for this essay have been deleted.</p>}
     </div>
   );
 }
