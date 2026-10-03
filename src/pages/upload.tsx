@@ -57,6 +57,8 @@ export function UploadPage() {
   const user = useAccount().user;
   const [auth, setAuth] = useState(false);
   const [wantSave, setWantSave] = useState(false);
+  // Not logged in: ask them to log in or sign up as soon as they add something (once per visit).
+  const asked = useRef(false);
   const input = useRef<HTMLInputElement>(null);
 
   const patch = (id: string, p: Partial<Item>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...p } : x)));
@@ -157,6 +159,13 @@ export function UploadPage() {
     setDrag(false);
     addFiles(e.dataTransfer.files);
   };
+
+  useEffect(() => {
+    if (items.length && !user && !asked.current) {
+      asked.current = true;
+      setAuth(true);
+    }
+  }, [items.length, user]);
 
   const ready = items.filter((i) => i.status === "ready" && i.material);
   const busy = items.some((i) => i.status === "reading");
@@ -296,7 +305,7 @@ export function UploadPage() {
           <Button size="lg" onClick={generate} disabled={busy || !ready.length} loading={saving} className="min-w-44 rounded-full">
             {busy ? "Reading…" : "Generate"}
           </Button>
-          {!saving && !busy && (user ? <AllowanceNote materials={ready.map((i) => i.material!)} /> : <p className="text-[13px] text-muted-foreground">You'll need a free account. It takes 20 seconds.</p>)}
+          {!saving && !busy && user && <AllowanceNote materials={ready.map((i) => i.material!)} />}
         </div>
       )}
       {auth && (

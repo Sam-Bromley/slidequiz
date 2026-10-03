@@ -6,7 +6,7 @@
  * Without an account nothing changes: work is saved in the browser as before.
  */
 import { useSyncExternalStore } from "react";
-import { authCallback } from "@/lib/auth-callback";
+import { GOOGLE_PENDING, authCallback, viaGoogle } from "@/lib/auth-callback";
 import type { AppData } from "@/services/db/types";
 import { emptyData, SCHEMA_VERSION } from "@/store/defaults";
 import { getState, replaceState, subscribeState } from "@/store/store";
@@ -189,6 +189,67 @@ export async function signUp(email: string, password: string, name = ""): Promis
   return "confirm";
 }
 
+/* ------------------------------------------------------------------ Google */
+
+let googleOn: Promise<boolean> | null = null;
+/** Whether "Continue with Google" is switched on in Supabase (Authentication → Providers). */
+export function googleAvailable(): Promise<boolean> {
+  googleOn ??= fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY } })
+    .then((r) => r.json())
+    .then((j) => !!j?.external?.google)
+    .catch(() => false);
+  return googleOn;
+}
+
+/**
+ * Log in (or sign up) with Google. Opens Google in a small window so the page underneath (e.g. an
+ * upload in progress) stays as it is; if the browser blocks that, the whole page goes to Google
+ * and comes back to the same place.
+ */
+export function googleSignIn() {
+  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${redirectTo()}`;
+  const w = 480;
+  const h = 640;
+  const left = Math.max(0, window.screenX + (window.outerWidth - w) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - h) / 2);
+  const small = window.matchMedia("(max-width: 640px)").matches;
+  try {
+    localStorage.setItem(GOOGLE_PENDING, String(Date.now()));
+  } catch {
+    /* storage blocked */
+  }
+  const win = window.open(url, "slidequiz-google", small ? "" : `popup,width=${w},height=${h},left=${left},top=${top}`);
+  if (!win) {
+    try {
+      localStorage.removeItem(GOOGLE_PENDING);
+      sessionStorage.setItem("slidequiz:oauth-return", window.location.hash || "#/");
+    } catch {
+      /* storage blocked */
+    }
+    window.location.href = url;
+  }
+}
+
+/** After a Google login: welcome message, and for a brand-new account, note how they found us. */
+async function afterGoogle() {
+  import("@/components/ui/toast").then(({ toast }) => toast("Logged in")).catch(() => {});
+  try {
+    const u = await call<{ email: string; created_at: string; user_metadata?: Record<string, unknown> }>("/auth/v1/user", { auth: true });
+    if (u.user_metadata?.joined || Date.now() - Date.parse(u.created_at) > 15 * 60 * 1000) return;
+    let source = "";
+    try {
+      source = sessionStorage.getItem("slidequiz:source") ?? "";
+    } catch {
+      /* storage blocked */
+    }
+    await call("/auth/v1/user", { method: "PUT", auth: true, body: JSON.stringify({ data: { joined: "google", ...(source ? { source: source.slice(0, 120) } : {}) } }) });
+    const ads = await import("@/services/ads");
+    ads.trackConversion("signup", { value: 1, id: ads.oneWay(u.email.trim().toLowerCase()) });
+  } catch {
+    /* not important */
+  }
+}
+
 export async function sendPasswordReset(email: string) {
   await call(`/auth/v1/recover?redirect_to=${redirectTo()}`, { method: "POST", body: JSON.stringify({ email: email.trim() }) });
 }
@@ -369,6 +430,7 @@ export function startAccount() {
       const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
       setSession({ access_token: token, refresh_token: authCallback.get("refresh_token") ?? "", expires_at: Math.floor(Date.now() / 1000) + expiresIn, user: { id: payload.sub, email: payload.email } });
       if (type === "recovery") set({ recovering: true, notice: "Choose a new password." });
+      else if (viaGoogle) afterGoogle();
       else set({ notice: "Your email is confirmed and you're logged in." });
     }
   }
@@ -384,11 +446,26 @@ export function startAccount() {
   window.addEventListener("online", () => session && syncNow());
   // Logged in from another tab (e.g. the email-confirmation link): pick it up here too.
   window.addEventListener("storage", (e) => {
+    // Something went wrong in the Google window.
+    if (e.key === "slidequiz:oauth-error" && e.newValue) {
+      const msg = e.newValue.replace(/\|\d+$/, "");
+      localStorage.removeItem("slidequiz:oauth-error");
+      import("@/components/ui/toast").then(({ toast }) => toast.error(friendly(msg) || "Couldn't log in with Google. Try again.")).catch(() => {});
+      return;
+    }
     if (e.key !== SESSION_KEY || session) return;
     const s = load<Session>(SESSION_KEY);
     if (!s) return;
     session = s;
     set({ user: s.user });
-    syncNow();
+    let google = false;
+    try {
+      google = !!localStorage.getItem("slidequiz:oauth");
+      localStorage.removeItem("slidequiz:oauth");
+    } catch {
+      /* storage blocked */
+    }
+    syncNow(google && !meta);
+    if (google) afterGoogle();
   });
 }

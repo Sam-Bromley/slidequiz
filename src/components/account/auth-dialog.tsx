@@ -1,11 +1,11 @@
 import { oneWay, trackConversion } from "@/services/ads";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { Link } from "@/lib/router";
-import { logIn, sendPasswordReset, setNewPassword, signUp } from "@/services/account";
+import { googleAvailable, googleSignIn, logIn, sendPasswordReset, setNewPassword, signUp, useAccount } from "@/services/account";
 
 export type AuthMode = "login" | "signup" | "forgot";
 
@@ -20,6 +20,21 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState<null | "confirm" | "reset">(null);
+  const [google, setGoogle] = useState(false);
+  useEffect(() => {
+    let live = true;
+    googleAvailable().then((on) => live && setGoogle(on));
+    return () => {
+      live = false;
+    };
+  }, []);
+  // Logged in some other way (Google, or another tab): nothing more to do here.
+  const { user } = useAccount();
+  const hadUser = useRef(!!user);
+  useEffect(() => {
+    if (user && !hadUser.current) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const valid = emailOk(email) && (mode === "forgot" || password.length >= (mode === "signup" ? 6 : 1));
   const title = sent ? "Check your email" : mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Reset password";
@@ -96,6 +111,16 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
         }}
       >
         {reason && mode !== "forgot" && <p className="text-[14px] leading-relaxed text-foreground/85">{reason}</p>}
+        {google && mode !== "forgot" && (
+          <>
+            <Button type="button" variant="outline" className="h-11 w-full rounded-full text-[14.5px]" onClick={googleSignIn}>
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3 text-[12px] text-muted-foreground" aria-hidden>
+              <span className="h-px flex-1 bg-border" /> or with email <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        )}
         {mode === "signup" && (
           <Field label="First name" htmlFor="auth-name" hint="Optional.">
             <Input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" maxLength={40} data-autofocus />
