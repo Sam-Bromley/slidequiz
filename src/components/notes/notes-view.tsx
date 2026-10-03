@@ -1,11 +1,11 @@
-import { BookOpen, Download, Image as ImageIcon, MessageCircle, StickyNote } from "lucide-react";
+import { BookOpen, ChevronLeft, Download, Image as ImageIcon, ListTree, MessageCircle, StickyNote } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
 import { ChatPanel } from "@/components/tutor/chat-panel";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { ImageZoom } from "@/components/ui/image-zoom";
 import { cn } from "@/lib/utils";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
 import { buildNotes, lineKey, notesExportDoc, type NoteLine, type NoteSlide } from "@/services/notes";
@@ -218,6 +218,24 @@ export function NotesView({ material }: { material: Material }) {
   const showImages = !!data.settings.notesImages;
   const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
   const [asking, setAsking] = useState(false);
+  // Text picked in the notes to ask about (explained as soon as the panel opens).
+  const [askText, setAskText] = useState<string | null>(null);
+  const [contents, setContents] = useState(() => {
+    try {
+      return localStorage.getItem("slidequiz:notes-contents") !== "off";
+    } catch {
+      return true;
+    }
+  });
+  const toggleContents = () =>
+    setContents((on) => {
+      try {
+        localStorage.setItem("slidequiz:notes-contents", on ? "off" : "on");
+      } catch {
+        /* storage blocked */
+      }
+      return !on;
+    });
   const [exporting, setExporting] = useState(false);
   const [big, setBig] = useState<{ img: PageImage; label: string } | null>(null);
   // Pro: highlights and notes on the notes.
@@ -250,10 +268,12 @@ export function NotesView({ material }: { material: Material }) {
     );
 
   return (
-    <div className="lg:grid lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-10">
-      <nav aria-label="Contents" className="hidden lg:block">
+    <div className={cn(contents && "lg:grid lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-10")}>
+      <nav aria-label="Contents" className={cn("hidden", contents && "lg:block")}>
         <div className="sticky top-20">
-          <p className="mb-2 text-[12px] font-medium text-muted-foreground">Contents</p>
+          <button type="button" onClick={toggleContents} title="Hide contents" aria-expanded className="-ml-1 mb-2 flex items-center gap-1 rounded-md px-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-ring">
+            Contents <ChevronLeft className="size-3.5" />
+          </button>
           <ul className="space-y-0.5 border-l">
             {sections.map((s) => (
               <li key={s.id}>
@@ -268,6 +288,11 @@ export function NotesView({ material }: { material: Material }) {
 
       <div className="min-w-0 max-w-[780px]">
         <div className="-ml-2.5 mb-2 flex flex-wrap items-center gap-2 py-1">
+          {!contents && (
+            <Button variant="ghost" size="sm" className="hidden rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground lg:inline-flex" onClick={toggleContents} aria-expanded={false}>
+              <ListTree /> Contents
+            </Button>
+          )}
           <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setAsking(true)}>
             <MessageCircle /> Ask about these notes
           </Button>
@@ -287,7 +312,15 @@ export function NotesView({ material }: { material: Material }) {
           )}
         </div>
 
-        <Highlighter material={material} active={activeMark} onClose={() => setActiveMark(null)} />
+        <Highlighter
+          material={material}
+          active={activeMark}
+          onClose={() => setActiveMark(null)}
+          onAsk={(text) => {
+            setAskText(text);
+            setAsking(true);
+          }}
+        />
         {sections.map((sec, si) => (
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
@@ -301,20 +334,30 @@ export function NotesView({ material }: { material: Material }) {
       {asking &&
         createPortal(
           <div className="fixed inset-0 z-[65] flex justify-end" role="dialog" aria-modal="true" aria-label="Ask about these notes">
-            <div className="absolute inset-0 animate-fade-in bg-black/30" onClick={() => setAsking(false)} />
+            <div
+              className="absolute inset-0 animate-fade-in bg-black/30"
+              onClick={() => {
+                setAsking(false);
+                setAskText(null);
+              }}
+            />
             <div className="relative h-[100dvh] w-full bg-background sm:w-[440px]">
-              <ChatPanel material={material} className="h-full min-h-0 rounded-none border-0 border-l bg-background shadow-pop" onClose={() => setAsking(false)} />
+              <ChatPanel
+                material={material}
+                ask={askText ?? undefined}
+                className="h-full min-h-0 rounded-none border-0 border-l bg-background shadow-pop"
+                onClose={() => {
+                  setAsking(false);
+                  setAskText(null);
+                }}
+              />
             </div>
           </div>,
           document.body,
         )}
 
       {exporting && <ExportDialog open onClose={() => setExporting(false)} title={material.title} notes={notesExportDoc(material)} />}
-      {big && (
-        <Dialog open onClose={() => setBig(null)} title={`Image from ${big.label}`} size="xl">
-          <StoredImage id={big.img.id} alt={`Image from ${big.label}`} className="max-h-[70vh] w-full rounded-lg bg-white object-contain" />
-        </Dialog>
-      )}
+      {big && <ImageZoom id={big.img.id} alt={`Image from ${big.label}`} onClose={() => setBig(null)} />}
     </div>
   );
 }

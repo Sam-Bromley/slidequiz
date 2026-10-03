@@ -322,6 +322,32 @@ function toDraft(q: CloudQuestion, m: Material, topicOf: Map<ID, ID | null>, lab
   ];
 }
 
+/**
+ * More practice questions once the first ones are done. The lecture is worked through a piece at a
+ * time and each piece's questions are added as soon as they arrive, so practice can carry on
+ * straight away. Returns how many were added. Throws an AIError if it can't.
+ */
+export async function cloudMoreQuestions(id: ID, onAdded?: (total: number) => void): Promise<number> {
+  const m = getState().materials.find((x) => x.id === id);
+  if (!m) return 0;
+  const pages = cloudPages(m);
+  const topicOf = new Map(m.pages.map((p) => [p.id, p.topicId]));
+  const labelOf = new Map(m.pages.map((p) => [p.id, p.label]));
+  let total = 0;
+  for (const c of chunks(pages)) {
+    const ids = new Set(c.map((p) => p.id));
+    const avoid = getState()
+      .questions.filter((q) => q.materialId === id && q.pool && (!q.sources[0] || ids.has(q.sources[0].pageId)))
+      .map((q) => q.prompt)
+      .slice(-80);
+    const r = await call<{ questions: CloudQuestion[] }>("questions", { title: m.title, pages: c, avoid });
+    const drafts = (r.questions ?? []).flatMap((q) => toDraft(q, m, topicOf, labelOf));
+    total += actions.addPracticeQuestions(id, drafts);
+    onAdded?.(total);
+  }
+  return total;
+}
+
 /** Flashcards written by the AI. Throws an AIError if it can't. */
 export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ front: string; back: string; pageId: ID }[]> {
   const pages = cloudPages(m, topicIds);

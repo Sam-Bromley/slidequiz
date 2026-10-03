@@ -1,4 +1,4 @@
-import { Crown, StickyNote, Trash2, X } from "lucide-react";
+import { Crown, MessageCircle, StickyNote, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ const goPro = (what: string) =>
   toast(`${what} are part of SlideQuiz Pro`, { tone: "info", action: { label: "See Pro", onClick: () => navigate("/pro") } });
 
 /** Pick words in the notes to highlight them, and click a highlight to add a note. */
-export function Highlighter({ material, active, onClose }: { material: Material; active: { mark: NoteMark; el: HTMLElement } | null; onClose: () => void }) {
+export function Highlighter({ material, active, onClose, onAsk }: { material: Material; active: { mark: NoteMark; el: HTMLElement } | null; onClose: () => void; onAsk?: (text: string) => void }) {
   usePlanQuiet();
   const plus = hasPlus();
   const [picked, setPicked] = useState<Picked | null>(null);
@@ -127,8 +127,8 @@ export function Highlighter({ material, active, onClose }: { material: Material;
             role="toolbar"
             aria-label="Highlight"
             onMouseDown={(e) => e.preventDefault()}
-            style={{ left: Math.max(8, Math.min(window.innerWidth - 248, picked.rect.left + picked.rect.width / 2 - 120)), top: Math.max(8, picked.rect.top - 48) }}
-            className="fixed z-[60] flex w-[240px] animate-scale-in items-center gap-1 rounded-full border bg-popover p-1 pl-2 text-popover-foreground shadow-pop"
+            style={{ left: Math.max(8, Math.min(window.innerWidth - (onAsk ? 328 : 248), picked.rect.left + picked.rect.width / 2 - (onAsk ? 160 : 120))), top: Math.max(8, picked.rect.top - 48) }}
+            className="fixed z-[60] flex w-auto animate-scale-in items-center gap-1 rounded-full border bg-popover p-1 pl-2 text-popover-foreground shadow-pop"
           >
             {COLOURS.map((c) => (
               <button key={c.id} type="button" aria-label={`Highlight ${c.label.toLowerCase()}`} title={c.label} onClick={() => save(c.id)} className="grid size-8 place-items-center rounded-full hover:bg-accent focus-ring">
@@ -140,6 +140,24 @@ export function Highlighter({ material, active, onClose }: { material: Material;
               {plus ? <StickyNote className="size-3.5" /> : <Crown className="size-3.5 text-amber-500" />}
               Note
             </button>
+            {onAsk && (
+              <>
+                <span className="mx-0.5 h-5 w-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = picked.text;
+                    window.getSelection()?.removeAllRanges();
+                    setPicked(null);
+                    onAsk(text);
+                  }}
+                  className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium hover:bg-accent focus-ring"
+                >
+                  <MessageCircle className="size-3.5" />
+                  Explain
+                </button>
+              </>
+            )}
           </div>,
           document.body,
         )}

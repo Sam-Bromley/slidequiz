@@ -1,6 +1,8 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, Plus, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { AIError, cloudMoreQuestions, refreshAllowance } from "@/services/ai/cloud";
 import { cn } from "@/lib/utils";
 import { tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
@@ -84,12 +86,29 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   /** Which past question is on screen (null = the current one). */
   const [viewIdx, setViewIdx] = useState<number | null>(null);
 
-  // Rebuild the order when the topic filter or the question set changes.
-  const setKey = `${topicIds.join(",")}|${shuffle}|${topicQs.map((q) => q.id).join(",")}`;
+  // Rebuild the order when the topic filter or the question set changes. New questions being added
+  // (e.g. "More questions") just join the end, so practice carries on without starting again.
+  const filterKey = `${topicIds.join(",")}|${shuffle}`;
+  const idsNow = topicQs.map((q) => q.id);
+  const setKey = `${filterKey}|${idsNow.join(",")}`;
   const lastKey = useRef(setKey);
+  const lastFilter = useRef(filterKey);
+  const lastIds = useRef(idsNow);
   useEffect(() => {
     if (lastKey.current === setKey) return;
     lastKey.current = setKey;
+    const prevIds = lastIds.current;
+    lastIds.current = idsNow;
+    if (lastFilter.current === filterKey) {
+      const had = new Set(prevIds);
+      const kept = prevIds.every((id) => idsNow.includes(id));
+      if (kept) {
+        const added = idsNow.filter((id) => !had.has(id));
+        if (added.length) setQueue((qu) => [...qu, ...added.filter((id) => !qu.includes(id))]);
+        return;
+      }
+    }
+    lastFilter.current = filterKey;
     setQueue(practiceQueue(topicQs, shuffle));
     setPos(0);
     setChosen(null);
@@ -198,6 +217,50 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setPos((p) => p + 1);
   };
 
+  /** Writing more questions (once everything's covered); they join the queue as each batch arrives. */
+  const [making, setMaking] = useState(false);
+  const makeMore = async () => {
+    if (making || mixed) return;
+    setMaking(true);
+    try {
+      const n = await cloudMoreQuestions(material.id);
+      if (!n) toast("No new questions this time. Your slides may already be fully covered.");
+    } catch (e) {
+      const err = e as AIError;
+      toast.error(err?.message === "busy" ? "SlideQuiz is very busy right now. Try again in a little while." : (err?.message ?? "Couldn't write more questions.").replace(/\s*\(\d{3}\)$/, ""));
+    } finally {
+      setMaking(false);
+      refreshAllowance();
+    }
+  };
+
+  /** Start this lecture's practice from scratch (with undo). */
+  const resetProgress = () => {
+    const undos = (mixed ? mixed.map((m) => m.id) : [material.id]).map((id) => actions.resetPractice(id));
+    const keptPast = past;
+    setPast(() => []);
+    again();
+    toast.undo("Progress reset", () => {
+      undos.forEach((u) => u());
+      setPast(() => keptPast);
+    });
+  };
+
+  // Keep the question and what's said about the answer on screen, without having to scroll.
+  const card = useRef<HTMLElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!sAnswered) return;
+    const id = requestAnimationFrame(() => feedbackRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+    return () => cancelAnimationFrame(id);
+  }, [sAnswered, viewIdx, qid]);
+  useEffect(() => {
+    if (sAnswered) return;
+    const id = requestAnimationFrame(() => card.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qid, pos, viewIdx]);
+
   const again = () => {
     const d = getState();
     const qs = setFor(d).filter((x) => !topicIds.length || (groupOf(x) && topicIds.includes(groupOf(x)!)));
@@ -296,7 +359,12 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
         >
           <Shuffle className="size-3.5" /> Shuffle
         </button>
-        <Pop label={`${count} options`} title="Answer options" align="right" className="ml-auto">
+        {prog.covered + prog.review > 0 && (
+          <button type="button" onClick={resetProgress} title="Start this practice again from scratch" className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring">
+            <RotateCcw className="size-3.5" /> Reset progress
+          </button>
+        )}
+        <Pop label={`${count} options`} title="Answer options" align="right" className={cn(!(prog.covered + prog.review > 0) && "ml-auto")}>
           <div className="grid grid-cols-4 gap-1 p-1" role="radiogroup" aria-label="Answer options per question">
             {COUNTS.map((n) => (
               <button
@@ -341,20 +409,27 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             This round: {session.right} right, {session.wrong} wrong.
             {topicQs.some(needsReview) ? " The ones you got wrong will come up again." : ""}
           </p>
-          <Button className="mt-6" onClick={again}>
-            <RotateCcw /> Keep practising
-          </Button>
+          {making ? (
+            <p className="mt-6 flex items-center justify-center gap-2 text-[14px] text-muted-foreground" aria-live="polite">
+              <Loader2 className="size-4 animate-spin" /> Writing new questions… the first ones will appear here in a moment.
+            </p>
+          ) : (
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {!mixed && topicQs.every(isCovered) && (
+                <Button onClick={makeMore}>
+                  <Plus /> More questions
+                </Button>
+              )}
+              <Button variant={!mixed && topicQs.every(isCovered) ? "outline" : "default"} onClick={again}>
+                <RotateCcw /> Keep practising
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
-        <article key={rev ? `past-${viewIdx}` : `${qid}-${pos}-${round}`} className="animate-fade-up rounded-2xl border bg-card p-5 sm:p-7" aria-live="polite">
+        <article key={rev ? `past-${viewIdx}` : `${qid}-${pos}-${round}`} ref={card} className="animate-fade-up scroll-mt-20 scroll-mb-24 rounded-2xl border bg-card p-5 sm:p-6 lg:scroll-mb-6" aria-live="polite">
           <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
             {topicName && <span>{topicName}</span>}
-            {page && (
-              <>
-                <span aria-hidden>·</span>
-                <span>{page.label}</span>
-              </>
-            )}
             {before === "incorrect" && <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning">You got this wrong before</span>}
             {before === "correct" && <span className="rounded-full bg-success-soft px-2 py-0.5 font-medium text-success">You got this right before</span>}
             {rev && <span className="rounded-full bg-muted px-2 py-0.5 font-medium">{revSkipped ? "Skipped" : "Looking back"}</span>}
@@ -368,7 +443,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
               </>
             );
           })()}
-          <div className="mt-5 space-y-2" role="radiogroup" aria-label="Answers" data-no-bounce>
+          <div className="mt-4 space-y-2" role="radiogroup" aria-label="Answers" data-no-bounce>
             {sView!.options.map((o, i) => {
               const isRight = i === sView!.correct;
               const isChosen = i === sChosen;
@@ -381,7 +456,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                   disabled={sAnswered}
                   onClick={() => (rev ? answerPast(i) : answer(i))}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
+                    "flex w-full items-start gap-3 rounded-xl border px-3.5 py-2.5 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
                     !sAnswered && "hover:border-foreground/40 hover:bg-accent",
                     sAnswered && isRight && "border-success bg-success-soft",
                     !rev && sAnswered && isRight && isChosen && "animate-correct-glow",
@@ -424,13 +499,13 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             <p className="mt-3 text-[12.5px] text-muted-foreground">Your slides only give {view?.options.length} good options for this one.</p>
           )}
           {sAnswered && (
-            <div className="mt-5 animate-fade-up">
+            <div ref={feedbackRef} className="mt-4 animate-fade-up scroll-mb-24 lg:scroll-mb-6">
               <p className={cn("text-[15px] font-semibold", sCorrect ? "text-success" : "text-destructive")}>
                 {rev ? (sCorrect ? "You got this right" : `You got this wrong. The answer is ${LETTERS[sView!.correct]}.`) : sCorrect ? "Correct" : `Not quite. The answer is ${LETTERS[sView!.correct]}.`}
               </p>
               <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>
               {!rev && !sCorrect && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
-              <div className="mt-5 flex items-center justify-between gap-3">
+              <div className="mt-4 flex items-center justify-between gap-3">
                 {page ? (
                   <button type="button" onClick={() => onOpenNotes(page.id, sq!.materialId)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
                     See it in your notes

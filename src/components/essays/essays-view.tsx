@@ -1,5 +1,5 @@
-import { BookOpen, Check, ChevronDown, CircleCheck, Copy, Eye, Lightbulb, ListChecks, MessageSquareText, PenLine, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { BookOpen, Check, ChevronDown, CircleCheck, Copy, Eye, EyeOff, Lightbulb, ListChecks, MessageSquareText, PenLine, Plus, RefreshCw, Settings2, Trash2, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -122,6 +122,32 @@ const DEFAULT_WORDS = 1500;
 
 const filled = (t: string) => wordCount(t) >= 3;
 
+/* Example text in the boxes: shown unless the student hides it (remembered on this device). */
+const EX_KEY = "slidequiz:essay-examples";
+let showExamples = (() => {
+  try {
+    return localStorage.getItem(EX_KEY) !== "off";
+  } catch {
+    return true;
+  }
+})();
+const exListeners = new Set<() => void>();
+const setShowExamples = (on: boolean) => {
+  showExamples = on;
+  try {
+    localStorage.setItem(EX_KEY, on ? "on" : "off");
+  } catch {
+    /* storage blocked */
+  }
+  exListeners.forEach((l) => l());
+};
+const useExamples = () =>
+  useSyncExternalStore(
+    (l) => (exListeners.add(l), () => exListeners.delete(l)),
+    () => showExamples,
+    () => showExamples,
+  );
+
 function aiMessage(e: unknown) {
   const err = e as AIError;
   if (err?.message === "busy") return "SlideQuiz is very busy right now. Try again in a little while.";
@@ -205,6 +231,7 @@ function Note({ text }: { text: string }) {
 /** One small box with its label, hint, tick and any feedback for it. */
 function Field({ f, value, onCommit, notes, boxId }: { f: FieldDef; value: string; onCommit: (v: string) => void; notes: string[]; boxId: string }) {
   const done = filled(value);
+  const examples = useExamples();
   return (
     <div>
       <label htmlFor={boxId} className="mb-1 flex items-center gap-2">
@@ -217,7 +244,7 @@ function Field({ f, value, onCommit, notes, boxId }: { f: FieldDef; value: strin
       </label>
       <p className="mb-1.5 pl-6 text-[12.5px] text-muted-foreground">{f.hint}</p>
       <div className="pl-6">
-        <Box id={boxId} value={value} onCommit={onCommit} placeholder={f.ph} />
+        <Box id={boxId} value={value} onCommit={onCommit} placeholder={examples ? f.ph : undefined} />
         {notes.map((n, i) => (
           <Note key={i} text={n} />
         ))}
@@ -376,7 +403,6 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
       const qs = await cloudEssayQuestion(getEssay(e.id)!, materials);
       patchEssay(e.id, (cur) => ({
         question: qs[0],
-        ideas: [...qs.slice(1), ...(cur.question.trim() ? [cur.question.trim()] : []), ...(cur.ideas ?? [])].filter((q, i, a) => a.indexOf(q) === i && q !== qs[0]).slice(0, 6),
         asked: [...(cur.asked ?? []), ...qs].slice(-40),
       }));
     } catch (err) {
@@ -445,23 +471,6 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
             <CircleCheck /> {e.completed ? "Completed" : "Mark as completed"}
           </Button>
         </div>
-        {(e.ideas?.length ?? 0) > 0 && (
-          <div className="mt-3">
-            <p className="mb-1.5 text-[12px] text-muted-foreground">Other questions you could use:</p>
-            <div className="flex flex-col gap-1.5">
-              {e.ideas!.slice(0, 4).map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => patchEssay(e.id, (cur) => ({ question: q, ideas: [...(cur.question.trim() ? [cur.question.trim()] : []), ...(cur.ideas ?? []).filter((x) => x !== q)] }))}
-                  className="rounded-lg border px-3 py-2 text-left text-[13.5px] transition-colors hover:bg-accent focus-ring"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         {materials.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {materials.map((m) => (
@@ -489,6 +498,7 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
           {w.total} / {target} words
         </span>
         <span className="ml-auto" />
+        <ExamplesToggle />
         <Button variant="outline" size="sm" onClick={() => setPreview(true)} disabled={!w.total}>
           <Eye /> Preview
         </Button>
@@ -561,6 +571,15 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
   );
 }
 
+function ExamplesToggle() {
+  const on = useExamples();
+  return (
+    <Button variant="ghost" size="sm" className="text-muted-foreground" aria-pressed={!on} onClick={() => setShowExamples(!on)} title={on ? "Hide the example text in the boxes" : "Show example text in the boxes"}>
+      {on ? <EyeOff /> : <Eye />} {on ? "Hide examples" : "Show examples"}
+    </Button>
+  );
+}
+
 function WordGuide({ n, p, aim, total }: { n: number; p: number; aim: [number, number]; total: number }) {
   const off = total >= 200 && (p < aim[0] - 3 || p > aim[1] + 3);
   return (
@@ -571,7 +590,8 @@ function WordGuide({ n, p, aim, total }: { n: number; p: number; aim: [number, n
 }
 
 function SimpleBox({ value, onCommit, label, ph }: { value: string; onCommit: (v: string) => void; label: string; ph: string }) {
-  return <Box value={value} onCommit={onCommit} label={label} placeholder={ph} minRows={5} />;
+  const examples = useExamples();
+  return <Box value={value} onCommit={onCommit} label={label} placeholder={examples ? ph : undefined} minRows={5} />;
 }
 
 function PointCard({ e, p, n, words, setPoint, notesFor }: { e: EssayDraft; p: EssayPoint; n: number; words: number; setPoint: (pid: string, k: keyof EssayPoint) => (v: string) => void; notesFor: (box: string) => string[] }) {

@@ -155,7 +155,6 @@ export function EssaysPage() {
           <Button size="lg" className="mt-2 h-12 rounded-full px-7 text-[15px]" onClick={() => setCreating(true)}>
             <Plus /> Start an essay
           </Button>
-          <p className="max-w-sm text-[13.5px] text-muted-foreground">Pick your lectures, generate a question, then fill in the introduction, your points and the conclusion one small box at a time.</p>
         </div>
       ) : (
         <>

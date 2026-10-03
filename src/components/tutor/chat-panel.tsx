@@ -22,7 +22,7 @@ const MODES: { mode: ChatMode; label: string; icon: typeof Brain; prompt: string
 ];
 
 /** "Ask your notes": answers only from the student's material, with slide citations. */
-export function ChatPanel({ material, className, onClose }: { material: Material; className?: string; onClose?: () => void }) {
+export function ChatPanel({ material, className, onClose, ask }: { material: Material; className?: string; onClose?: () => void; ask?: string }) {
   const data = useData();
   const messages = data.chats[material.id] ?? [];
   const [input, setInput] = useState("");
@@ -67,6 +67,16 @@ export function ChatPanel({ material, className, onClose }: { material: Material
       inputRef.current?.focus();
     }
   };
+
+  // Opened from "Explain" on some highlighted text: ask about it straight away (once).
+  const asked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ask || asked.current === ask) return;
+    asked.current = ask;
+    const quote = ask.trim().replace(/\s+/g, " ").slice(0, 600);
+    send(`Explain this part of my notes: "${quote}"`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask]);
 
   const suggestions = material.topics.slice(0, 3).map((t) => `What are the key ideas in ${t.name.toLowerCase()}?`);
 

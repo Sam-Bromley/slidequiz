@@ -113,7 +113,13 @@ export function shuffleOptions(q: Question, count: number): { options: string[];
     const j = Math.floor(Math.random() * (i + 1));
     [wrong[i], wrong[j]] = [wrong[j], wrong[i]];
   }
-  const shown = [correctText, ...wrong.slice(0, Math.max(1, count - 1))];
+  // When there are more wrong answers than needed, use the ones closest in length to the right one,
+  // so the right answer doesn't stand out by being longer (or shorter) than the rest.
+  const len = (t: string) => tidyOption(t).length;
+  const target = len(correctText);
+  const need = Math.max(1, count - 1);
+  const picked = wrong.length > need ? [...wrong].sort((a, b) => Math.abs(len(a) - target) - Math.abs(len(b) - target)).slice(0, need) : wrong.slice(0, need);
+  const shown = [correctText, ...picked];
   for (let i = shown.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shown[i], shown[j]] = [shown[j], shown[i]];

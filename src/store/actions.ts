@@ -237,6 +237,24 @@ export const actions = {
       return addXp(logStudy(next, [{ questionId, right: correct }]), correct ? XP.correct : 1);
     });
   },
+  /** Add new practice questions to a material (ones already there are skipped). */
+  addPracticeQuestions(materialId: ID, drafts: QuestionDraft[]): number {
+    const now = nowISO();
+    let added = 0;
+    setState((s) => {
+      const have = new Set(s.questions.filter((q) => q.materialId === materialId && q.pool).map((q) => q.prompt.trim().toLowerCase()));
+      const fresh: Question[] = [];
+      for (const d of drafts) {
+        const k = d.prompt.trim().toLowerCase();
+        if (have.has(k)) continue;
+        have.add(k);
+        fresh.push({ ...d, id: uid("q"), createdAt: now, stats: { attempts: 0, correct: 0 } });
+      }
+      added = fresh.length;
+      return fresh.length ? { ...s, questions: [...s.questions, ...fresh] } : s;
+    });
+    return added;
+  },
   resetPractice(materialId: ID): Undo {
     const before = getState().questions.filter((q) => q.materialId === materialId && q.pool);
     setState((s) => ({ ...s, questions: s.questions.map((q) => (q.materialId === materialId && q.pool ? { ...q, stats: { attempts: 0, correct: 0 } } : q)) }));
