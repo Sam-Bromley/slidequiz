@@ -19,6 +19,7 @@ import { MaterialDetailPage } from "@/pages/material-detail";
 import { MaterialsPage } from "@/pages/materials";
 import { NotFound } from "@/pages/not-found";
 import { QuestionBankPage } from "@/pages/question-bank";
+import { QuestionsPage } from "@/pages/questions";
 import { QuizPage } from "@/pages/quiz";
 import { QuizResultsPage } from "@/pages/quiz-results";
 import { SettingsPage } from "@/pages/settings";
@@ -40,7 +41,8 @@ const ROUTES: Route[] = [
   { pattern: "/pro", render: () => <PlusPage /> },
   { pattern: "/plus", render: () => <PlusPage /> },
   { pattern: "/generate", render: () => <GeneratePage /> },
-  { pattern: "/questions", render: () => <QuestionBankPage /> },
+  { pattern: "/questions", render: () => <QuestionsPage /> },
+  { pattern: "/question-bank", render: () => <QuestionBankPage /> },
   { pattern: "/flashcards", render: () => <FlashcardsPage /> },
   { pattern: "/essays", render: () => <EssaysPage /> },
   { pattern: "/essays/:id", render: (p) => <EssayPage key={p.id} id={p.id} /> },

@@ -254,8 +254,14 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     const id = requestAnimationFrame(() => feedbackRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
     return () => cancelAnimationFrame(id);
   }, [sAnswered, viewIdx, qid]);
+  // (Not when the page first opens: the controls at the top should stay in view then.)
+  const firstShow = useRef(true);
   useEffect(() => {
     if (sAnswered) return;
+    if (firstShow.current) {
+      firstShow.current = false;
+      return;
+    }
     const id = requestAnimationFrame(() => card.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
