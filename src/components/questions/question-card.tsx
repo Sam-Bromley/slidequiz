@@ -16,6 +16,7 @@ import type { Answer, Question } from "@/types/models";
 import { QuestionAnswerer } from "./answerer";
 import { DIFFICULTY_META, KIND_META } from "./meta";
 import { SourceChip } from "./source";
+import { Spinner } from "@/components/ui/spinner";
 
 export function QuestionMeta({ q, number, showMaterial }: { q: Question; number?: number; showMaterial?: boolean }) {
   const data = useData();
@@ -161,7 +162,7 @@ export function QuestionCard({ q, number, showMaterial, defaultOpen }: { q: Ques
               ]}
               trigger={(p) => (
                 <Button variant="ghost" size="icon-sm" aria-label="More actions" {...p}>
-                  {busy ? <RefreshCw className="animate-spin" /> : <MoreHorizontal />}
+                  {busy ? <Spinner /> : <MoreHorizontal />}
                 </Button>
               )}
             />

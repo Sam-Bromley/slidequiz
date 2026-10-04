@@ -95,7 +95,7 @@ function Sidebar() {
           <LogoMark className="size-6 shrink-0" />
           <span className="flex items-center gap-2 whitespace-nowrap" style={{ opacity: labels }} aria-hidden={labels < 0.5}>
             <span className="text-[16px] font-bold tracking-[-0.025em] text-foreground">SlideQuiz</span>
-            {pro && <span className="pro-gold rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider" style={{ opacity: Math.max(0, Math.min(1, (width - 196) / 30)) }}>Pro</span>}
+            {pro && <span className="pro-gold pro-badge rounded-md text-[10px] font-bold uppercase leading-none tracking-wider" style={{ opacity: Math.max(0, Math.min(1, (width - 196) / 30)) }}>Pro</span>}
           </span>
         </Link>
         {labels > 0.95 && (

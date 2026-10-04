@@ -1,4 +1,4 @@
-import { AlertCircle, CirclePlay, ClipboardPaste, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { AlertCircle, CirclePlay, ClipboardPaste, Trash2, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { hasPlus, usePlan } from "@/services/plus";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material } from "@/types/models";
+import { Spinner } from "@/components/ui/spinner";
 
 /** A pasted YouTube link on its own (with or without https://, www., m., youtu.be, shorts). */
 const YOUTUBE_ONLY = /^(https?:\/\/)?((www|m|music)\.)?(youtube\.com\/(watch\?\S*v=|shorts\/|live\/|embed\/)|youtu\.be\/)[\w-]{11}\S*$/i;
@@ -294,7 +295,7 @@ export function UploadPage() {
                   </p>
                   {it.status === "reading" && <Progress value={it.progress} size="sm" className="mt-2 max-w-xs" label={`${it.name} progress`} />}
                 </div>
-                {it.status === "reading" && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                {it.status === "reading" && <Spinner className="size-4 text-muted-foreground" />}
                 {it.status === "error" && <AlertCircle className="size-4 text-destructive" />}
                 <Button variant="ghost" size="icon-sm" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))} aria-label={`Remove ${it.name}`}>
                   <Trash2 />

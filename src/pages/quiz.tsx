@@ -14,6 +14,7 @@ import { cn, formatClock } from "@/lib/utils";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
 import type { Answer, Question } from "@/types/models";
+import { Spinner } from "@/components/ui/spinner";
 
 export function QuizPage({ id }: { id: string }) {
   const data = useData();
@@ -266,7 +267,7 @@ export function QuizPage({ id }: { id: string }) {
       {marking && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm" role="status">
           <div className="text-center">
-            <span className="mx-auto block size-8 animate-spin rounded-full border-[3px] border-primary border-r-transparent" />
+            <Spinner className="mx-auto block size-8 text-primary" />
             <p className="mt-4 font-semibold">Marking your written answers…</p>
           </div>
         </div>

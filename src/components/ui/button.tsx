@@ -1,5 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 const VARIANTS = {
   default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
@@ -37,7 +38,7 @@ export const buttonClass = (variant: keyof typeof VARIANTS = "default", size: ke
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = "default", size = "md", loading, className, children, disabled, type = "button", ...props }, ref) {
   return (
     <button ref={ref} type={type} className={buttonClass(variant, size, className)} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
-      {loading && <span className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden />}
+      {loading && <Spinner />}
       {children}
     </button>
   );

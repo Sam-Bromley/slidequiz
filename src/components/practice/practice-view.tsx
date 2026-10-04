@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, Plus, RotateCcw, Shuffle, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Plus, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -11,6 +11,7 @@ import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } fr
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
 import type { ID, Material, Question } from "@/types/models";
+import { Spinner } from "@/components/ui/spinner";
 
 const LETTERS = "ABCDEF";
 const COUNTS = [3, 4, 5, 6];
@@ -417,7 +418,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           </p>
           {making ? (
             <p className="mt-6 flex items-center justify-center gap-2 text-[14px] text-muted-foreground" aria-live="polite">
-              <Loader2 className="size-4 animate-spin" /> Writing new questions… the first ones will appear here in a moment.
+              <Spinner className="size-4" /> Writing new questions… the first ones will appear here in a moment.
             </p>
           ) : (
             <div className="mt-6 flex flex-wrap justify-center gap-2">

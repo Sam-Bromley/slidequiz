@@ -207,7 +207,13 @@ html.font-dyslexic body { letter-spacing: 0.01em; word-spacing: 0.08em; }
 html.sb-dragging .sb-anim { transition: none; }
 
 
-/* The PRO badge next to the logo: gold. */
+/* The PRO badge next to the logo: gold. Capitals sit high in their line box, so a little more
+   space on top centres them; the extra on the left balances the letter spacing after the O. */
+.pro-badge { padding: 3px 5.5px 1.5px 6.5px; }
+
+/* Loading spinner: one smooth, steady turn (drawn as an SVG so it never wobbles). */
+@keyframes sq-spin { to { transform: rotate(360deg); } }
+.sq-spinner { animation: sq-spin 0.75s linear infinite; transform-origin: 50% 50%; will-change: transform; }
 .pro-gold {
   color: #4a3200;
   background: linear-gradient(135deg, #fde68a 0%, #f5c542 45%, #e0a526 100%);

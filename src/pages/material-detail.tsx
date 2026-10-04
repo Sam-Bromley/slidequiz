@@ -1,4 +1,4 @@
-import { Download, FileText, ListChecks, Loader2, MoreHorizontal } from "lucide-react";
+import { Download, FileText, ListChecks, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,6 +17,7 @@ import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } 
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
 import { useData } from "@/store/store";
+import { Spinner } from "@/components/ui/spinner";
 
 type Tab = "notes" | "progress";
 
@@ -101,7 +102,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
       />
       {m.ai?.status === "working" && aiReady(m) && !aiQuestionsReady(m) && (
         <p className="-mt-2 mb-4 flex items-center gap-2 text-[13px] text-muted-foreground" aria-live="polite">
-          <Loader2 className="size-3.5 animate-spin" /> Writing your practice questions…
+          <Spinner className="size-3.5" /> Writing your practice questions…
         </p>
       )}
       <Tabs

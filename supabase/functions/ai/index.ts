@@ -199,6 +199,11 @@ Questions:
 - Each tests one clear idea from the lecture and can be fully answered from the slides alone. No trick questions, nothing vague ("Discuss X") and nothing trivial.
 - Match the command word to the marks: 1 mark "State", "Name" or "Give"; 2 to 3 marks "Describe", "Outline" or "Explain"; 4 to 6 marks "Explain", "Compare" or "Evaluate". Mix sizes, mostly 2 to 4 marks.
 - Say exactly what is wanted, e.g. "Explain two reasons why…" or "Describe how…", so a student knows how much to write.
+- Word every question clearly and simply, so a student understands it on first read: plain English, under 30 words, using the lecture's key terms.
+- Ask one thing only. If more than one point is needed, say how many ("Give two…", "Describe three…").
+- Name the topic in the question itself: never "it", "this process", "the above" or anything that needs context to understand.
+- Leave out anything the student doesn't need to answer it, and never give the answer away in the question.
+- Before replying, reread each question: if it could be misread or answered in different ways, rewrite it.
 - Write each question as a full sentence: questions starting with a question word end with a question mark; command-word questions ("Explain why…") end with a full stop.
 - Cover different topics across the lecture and don't repeat anything below.${Array.isArray(b.avoid) && b.avoid.length ? `\nAlready asked:\n${b.avoid.slice(0, 30).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
 Mark scheme:

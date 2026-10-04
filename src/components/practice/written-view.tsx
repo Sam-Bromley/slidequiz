@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Eye, Loader2, PenLine, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, PenLine, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
@@ -10,6 +10,7 @@ import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, ensureCredi
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material, WrittenQuestion } from "@/types/models";
+import { Spinner } from "@/components/ui/spinner";
 
 const list = (id: string) => getState().materials.find((m) => m.id === id)?.written ?? [];
 const save = (id: string, written: WrittenQuestion[]) => actions.updateMaterial(id, { written });
@@ -59,7 +60,7 @@ export function WrittenView({ material: m }: { material: Material }) {
         {busy ? (
           <div className="mt-2 w-full max-w-md space-y-2" aria-busy aria-label="Writing questions">
             <p className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Writing questions…
+              <Spinner className="size-3.5" /> Writing questions…
             </p>
             <Shimmer className="h-4 w-full rounded" />
             <Shimmer className="h-4 w-2/3 rounded" />
