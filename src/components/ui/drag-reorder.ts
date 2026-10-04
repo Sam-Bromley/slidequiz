@@ -1,6 +1,7 @@
 /**
- * Pick up an item in a vertical list and move it: it lifts, follows the pointer, and the others
- * slide out of the way to show where it will land. Mouse drags start straight away; on touch
+ * Pick up an item in a list and move it: it lifts, follows the pointer, and the others slide
+ * out of the way to show where it will land. Works for a single column and for items that wrap
+ * into rows (it picks the spot whose resting place is nearest the item being dragged). Mouse drags start straight away; on touch
  * screens, press and hold briefly first so normal scrolling still works.
  *
  * With `onDropInto`, an item can also be dropped onto anything marked `data-drop-target="…"`
@@ -14,8 +15,10 @@ interface Drag {
   to: number;
   dy: number;
   dx: number;
-  /** Height of the picked-up item plus the gap below it. */
-  step: number;
+  /** Where every item sat when the drag began (in list order), and the dragged item's centre. */
+  rects: { left: number; top: number; cx: number; cy: number }[];
+  cx: number;
+  cy: number;
 }
 
 const IGNORE = "button,input,textarea,select,[role=menu],[data-no-drag]";
@@ -35,10 +38,11 @@ export function useDragReorder(ids: string[], onDrop: (id: string, toIndex: numb
     const el = els.current.get(id);
     if (!el) return;
     const from = ids.indexOf(id);
-    const next = els.current.get(ids[from + 1]) ?? els.current.get(ids[from - 1]);
-    const r = el.getBoundingClientRect();
-    const gap = next ? Math.abs(next.getBoundingClientRect().top - r.top) - r.height : 8;
-    setDrag({ id, from, to: from, dy: 0, dx: 0, step: r.height + Math.max(0, gap) });
+    const rects = ids.map((x) => {
+      const r = (els.current.get(x) ?? el).getBoundingClientRect();
+      return { left: r.left, top: r.top, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+    });
+    setDrag({ id, from, to: from, dy: 0, dx: 0, rects, cx: rects[from].cx, cy: rects[from].cy });
     document.body.style.cursor = "grabbing";
     document.body.style.userSelect = "none";
   };
@@ -61,7 +65,7 @@ export function useDragReorder(ids: string[], onDrop: (id: string, toIndex: numb
         return;
       }
       const dy = e.clientY - p.y;
-      const dx = opts.onDropInto ? e.clientX - p.x : 0;
+      const dx = e.clientX - p.x;
       // Above a drop target (like a folder)? Then the list stays put.
       let target: string | null = null;
       if (opts.onDropInto) {
@@ -69,8 +73,20 @@ export function useDragReorder(ids: string[], onDrop: (id: string, toIndex: numb
         target = el && !el.contains(els.current.get(d.id) ?? null) ? (el.dataset.dropTarget ?? null) : null;
       }
       if (target !== overRef.current) setOver(target);
-      // Where it would land: count how far past the neighbours' middles it has moved.
-      const to = target ? d.from : Math.max(0, Math.min(ids.length - 1, d.from + Math.round(dy / d.step)));
+      // Where it would land: the spot whose resting place is nearest the dragged item's centre.
+      let to = d.from;
+      if (!target) {
+        const x = d.cx + dx;
+        const y = d.cy + dy;
+        let best = Infinity;
+        d.rects.forEach((r, i) => {
+          const dist = Math.hypot(r.cx - x, (r.cy - y) * 1.5);
+          if (dist < best) {
+            best = dist;
+            to = i;
+          }
+        });
+      }
       setDrag({ ...d, dy, dx, to });
     };
     const end = (e: PointerEvent) => {
@@ -131,8 +147,13 @@ export function useDragReorder(ids: string[], onDrop: (id: string, toIndex: numb
           pointerEvents: opts.onDropInto ? "none" : undefined,
           opacity: over ? 0.85 : 1,
         };
-      else if (drag.from < drag.to && i > drag.from && i <= drag.to) style = { ...style, transform: `translateY(${-drag.step}px)` };
-      else if (drag.from > drag.to && i < drag.from && i >= drag.to) style = { ...style, transform: `translateY(${drag.step}px)` };
+      else {
+        // Items between the old and new spot each move one place along, into their neighbour's spot.
+        const j = drag.from < drag.to && i > drag.from && i <= drag.to ? i - 1 : drag.from > drag.to && i < drag.from && i >= drag.to ? i + 1 : -1;
+        const a = drag.rects[i];
+        const b = drag.rects[j];
+        if (a && b) style = { ...style, transform: `translate(${b.left - a.left}px, ${b.top - a.top}px)` };
+      }
     }
     return {
       ref: (el: HTMLElement | null) => {

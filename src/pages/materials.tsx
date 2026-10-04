@@ -132,7 +132,7 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
 }
 
 
-const DEFAULT_MATERIAL_W = 360;
+const DEFAULT_MATERIAL_W = 310;
 
 /** A material in the list: drag to move (or onto a folder), drag its right edge to resize. */
 function MaterialTile({ m, otherWidths, drag, selectable, selected, onSelect }: { m: Material; otherWidths: number[]; drag?: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; selectable: boolean; selected: boolean; onSelect: (v: boolean) => void }) {
@@ -172,12 +172,14 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: {
         if (mid) onDropMaterial(mid);
       }}
       style={{ ...drag.style, width: `min(100%, ${width}px)` }}
-      className={cn("group relative flex cursor-grab select-none items-center gap-3 rounded-xl border bg-card px-3.5 py-3 transition-[background-color,border-color,transform] hover:border-foreground/20 active:cursor-grabbing", over && "scale-[1.03] border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
+      className={cn("group relative flex min-h-[76px] max-sm:!w-full cursor-grab select-none items-center gap-3.5 rounded-2xl border bg-card px-4 py-4 transition-[background-color,border-color,transform] hover:border-foreground/20 active:cursor-grabbing", over && "scale-[1.03] border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
     >
-      <FolderIcon className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary" style={hex ? { backgroundColor: hex + "1f" } : undefined}>
+        <FolderIcon className={cn("size-[22px]", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
+      </span>
       <Link to={`/materials?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
-        <span className="block truncate text-[14px] font-medium" title={f.name}>{f.name}</span>
-        <span className="block truncate text-[12px] text-muted-foreground">
+        <span className="block truncate text-[15px] font-semibold" title={f.name}>{f.name}</span>
+        <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground">
           {count ? plural(count, "item") : "Empty"}
           {exam && <span className={cn(soon && "font-medium text-warning")}> · {exam}</span>}
         </span>
@@ -396,7 +398,7 @@ export function MaterialsPage() {
 
       {folders.length > 0 && (
         <section aria-label="Folders" className="mb-6">
-          <div className="flex flex-col items-start gap-2">
+          <div className="flex flex-wrap items-stretch gap-3">
             {folders.map((f) => (
               <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} otherWidths={folders.filter((o) => o.id !== f.id).map((o) => o.width ?? DEFAULT_FOLDER_W)} />
             ))}
@@ -405,7 +407,7 @@ export function MaterialsPage() {
       )}
 
       {list.length > 0 && (
-        <div className="flex flex-col items-start gap-2">
+        <div className="flex flex-wrap items-start gap-3">
           {list.map((m) => (
             <MaterialTile
               key={m.id}

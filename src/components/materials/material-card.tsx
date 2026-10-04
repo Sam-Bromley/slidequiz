@@ -160,7 +160,7 @@ export function MaterialCard({ m, selectable, selected, onSelect, drag, width, o
     <article
       {...(selectable ? {} : drag)}
       style={{ ...(selectable ? {} : drag?.style), ...(width ? { width: `min(100%, ${width}px)` } : {}) }}
-      className={cn("group relative flex flex-col rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20", drag && !selectable && "cursor-grab select-none active:cursor-grabbing", selected && "border-primary ring-1 ring-primary")}
+      className={cn("group relative flex flex-col rounded-2xl border bg-card p-4 transition-colors max-sm:!w-full hover:border-foreground/20", drag && !selectable && "cursor-grab select-none active:cursor-grabbing", selected && "border-primary ring-1 ring-primary")}
     >
       <div className="flex items-start gap-3">
         {selectable ? (
