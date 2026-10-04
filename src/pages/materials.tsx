@@ -1,5 +1,5 @@
 import { CalendarDays, Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Play, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { MaterialCard } from "@/components/materials/material-card";
 import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -135,16 +135,23 @@ function NameDialog({ title, initial, confirm, onSave, onClose }: { title: strin
 const DEFAULT_MATERIAL_W = 310;
 
 /** A material in the list: drag to move (or onto a folder), drag its right edge to resize. */
-function MaterialTile({ m, otherWidths, drag, selectable, selected, onSelect }: { m: Material; otherWidths: number[]; drag?: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; selectable: boolean; selected: boolean; onSelect: (v: boolean) => void }) {
-  const { width, start } = useResizableWidth(m.width ?? DEFAULT_MATERIAL_W, otherWidths, (w) => actions.setMaterialWidth(m.id, w));
-  return <MaterialCard m={m} drag={drag} width={width} onResizeStart={start} selectable={selectable} selected={selected} onSelect={onSelect} />;
+function MaterialTile({ m, colW, onLive, onSave, drag, selectable, selected, onSelect }: { m: Material; colW: number; onLive: (w: number | null) => void; onSave: (w: number) => void; drag?: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; selectable: boolean; selected: boolean; onSelect: (v: boolean) => void }) {
+  // Dragging any card's edge changes the column width for all of them.
+  const { width, start } = useResizableWidth(colW, [], onSave);
+  useEffect(() => onLive(width !== colW ? width : null), [width, colW]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="mb-3 break-inside-avoid">
+      <MaterialCard m={m} drag={drag} onResizeStart={start} selectable={selectable} selected={selected} onSelect={onSelect} />
+    </div>
+  );
 }
 
-function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: { f: Folder; count: number; onDropMaterial: (id: string) => void; otherWidths: number[]; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; dropOver?: boolean }) {
+function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, dropOver }: { f: Folder; count: number; onDropMaterial: (id: string) => void; colW: number; onLive: (w: number | null) => void; onSave: (w: number) => void; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; dropOver?: boolean }) {
   const [nativeOver, setOver] = useState(false);
   const over = nativeOver || !!dropOver;
-  // Each folder has its own width; drag its right edge to change it.
-  const { width, start: onResizeStart } = useResizableWidth(f.width, otherWidths, (w) => actions.setFolderWidth(f.id, w));
+  // Drag any folder's right edge to change the column width for all folders.
+  const { width, start: onResizeStart } = useResizableWidth(colW, [], onSave);
+  useEffect(() => onLive(width !== colW ? width : null), [width, colW]); // eslint-disable-line react-hooks/exhaustive-deps
   const [colouring, setColouring] = useState(false);
   // Folder colours are a Pro feature.
   const pro = usePlanQuiet().plus;
@@ -171,8 +178,8 @@ function FolderTile({ f, count, onDropMaterial, otherWidths, drag, dropOver }: {
         const mid = e.dataTransfer.getData(MATERIAL_MIME);
         if (mid) onDropMaterial(mid);
       }}
-      style={{ ...drag.style, width: `min(100%, ${width}px)` }}
-      className={cn("group relative flex min-h-[76px] max-sm:!w-full cursor-grab select-none items-center gap-3.5 rounded-2xl border bg-card px-4 py-4 transition-[background-color,border-color,transform] hover:border-foreground/20 active:cursor-grabbing", over && "scale-[1.03] border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
+      style={drag.style}
+      className={cn("group relative mb-3 flex min-h-[76px] w-full break-inside-avoid cursor-grab select-none items-center gap-3.5 rounded-2xl border bg-card px-4 py-4 transition-[background-color,border-color,transform] hover:border-foreground/20 active:cursor-grabbing", over && "scale-[1.03] border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
     >
       <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary" style={hex ? { backgroundColor: hex + "1f" } : undefined}>
         <FolderIcon className={cn("size-[22px]", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
@@ -292,6 +299,13 @@ export function MaterialsPage() {
 
   // Drag folders up and down to reorder them.
   const folderIds = folders.map((f) => f.id);
+  // Column widths (shared by all folders, and by all lectures); live while an edge is being dragged.
+  const savedFolderCol = data.folders.find((f) => f.width)?.width ?? DEFAULT_FOLDER_W;
+  const savedMaterialCol = data.materials.find((m) => m.width)?.width ?? DEFAULT_MATERIAL_W;
+  const [liveFolderCol, setLiveFolderCol] = useState<number | null>(null);
+  const [liveMaterialCol, setLiveMaterialCol] = useState<number | null>(null);
+  const folderCol = liveFolderCol ?? savedFolderCol;
+  const materialCol = liveMaterialCol ?? savedMaterialCol;
   const reorder = useDragReorder(folderIds, (id, to) => {
     const rest = folderIds.filter((x) => x !== id);
     if (to >= rest.length) actions.reorderFolder(id, rest[rest.length - 1], true);
@@ -398,21 +412,24 @@ export function MaterialsPage() {
 
       {folders.length > 0 && (
         <section aria-label="Folders" className="mb-6">
-          <div className="flex flex-wrap items-stretch gap-3">
+          {/* Columns that fill downwards first, then across. */}
+          <div className="-mb-3" style={{ columnWidth: `${folderCol}px`, columnGap: 12 }}>
             {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} otherWidths={folders.filter((o) => o.id !== f.id).map((o) => o.width ?? DEFAULT_FOLDER_W)} />
+              <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} colW={savedFolderCol} onLive={setLiveFolderCol} onSave={(w) => data.folders.forEach((o) => actions.setFolderWidth(o.id, w))} />
             ))}
           </div>
         </section>
       )}
 
       {list.length > 0 && (
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="-mb-3" style={{ columnWidth: `${materialCol}px`, columnGap: 12 }}>
           {list.map((m) => (
             <MaterialTile
               key={m.id}
               m={m}
-              otherWidths={list.filter((o) => o.id !== m.id).map((o) => o.width ?? DEFAULT_MATERIAL_W)}
+              colW={savedMaterialCol}
+              onLive={setLiveMaterialCol}
+              onSave={(w) => data.materials.forEach((o) => actions.setMaterialWidth(o.id, w))}
               drag={searching ? undefined : moveMaterial.itemProps(m.id)}
               selectable={selecting}
               selected={sel.includes(m.id)}
