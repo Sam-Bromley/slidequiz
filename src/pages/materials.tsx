@@ -300,12 +300,17 @@ export function MaterialsPage() {
   // Drag folders up and down to reorder them.
   const folderIds = folders.map((f) => f.id);
   // Column widths (shared by all folders, and by all lectures); live while an edge is being dragged.
-  const savedFolderCol = data.folders.find((f) => f.width)?.width ?? DEFAULT_FOLDER_W;
-  const savedMaterialCol = data.materials.find((m) => m.width)?.width ?? DEFAULT_MATERIAL_W;
+  // Folders and lectures share one column width, so they always line up in the same columns.
+  const savedFolderCol = data.folders.find((f) => f.width)?.width ?? data.materials.find((m) => m.width)?.width ?? DEFAULT_MATERIAL_W;
+  const savedMaterialCol = savedFolderCol;
   const [liveFolderCol, setLiveFolderCol] = useState<number | null>(null);
   const [liveMaterialCol, setLiveMaterialCol] = useState<number | null>(null);
-  const folderCol = liveFolderCol ?? savedFolderCol;
-  const materialCol = liveMaterialCol ?? savedMaterialCol;
+  const folderCol = liveFolderCol ?? liveMaterialCol ?? savedFolderCol;
+  const materialCol = folderCol;
+  const saveCol = (w: number) => {
+    data.folders.forEach((o) => actions.setFolderWidth(o.id, w));
+    data.materials.forEach((o) => actions.setMaterialWidth(o.id, w));
+  };
   const reorder = useDragReorder(folderIds, (id, to) => {
     const rest = folderIds.filter((x) => x !== id);
     if (to >= rest.length) actions.reorderFolder(id, rest[rest.length - 1], true);
@@ -415,7 +420,7 @@ export function MaterialsPage() {
           {/* Columns that fill downwards first, then across. */}
           <div className="-mb-3" style={{ columnWidth: `${folderCol}px`, columnGap: 12 }}>
             {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} colW={savedFolderCol} onLive={setLiveFolderCol} onSave={(w) => data.folders.forEach((o) => actions.setFolderWidth(o.id, w))} />
+              <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} colW={savedFolderCol} onLive={setLiveFolderCol} onSave={saveCol} />
             ))}
           </div>
         </section>
@@ -429,7 +434,7 @@ export function MaterialsPage() {
               m={m}
               colW={savedMaterialCol}
               onLive={setLiveMaterialCol}
-              onSave={(w) => data.materials.forEach((o) => actions.setMaterialWidth(o.id, w))}
+              onSave={saveCol}
               drag={searching ? undefined : moveMaterial.itemProps(m.id)}
               selectable={selecting}
               selected={sel.includes(m.id)}
