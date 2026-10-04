@@ -141,6 +141,56 @@ as $$
   end
 $$;
 
+-- When an account is deleted, remember (for that inbox) how much of this month's free allowance it
+-- used and whether it already earned an invite reward, so deleting and re-making an account doesn't
+-- give fresh free credits. Only a one-way code of the inbox is kept, never the email itself.
+create table if not exists public.inbox_history (
+  inbox_hash text primary key,
+  month date not null,
+  used integer not null default 0,
+  invited boolean not null default false
+);
+alter table public.inbox_history enable row level security;
+
+create or replace function public.inbox_hash(p_email text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select encode(pg_catalog.sha256(convert_to(public.sq_inbox(p_email), 'UTF8')), 'hex')
+$$;
+
+create or replace function public.remember_deleted_account()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  this_month date := date_trunc('month', now())::date;
+  used_now integer;
+  was_invited boolean;
+begin
+  if old.email is null or coalesce(old.is_anonymous, false) then
+    return old;
+  end if;
+  select coalesce(sum(chars), 0) into used_now from public.ai_text where user_id = old.id and month = this_month;
+  select exists (select 1 from public.invites where friend_id = old.id) into was_invited;
+  insert into public.inbox_history (inbox_hash, month, used, invited)
+  values (public.inbox_hash(old.email), this_month, used_now, was_invited)
+  on conflict (inbox_hash) do update set
+    used = case when public.inbox_history.month = excluded.month then public.inbox_history.used + excluded.used else excluded.used end,
+    month = excluded.month,
+    invited = public.inbox_history.invited or excluded.invited;
+  return old;
+end;
+$$;
+
+drop trigger if exists remember_deleted_account on auth.users;
+create trigger remember_deleted_account before delete on auth.users
+  for each row execute function public.remember_deleted_account();
+
 -- Free credits go to real, confirmed inboxes, once per person: not to an unconfirmed email, a
 -- throwaway email service, or a second account on the same inbox (e.g. name+1@gmail.com).
 create or replace function public.free_eligible(p_user uuid)
@@ -184,6 +234,13 @@ begin
   from public.ai_text
   where user_id = p_user and (p = 'guest' or month = date_trunc('month', now())::date);
   select coalesce((select balance from public.credit_bonus where user_id = p_user), 0) into bonus;
+  -- Free credits already used this month by a deleted account on the same inbox.
+  if p = 'free' then
+    base := greatest(0, base - coalesce((
+      select h.used from public.inbox_history h, auth.users u
+      where u.id = p_user and h.inbox_hash = public.inbox_hash(u.email) and h.month = date_trunc('month', now())::date
+    ), 0));
+  end if;
   return json_build_object(
     'plan', p,
     'used', used,
@@ -229,6 +286,10 @@ begin
     return false;
   end if;
   if exists (select 1 from public.invites where friend_id = p_user) or not public.free_eligible(p_user) then
+    return false;
+  end if;
+  -- This inbox already earned an invite reward on an account that was deleted.
+  if exists (select 1 from public.inbox_history h, auth.users au where au.id = p_user and h.inbox_hash = public.inbox_hash(au.email) and h.invited) then
     return false;
   end if;
   select user_id into inviter from public.invite_codes where code = upper(trim(u.ref));
@@ -412,6 +473,7 @@ grant execute on function public.plan_for(uuid) to service_role;
 grant execute on function public.allowance_for(uuid) to service_role;
 grant execute on function public.use_lecture_text(uuid, text, integer) to service_role;
 grant execute on function public.use_ai(uuid, integer) to service_role;
+revoke execute on function public.remember_deleted_account() from public, anon, authenticated;
 revoke execute on function public.free_eligible(uuid) from public, anon, authenticated;
 grant execute on function public.free_eligible(uuid) to service_role;
 revoke execute on function public.reward_invite(uuid) from public, anon, authenticated;

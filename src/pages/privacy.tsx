@@ -72,7 +72,7 @@ export function PrivacyPage() {
       <H>How long we keep it</H>
       <p>We keep your account data until you delete it. You can delete everything yourself at any time:</p>
       <ul>
-        <li>Settings → Delete account removes your account, your email address and everything saved to it, straight away.</li>
+        <li>Settings → Delete account removes your account, your email address and everything saved to it, straight away. So that free credits can't be claimed twice by deleting and re-making an account, we keep a one-way scrambled code made from your email address (it can't be turned back into the address), with how many free credits you used that month and whether you'd joined through an invite.</li>
         <li>Settings → Delete everything removes your work from this device (and from your account, if you're logged in).</li>
       </ul>
 
