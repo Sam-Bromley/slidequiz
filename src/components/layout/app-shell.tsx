@@ -1,7 +1,6 @@
 import { Gift, Settings, Upload, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { CreditsDialogHost } from "@/components/account/credits-dialog";
-import { useAccount } from "@/services/account";
-import { openInvite } from "@/services/invites";
+import { openEarnCredits } from "@/services/invites";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
 import { StreakFlame } from "./streak";
@@ -30,7 +29,6 @@ function Sidebar() {
   const { path } = useLocation();
   const data = useData();
   const pro = usePlanQuiet().plus;
-  const loggedIn = !!useAccount().user;
   const saved = Math.min(SB_MAX, data.settings.sidebarWidth ?? SB_DEFAULT);
   const [live, setLive] = useState<number | null>(null);
   const width = live ?? saved;
@@ -133,22 +131,6 @@ function Sidebar() {
               </li>
             );
           })}
-          {loggedIn && (
-            <li>
-              <button
-                type="button"
-                onClick={openInvite}
-                title={compact ? "Invite friends" : undefined}
-                className="flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-lg pr-2.5 text-[14px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
-                style={{ paddingLeft: 10 + 5 * (1 - t) }}
-              >
-                <Gift className="size-[18px] shrink-0" />
-                <span className="whitespace-nowrap" style={{ opacity: labels }}>
-                  Invite friends
-                </span>
-              </button>
-            </li>
-          )}
         </ul>
       </nav>
       <button
@@ -177,6 +159,16 @@ function Sidebar() {
   );
 }
 
+/** "Free credits": opens the list of ways to get more. */
+function FreeCreditsButton() {
+  return (
+    <button type="button" onClick={openEarnCredits} title="Free credits" aria-label="Free credits" className={cn(buttonClass("ghost", "sm"), "h-9 gap-1.5 rounded-full px-2.5 sm:px-3")}>
+      <Gift className="size-[18px] text-primary" />
+      <span className="hidden text-[13.5px] font-medium sm:inline">Free credits</span>
+    </button>
+  );
+}
+
 function SettingsButton() {
   const { path } = useLocation();
   const on = path.startsWith("/settings");
@@ -193,6 +185,7 @@ function MobileTopBar(_: { onMenu: () => void }) {
       <Link to="/" className="mr-auto rounded-md focus-ring" aria-label="SlideQuiz home">
         <Logo pro={usePlanQuiet().plus} />
       </Link>
+      <FreeCreditsButton />
       <StreakFlame />
           <StudyTimerButton />
           <Personalise />
@@ -232,7 +225,6 @@ function BottomNav() {
 
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { path } = useLocation();
-  const loggedIn = !!useAccount().user;
   useEffect(() => {
     onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -267,20 +259,6 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                 </Link>
               </li>
             ))}
-            {loggedIn && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    openInvite();
-                  }}
-                  className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-[15px] font-medium text-muted-foreground focus-ring"
-                >
-                  <Gift className="size-5" /> Invite friends
-                </button>
-              </li>
-            )}
           </ul>
         </nav>
       </div>
@@ -330,6 +308,7 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       <div className="sb-anim lg:pl-[var(--sb,248px)]">
         <div className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 px-4 lg:flex">
           <div className="topbar-tools flex items-center gap-1">
+            <FreeCreditsButton />
             <StreakFlame />
             <StudyTimerButton />
             <Personalise />

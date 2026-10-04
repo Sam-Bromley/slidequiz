@@ -56,7 +56,7 @@ export const inviteLink = (code: string) => `https://slidequiz.co.uk/?ref=${code
 
 /* ---------------------------------------------------------------- the credits / invite dialog */
 
-export type CreditsDialog = null | "invite" | "out";
+export type CreditsDialog = null | "invite" | "out" | "earn";
 let dialog: CreditsDialog = null;
 const listeners = new Set<() => void>();
 const setDialog = (d: CreditsDialog) => {
@@ -65,6 +65,8 @@ const setDialog = (d: CreditsDialog) => {
 };
 /** "Invite friends" (from the sidebar, Settings, ...). */
 export const openInvite = () => setDialog("invite");
+/** "Free credits" (top right): the ways to get more credits. */
+export const openEarnCredits = () => setDialog("earn");
 /** Ran out of credits: invite a friend or get Pro. */
 export const openOutOfCredits = () => setDialog("out");
 export const closeCreditsDialog = () => setDialog(null);

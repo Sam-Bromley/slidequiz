@@ -1,4 +1,4 @@
-import { Check, Copy, Crown, Gift, Share2 } from "lucide-react";
+import { CalendarDays, Check, Copy, Crown, Gift, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AuthDialog } from "@/components/account/auth-dialog";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,64 @@ export function CreditsDialogHost() {
   const { user } = useAccount();
   if (!which) return null;
   if (!user) return <AuthDialog initial="signup" reason="Create a free account to get 10 credits a month and your own invite link." onClose={closeCreditsDialog} />;
-  return which === "invite" ? <InviteDialog /> : <OutOfCreditsDialog />;
+  return which === "invite" ? <InviteDialog /> : which === "earn" ? <EarnCreditsDialog /> : <OutOfCreditsDialog />;
 }
 
 const resetText = (resets: string | null | undefined) => (resets ? new Date(resets).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
+
+/** Option card used in the credit dialogs. */
+function Option({ icon, title, text, onClick, to, tone = "soft" }: { icon: React.ReactNode; title: string; text: string; onClick?: () => void; to?: string; tone?: "soft" | "plain" }) {
+  const cls = "flex w-full items-start gap-3 rounded-xl border bg-card p-3.5 text-left transition-colors focus-ring";
+  const body = (
+    <>
+      <span className={tone === "soft" ? "grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary" : "grid size-9 shrink-0 place-items-center rounded-lg bg-secondary"}>{icon}</span>
+      <span>
+        <span className="block text-[14.5px] font-semibold">{title}</span>
+        <span className="block text-[13px] text-muted-foreground">{text}</span>
+      </span>
+    </>
+  );
+  if (to)
+    return (
+      <Link to={to} onClick={closeCreditsDialog} className={cls + " hover:border-foreground/30"}>
+        {body}
+      </Link>
+    );
+  if (onClick)
+    return (
+      <button type="button" onClick={onClick} className={cls + " hover:border-foreground/30"}>
+        {body}
+      </button>
+    );
+  return <div className={cls}>{body}</div>;
+}
+
+/** "Free credits" from the top bar: how many are left, and every way to get more. */
+function EarnCreditsDialog() {
+  const a = useAllowance();
+  const left = a ? lecturesLeft(a) : null;
+  const bonus = a?.bonus ? Math.round(a.bonus / a.lecture) : 0;
+  return (
+    <Dialog
+      open
+      onClose={closeCreditsDialog}
+      title="Free credits"
+      description={left == null ? undefined : `You have ${left === 1 ? "1 credit" : `${left} credits`} left${bonus ? `, including ${bonus} bonus` : ""}.`}
+      size="sm"
+    >
+      <div className="space-y-2.5">
+        <Option icon={<Gift className="size-[18px]" />} title="Invite friends" text="Earn 3 free credits for every friend who signs up with your link and makes their first lecture. They get 3 too." onClick={openInvite} />
+        <Option
+          icon={<CalendarDays className="size-[18px]" />}
+          title={`${a?.plan === "plus" ? PLUS.plusLectures : PLUS.freeLectures} new credits every month`}
+          text={a?.resets ? `Your next ones arrive on ${resetText(a.resets)}.` : "They arrive on the 1st of every month."}
+          tone="plain"
+        />
+        {PLUS_ON && a?.plan !== "plus" && <Option icon={<Crown className="size-[18px]" />} title="Get Pro" text={`${PLUS.plusLectures} credits every month for ${PLUS.price} a ${PLUS.period}.`} to="/pro" tone="plain" />}
+      </div>
+    </Dialog>
+  );
+}
 
 function OutOfCreditsDialog() {
   const a = useAllowance();
