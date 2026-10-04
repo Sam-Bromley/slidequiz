@@ -273,6 +273,9 @@ async function afterGoogle() {
     await call("/auth/v1/user", { method: "PUT", auth: true, body: JSON.stringify({ data: { joined: via, ...(source ? { source: source.slice(0, 120) } : {}), ...(ref ? { ref } : {}) } }) });
     const ads = await import("@/services/ads");
     ads.trackConversion("signup", { value: 1, id: ads.oneWay(u.email.trim().toLowerCase()) });
+    // Google sign-ups skip the confirm-your-email message, so send the welcome email instead.
+    const token = await accessToken();
+    if (token) fetch(`${SUPABASE_URL}/functions/v1/welcome`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
   } catch {
     /* not important */
   }
