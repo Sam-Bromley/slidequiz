@@ -5,7 +5,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { Link } from "@/lib/router";
-import { googleSignIn, providersAvailable, logIn, sendPasswordReset, setNewPassword, signUp, useAccount } from "@/services/account";
+import { cn } from "@/lib/utils";
+import { GOOGLE_CLIENT_ID, googleSignIn, logInWithGoogleToken, providersAvailable, logIn, sendPasswordReset, setNewPassword, signUp, useAccount } from "@/services/account";
 
 export type AuthMode = "login" | "signup" | "forgot";
 
@@ -126,11 +127,7 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
                   <AppleMark /> Sign in with Apple
                 </button>
               )}
-              {google && (
-                <button type="button" onClick={() => googleSignIn("google")} className="flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-[#747775] bg-white text-[14.5px] font-medium text-[#1f1f1f] transition-colors hover:bg-[#f2f2f2] focus-ring dark:border-[#8e918f] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f20]">
-                  <GoogleMark /> Sign in with Google
-                </button>
-              )}
+              {google && <GoogleButton onError={setError} />}
             </div>
             <div className="flex items-center gap-3 text-[12px] text-muted-foreground" aria-hidden>
               <span className="h-px flex-1 bg-border" /> or with email <span className="h-px flex-1 bg-border" />
@@ -181,6 +178,96 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
         </div>
       </form>
     </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------- Google's own button */
+
+declare global {
+  interface Window {
+    google?: { accounts: { id: { initialize: (o: Record<string, unknown>) => void; renderButton: (el: HTMLElement, o: Record<string, unknown>) => void } } };
+  }
+}
+
+let gsiLoad: Promise<boolean> | null = null;
+/** Loads Google's sign-in script (only when the log-in box opens). False if it can't load. */
+function loadGsi(): Promise<boolean> {
+  gsiLoad ??= new Promise((resolve) => {
+    if (window.google?.accounts?.id) return resolve(true);
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.onload = () => resolve(!!window.google?.accounts?.id);
+    s.onerror = () => {
+      gsiLoad = null;
+      resolve(false);
+    };
+    document.head.appendChild(s);
+    setTimeout(() => resolve(!!window.google?.accounts?.id), 8000);
+  });
+  return gsiLoad;
+}
+
+const randomNonce = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function sha256(text: string) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * "Sign in with Google" using Google's own button, so Google's window shows slidequiz.co.uk.
+ * If Google's script is blocked (some school networks and ad blockers), falls back to our own
+ * button, which signs in through Supabase instead.
+ */
+function GoogleButton({ onError }: { onError: (msg: string) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const ok = await loadGsi();
+      if (!live) return;
+      if (!ok || !box.current || !window.google) return setState("fallback");
+      const raw = randomNonce();
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        nonce: await sha256(raw),
+        ux_mode: "popup",
+        auto_select: false,
+        itp_support: true,
+        callback: async (r: { credential?: string }) => {
+          if (!r.credential) return;
+          setBusy(true);
+          try {
+            await logInWithGoogleToken(r.credential, raw);
+          } catch (e) {
+            onError((e as Error).message || "Couldn't log in with Google. Try again.");
+          } finally {
+            setBusy(false);
+          }
+        },
+      });
+      const dark = document.documentElement.classList.contains("dark");
+      window.google.accounts.id.renderButton(box.current, { type: "standard", theme: dark ? "filled_black" : "outline", size: "large", text: "signin_with", shape: "rectangular", logo_alignment: "center", width: Math.min(400, Math.round(box.current.clientWidth || 320)) });
+      setState("ready");
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (state === "fallback")
+    return (
+      <button type="button" onClick={() => googleSignIn("google")} className="flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-[#747775] bg-white text-[14.5px] font-medium text-[#1f1f1f] transition-colors hover:bg-[#f2f2f2] focus-ring dark:border-[#8e918f] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f20]">
+        <GoogleMark /> Sign in with Google
+      </button>
+    );
+  return (
+    <div className="relative flex min-h-[44px] w-full justify-center" aria-busy={busy || state === "loading"}>
+      <div ref={box} className={cn("flex w-full justify-center", busy && "pointer-events-none opacity-50")} />
+      {state === "loading" && <div className="shimmer absolute inset-0 rounded-md" aria-hidden />}
+    </div>
   );
 }
 

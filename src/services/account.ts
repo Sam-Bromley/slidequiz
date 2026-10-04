@@ -241,6 +241,21 @@ export function googleSignIn(provider: Provider = "google") {
   }
 }
 
+/** SlideQuiz's Google client (public; also listed under Client IDs in Supabase → Providers → Google). */
+export const GOOGLE_CLIENT_ID = "346932139091-bfm351koek3ad6qknh2gphu2ojke96bj.apps.googleusercontent.com";
+
+/**
+ * Google's own sign-in button hands back a signed ID token; Supabase checks it and logs the student in.
+ * Google's window then says "Sign in to slidequiz.co.uk" rather than showing the Supabase address.
+ * `nonce` is the raw value whose SHA-256 was given to Google.
+ */
+export async function logInWithGoogleToken(idToken: string, nonce: string) {
+  const t = await call<TokenResponse>("/auth/v1/token?grant_type=id_token", { method: "POST", body: JSON.stringify({ provider: "google", id_token: idToken, nonce }) });
+  setSession(toSession(t));
+  await syncNow(true);
+  afterGoogle();
+}
+
 /** After a Google login: welcome message, and for a brand-new account, note how they found us. */
 async function afterGoogle() {
   import("@/components/ui/toast").then(({ toast }) => toast("Logged in")).catch(() => {});
