@@ -1,4 +1,4 @@
-import { CalendarDays, Check, Copy, Crown, Gift, Share2 } from "lucide-react";
+import { Check, Copy, Crown, Gift, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AuthDialog } from "@/components/account/auth-dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { Link } from "@/lib/router";
 import { useAccount } from "@/services/account";
-import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
+import { lecturesLeft, refreshAllowance, useAllowance } from "@/services/ai/cloud";
 import { closeCreditsDialog, inviteLink, myInvite, openInvite, useCreditsDialog, type InviteInfo } from "@/services/invites";
 import { PLUS, PLUS_ON } from "@/services/plus";
 
@@ -15,6 +15,10 @@ import { PLUS, PLUS_ON } from "@/services/plus";
 export function CreditsDialogHost() {
   const which = useCreditsDialog();
   const { user } = useAccount();
+  // Always show the latest count (another tab or device may have used some).
+  useEffect(() => {
+    if (which && user) refreshAllowance();
+  }, [which, user]);
   if (!which) return null;
   if (!user) return <AuthDialog initial="signup" reason="Create a free account to get 10 credits a month and your own invite link." onClose={closeCreditsDialog} />;
   return which === "invite" ? <InviteDialog /> : which === "earn" ? <EarnCreditsDialog /> : <OutOfCreditsDialog />;
@@ -59,28 +63,31 @@ function EarnCreditsDialog() {
       open
       onClose={closeCreditsDialog}
       title="Free credits"
-      description={left == null ? undefined : `You have ${left === 1 ? "1 credit" : `${left} credits`} left${bonus ? `, including ${bonus} bonus` : ""}.`}
+      description={left == null ? undefined : `You have ${left === 1 ? "1 credit" : `${left} credits`} left${bonus ? `, including ${bonus} bonus` : ""}.${a?.plan === "free" && a.eligible === false ? " " + NOT_ELIGIBLE : ""}`}
       size="sm"
     >
       <div className="space-y-2.5">
         <Option icon={<Gift className="size-[18px]" />} title="Invite friends" text="Earn 3 free credits for every friend who signs up with your link and makes their first lecture. They get 3 too." onClick={openInvite} />
-        <Option
-          icon={<CalendarDays className="size-[18px]" />}
-          title={`${a?.plan === "plus" ? PLUS.plusLectures : PLUS.freeLectures} new credits every month`}
-          text={a?.resets ? `Your next ones arrive on ${resetText(a.resets)}.` : "They arrive on the 1st of every month."}
-          tone="plain"
-        />
         {PLUS_ON && a?.plan !== "plus" && <Option icon={<Crown className="size-[18px]" />} title="Get Pro" text={`${PLUS.plusLectures} credits every month for ${PLUS.price} a ${PLUS.period}.`} to="/pro" tone="plain" />}
       </div>
     </Dialog>
   );
 }
 
+const NOT_ELIGIBLE = "Free credits are for one account per person, with a confirmed email from a normal email provider. You can still earn credits by inviting friends, or get Pro.";
+
 function OutOfCreditsDialog() {
   const a = useAllowance();
   const left = a ? lecturesLeft(a) : 0;
+  const ineligible = a?.plan === "free" && a.eligible === false;
   return (
-    <Dialog open onClose={closeCreditsDialog} title={left > 0 ? "Not enough credits for this" : "You've run out of credits"} description={a?.resets ? `Your monthly credits come back on ${resetText(a.resets)}.` : undefined} size="sm">
+    <Dialog
+      open
+      onClose={closeCreditsDialog}
+      title={ineligible && !left ? "No free credits on this account" : left > 0 ? "Not enough credits for this" : "You've run out of credits"}
+      description={ineligible ? NOT_ELIGIBLE : a?.resets ? `Your monthly credits come back on ${resetText(a.resets)}.` : undefined}
+      size="sm"
+    >
       <div className="space-y-2.5">
         <button type="button" onClick={openInvite} className="flex w-full items-start gap-3 rounded-xl border bg-card p-3.5 text-left transition-colors hover:border-foreground/30 focus-ring">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">

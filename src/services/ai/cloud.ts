@@ -13,7 +13,7 @@ import { openOutOfCredits } from "@/services/invites";
 import { authToken, isLoggedIn, SUPABASE_KEY, SUPABASE_URL, useAccount } from "@/services/account";
 import { groundingFor } from "@/services/grounding";
 import { actions } from "@/store/actions";
-import { getState } from "@/store/store";
+import { getState, subscribeState } from "@/store/store";
 import { nowISO, uid } from "@/lib/utils";
 import { referencesText, type PageInfo } from "@/services/references";
 import type { WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
@@ -23,7 +23,8 @@ export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
 
 export const AI_ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
 /** Characters of slide text per request: small enough that each answer comes back quickly. */
-const CHUNK = 15_000;
+// Smaller pieces, more of them at once: each lecture is written in parallel, so it finishes sooner.
+const CHUNK = 9_000;
 
 export class AIError extends Error {
   constructor(
@@ -40,58 +41,23 @@ export class AIError extends Error {
 
 type CloudPage = { id: ID; label: string; title: string; text: string };
 
-/* ---------------------------------------------------------------- guest pass for AI */
+/* ---------------------------------------------------------------- who is asking */
 
-const GUEST_KEY = "slidequiz:ai-guest";
-type Guest = { access_token: string; refresh_token: string; expires_at: number };
-let guestUnavailable = false;
-let guestJob: Promise<string | null> | null = null;
-
-function loadGuest(): Guest | null {
-  try {
-    return JSON.parse(localStorage.getItem(GUEST_KEY) ?? "null");
-  } catch {
-    return null;
-  }
-}
-function saveGuest(g: Guest | null) {
-  try {
-    if (g) localStorage.setItem(GUEST_KEY, JSON.stringify(g));
-    else localStorage.removeItem(GUEST_KEY);
-  } catch {
-    /* storage blocked */
-  }
+// Clear out guest passes from older versions (an account is now needed for anything that uses credits).
+try {
+  localStorage.removeItem("slidequiz:ai-guest");
+} catch {
+  /* storage blocked */
 }
 
-async function auth(path: string, body: unknown): Promise<Guest | null> {
-  try {
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/${path}`, { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!r.ok) return null;
-    const t = await r.json();
-    return t.access_token ? { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: t.expires_at ?? Math.floor(Date.now() / 1000) + (t.expires_in ?? 3600) } : null;
-  } catch {
-    return null;
-  }
-}
-
-/** A token for the AI helper: the student's own login, or a guest pass. Null if neither is possible. */
+/** The student's login for the helper, or null when they're not logged in. */
 async function aiToken(): Promise<string | null> {
-  if (isLoggedIn()) return authToken();
-  if (guestUnavailable) return null;
-  guestJob ??= (async () => {
-    let g = loadGuest();
-    if (g && g.expires_at - 60 < Date.now() / 1000) g = await auth("token?grant_type=refresh_token", { refresh_token: g.refresh_token });
-    if (!g) g = await auth("signup", {}); // anonymous sign-in
-    saveGuest(g);
-    if (!g) guestUnavailable = true; // guest passes switched off in Supabase: use the built-in notes
-    return g?.access_token ?? null;
-  })().finally(() => (guestJob = null));
-  return guestJob;
+  return isLoggedIn() ? authToken() : null;
 }
 
 async function call<T>(task: string, body: Record<string, unknown>): Promise<T> {
   const token = await aiToken();
-  if (!token) throw new AIError("AI isn't available right now.", false, !isLoggedIn());
+  if (!token) throw new AIError("Log in to use this.", false, true);
   let res: Response;
   try {
     res = await fetch(AI_ENDPOINT, {
@@ -100,16 +66,16 @@ async function call<T>(task: string, body: Record<string, unknown>): Promise<T> 
       body: JSON.stringify({ task, ...body }),
     });
   } catch {
-    throw new AIError("Couldn't reach the AI helper (network or CORS).");
+    throw new AIError("Couldn't connect. Check your internet connection and try again.");
   }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 404) throw new AIError("AI isn't set up yet.", false, true);
+  if (res.status === 404) throw new AIError("This isn't available right now.", false, true);
   if (res.status === 429 && data?.credits) {
     openOutOfCredits();
     refreshAllowance();
     throw new AIError("You've run out of credits.", true, false, true);
   }
-  if (!res.ok) throw new AIError(data?.busy ? "busy" : `${data?.error ?? data?.msg ?? data?.message ?? "The AI couldn't help this time."} (${res.status})`, !!data?.limit);
+  if (!res.ok) throw new AIError(data?.busy ? "busy" : `${data?.error ?? data?.msg ?? data?.message ?? "Something went wrong. Try again."} (${res.status})`, !!data?.limit);
   return data as T;
 }
 
@@ -127,16 +93,31 @@ export interface Allowance {
   /** The monthly credits, and bonus credits from invites (which don't expire), in characters. */
   base?: number;
   bonus?: number;
+  /** False when this account doesn't get free credits (unconfirmed, throwaway email, or a second account on one inbox). */
+  eligible?: boolean;
 }
 /** Matches the leeway in use_lecture_text, so a lecture that only just fits isn't refused. */
 const LEEWAY = 5000;
 let allowance: Allowance | null = null;
 const allowanceListeners = new Set<() => void>();
 
-export async function refreshAllowance(): Promise<Allowance | null> {
+let refreshing: Promise<Allowance | null> | null = null;
+export function refreshAllowance(): Promise<Allowance | null> {
+  // One request at a time; callers share the answer.
+  refreshing ??= loadAllowance().finally(() => (refreshing = null));
+  return refreshing;
+}
+async function loadAllowance(): Promise<Allowance | null> {
   try {
     const token = await aiToken();
-    if (!token) return allowance;
+    if (!token) {
+      // Logged out: forget the last account's credits.
+      if (allowance) {
+        allowance = null;
+        allowanceListeners.forEach((l) => l());
+      }
+      return null;
+    }
     const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ai_allowance`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: "{}" });
     if (!r.ok) return allowance;
     allowance = (await r.json()) as Allowance;
@@ -145,6 +126,18 @@ export async function refreshAllowance(): Promise<Allowance | null> {
     /* offline: keep what we had */
   }
   return allowance;
+}
+
+// Keep credits fresh: coming back to the tab, or another tab changing them.
+if (typeof window !== "undefined") {
+  let last = 0;
+  const again = () => {
+    if (Date.now() - last < 15000) return;
+    last = Date.now();
+    refreshAllowance();
+  };
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && again());
+  window.addEventListener("focus", again);
 }
 
 /** The student's AI lectures, kept up to date as they log in and out. */
@@ -256,7 +249,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
       // Notes and questions are written at the same time. Each piece's questions can be
       // practised as soon as they arrive, rather than waiting for the whole lecture.
       const notesJob = (async () => {
-        const res = await runLimited(parts, 4, (c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c }));
+        const res = await runLimited(parts, 5, (c) => call<{ subject?: string; sections: AINoteSection[] }>("notes", { title: m0.title, pages: c }));
         const sections = mergeSections(res.flatMap((p) => p.sections ?? []), pages);
         if (!sections.length) throw new AIError("No notes came back.");
         applyTopics(id, sections);
@@ -269,7 +262,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
       })();
       let first = true;
       let count = 0;
-      const questionsJob = runLimited(parts, 4, async (c) => {
+      const questionsJob = runLimited(parts, 5, async (c) => {
         const r = await call<{ questions: CloudQuestion[] }>("questions", { title: m0.title, pages: c });
         const m1 = getState().materials.find((x) => x.id === id);
         if (!m1) return;
@@ -302,6 +295,35 @@ export function enhanceMaterial(id: ID): Promise<void> {
   })();
   running.set(id, job);
   return job;
+}
+
+/**
+ * Resolves once a lecture has its notes and its first practice questions (or writing has stopped,
+ * e.g. out of credits or an error), so it can be opened with something already there.
+ */
+export function waitUntilReady(id: ID, timeoutMs = 120_000): Promise<void> {
+  const ready = () => {
+    const m = getState().materials.find((x) => x.id === id);
+    const ai = m?.ai;
+    if (!m || !m.pages.some((p) => p.included && p.text.trim())) return true;
+    if (!ai) return false;
+    if (ai.status && ai.status !== "working") return true;
+    return !!ai.notes && !!ai.questions;
+  };
+  return new Promise((resolve) => {
+    if (ready()) return resolve();
+    const stop = subscribeState(() => {
+      if (ready()) {
+        stop();
+        clearTimeout(t);
+        resolve();
+      }
+    });
+    const t = setTimeout(() => {
+      stop();
+      resolve();
+    }, timeoutMs);
+  });
 }
 
 async function runLimited<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -410,7 +432,7 @@ export async function cloudMoreQuestions(id: ID, onAdded?: (total: number) => vo
 export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ front: string; back: string; pageId: ID }[]> {
   const pages = cloudPages(m, topicIds);
   if (!pages.length) return [];
-  const res = await runLimited(chunks(pages), 2, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>("flashcards", { title: m.title, pages: c }));
+  const res = await runLimited(chunks(pages), 4, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>("flashcards", { title: m.title, pages: c }));
   return res.flatMap((r) => r.cards ?? []).filter((c) => c.front?.trim() && c.back?.trim());
 }
 

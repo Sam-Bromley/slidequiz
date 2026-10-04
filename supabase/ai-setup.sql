@@ -6,8 +6,8 @@
 --   Longer files count as more than one, so merging files into one big file doesn't get more.
 --   The same text is only ever counted once a month (notes and questions for one lecture = one charge,
 --   and "Try again" after a failure is free).
---     without an account: 2 lectures to try (in total, not monthly)
---     free account:      10 lectures a month
+--     without an account: none (an account is needed)
+--     free account:      10 lectures a month (confirmed email, one free allowance per inbox, no throwaway emails)
 --     Pro:              100 lectures a month
 --   Safety net: all free students together can use up to 2,000,000 characters of new text a day
 --   (roughly 70–100 lectures, a few pounds). Plus students aren't limited by it.
@@ -104,6 +104,65 @@ create table if not exists public.invites (
 create index if not exists invites_inviter on public.invites (inviter_id, created_at);
 alter table public.invites enable row level security;
 
+-- ---------------------------------------------------------------- one free allowance per real person
+-- Throwaway email services (no free credits for accounts using these).
+create table if not exists public.blocked_email_domains (domain text primary key);
+alter table public.blocked_email_domains enable row level security;
+insert into public.blocked_email_domains (domain) values
+  ('mailinator.com'), ('guerrillamail.com'), ('guerrillamail.net'), ('guerrillamailblock.com'), ('sharklasers.com'), ('grr.la'),
+  ('10minutemail.com'), ('10minutemail.net'), ('temp-mail.org'), ('tempmail.com'), ('tempmail.net'), ('tempmailo.com'), ('tmpmail.org'),
+  ('yopmail.com'), ('yopmail.net'), ('trashmail.com'), ('trashmail.de'), ('getnada.com'), ('nada.email'), ('dispostable.com'),
+  ('maildrop.cc'), ('throwawaymail.com'), ('fakeinbox.com'), ('mintemail.com'), ('mohmal.com'), ('emailondeck.com'),
+  ('burnermail.io'), ('spamgourmet.com'), ('mailnesia.com'), ('mytemp.email'), ('1secmail.com'), ('1secmail.org'), ('1secmail.net'),
+  ('tmail.ws'), ('tempr.email'), ('discard.email'), ('mailcatch.com'), ('inboxkitten.com'), ('emailfake.com'), ('fakemail.net'),
+  ('minuteinbox.com'), ('tempinbox.com'), ('spambox.us'), ('mailpoof.com'), ('moakt.com'), ('tempmailaddress.com'), ('crazymailing.com'),
+  ('mail.tm'), ('mail.gw'), ('emltmp.com'), ('linshiyouxiang.net'), ('dropmail.me'), ('10mail.org'), ('anonaddy.me')
+on conflict do nothing;
+
+-- The same inbox, however it's written: lower case, no "+anything", and for Gmail no dots.
+create or replace function public.sq_inbox(p_email text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_email is null or position('@' in p_email) = 0 then lower(coalesce(p_email, ''))
+    else (
+      with parts as (
+        select split_part(lower(trim(p_email)), '@', 1) as local, split_part(lower(trim(p_email)), '@', 2) as domain
+      )
+      select case
+        when domain in ('gmail.com', 'googlemail.com') then replace(split_part(local, '+', 1), '.', '') || '@gmail.com'
+        else split_part(local, '+', 1) || '@' || domain
+      end
+      from parts
+    )
+  end
+$$;
+
+-- Free credits go to real, confirmed inboxes, once per person: not to an unconfirmed email, a
+-- throwaway email service, or a second account on the same inbox (e.g. name+1@gmail.com).
+create or replace function public.free_eligible(p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((
+    select u.email_confirmed_at is not null
+      and not coalesce(u.is_anonymous, false)
+      and not exists (select 1 from public.blocked_email_domains b where b.domain = split_part(lower(u.email), '@', 2))
+      and not exists (
+        select 1 from auth.users o
+        where o.id <> u.id and o.created_at < u.created_at and o.email is not null
+          and public.sq_inbox(o.email) = public.sq_inbox(u.email)
+      )
+    from auth.users u where u.id = p_user
+  ), false)
+$$;
+
 -- What an account has used and has left.
 create or replace function public.allowance_for(p_user uuid)
 returns json
@@ -115,7 +174,8 @@ as $$
 declare
   p text := public.plan_for(p_user);
   lecture integer := 30000;
-  base integer := (case p when 'plus' then 100 when 'guest' then 2 else 10 end) * lecture;
+  -- Guests and accounts that aren't eligible for free credits start with none (Pro and bonus still count).
+  base integer := (case when p = 'plus' then 100 when p = 'guest' then 0 when public.free_eligible(p_user) then 10 else 0 end) * lecture;
   used integer;
   bonus_used integer;
   bonus integer;
@@ -130,6 +190,7 @@ begin
     'allowance', base + bonus + bonus_used,
     'base', base,
     'bonus', bonus,
+    'eligible', p = 'plus' or public.free_eligible(p_user),
     'lecture', lecture,
     'resets', case when p = 'guest' then null else (date_trunc('month', now()) + interval '1 month')::date end
   );
@@ -167,7 +228,7 @@ begin
   if u.ref is null or u.email_confirmed_at is null or u.anon or u.created_at < now() - interval '30 days' then
     return false;
   end if;
-  if exists (select 1 from public.invites where friend_id = p_user) then
+  if exists (select 1 from public.invites where friend_id = p_user) or not public.free_eligible(p_user) then
     return false;
   end if;
   select user_id into inviter from public.invite_codes where code = upper(trim(u.ref));
@@ -314,7 +375,7 @@ declare
   used integer;
   site_total bigint;
   p text := public.plan_for(p_user);
-  daily_limit integer := case p when 'plus' then 1500000 when 'guest' then 100000 else 300000 end;
+  daily_limit integer := case p when 'plus' then 1500000 when 'guest' then 0 else 300000 end;
   site_limit bigint := 1000000;
 begin
   if p_user is null or p_chars is null or p_chars <= 0 then
@@ -351,6 +412,8 @@ grant execute on function public.plan_for(uuid) to service_role;
 grant execute on function public.allowance_for(uuid) to service_role;
 grant execute on function public.use_lecture_text(uuid, text, integer) to service_role;
 grant execute on function public.use_ai(uuid, integer) to service_role;
+revoke execute on function public.free_eligible(uuid) from public, anon, authenticated;
+grant execute on function public.free_eligible(uuid) to service_role;
 revoke execute on function public.reward_invite(uuid) from public, anon, authenticated;
 grant execute on function public.reward_invite(uuid) to service_role;
 revoke execute on function public.my_invite() from public, anon;

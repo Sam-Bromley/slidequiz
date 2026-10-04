@@ -6,6 +6,7 @@ import { Field, Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { Link } from "@/lib/router";
 import { cn } from "@/lib/utils";
+import { isThrowawayEmail } from "@/lib/email";
 import { GOOGLE_CLIENT_ID, googleSignIn, logInWithGoogleToken, providersAvailable, logIn, sendPasswordReset, setNewPassword, signUp, useAccount } from "@/services/account";
 
 export type AuthMode = "login" | "signup" | "forgot";
@@ -61,6 +62,7 @@ export function AuthDialog({ initial = "login", onClose, reason }: { initial?: A
         toast("Logged in");
         onClose();
       } else if (mode === "signup") {
+        if (isThrowawayEmail(email)) throw new Error("Please use your normal email address. Temporary email services aren't supported.");
         const r = await signUp(email, password, name);
         // A one-way code (not the email itself), so the same sign-up isn't counted twice.
         trackConversion("signup", { value: 1, id: oneWay(email.trim().toLowerCase()) });

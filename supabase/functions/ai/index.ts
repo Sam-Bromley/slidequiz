@@ -50,7 +50,7 @@ You write multiple-choice revision questions that test understanding, not just r
 Slides (each starts with [id]):
 ${pages}
 
-Write about ${b.count ?? 1} question(s) per slide that has real content, covering every important fact.${Array.isArray(b.avoid) && b.avoid.length ? ` These questions already exist, so write different ones (other facts, or the same facts from a new angle):\n${b.avoid.slice(0, 80).map((q: string) => "- " + String(q).slice(0, 160)).join("\n")}\n` : ""} Each has ONE correct answer and 4 wrong answers that are believable (same kind of thing, drawn from the same subject) but clearly wrong to someone who knows the material. Never use "all of the above" or "none of the above". Write each question directly about the subject (e.g. "What does transfusion and transplantation study?"), never "What does the slide say about…". Explanations state the fact itself, e.g. "Transfusion and transplantation is the study of blood, tissue and organ donation and transplants, including blood banking and histocompatibility." Keep options under 20 words. Every option starts with a capital letter and has no full stop at the end.
+Write about ${b.count ?? 1} question(s) per slide that has real content, covering every important fact.${Array.isArray(b.avoid) && b.avoid.length ? ` These questions already exist, so write different ones (other facts, or the same facts from a new angle):\n${b.avoid.slice(0, 80).map((q: string) => "- " + String(q).slice(0, 160)).join("\n")}\n` : ""} Each has ONE correct answer and 4 wrong answers that are believable (same kind of thing, drawn from the same subject) but clearly wrong to someone who knows the material. Never use "all of the above" or "none of the above". Write each question directly about the subject (e.g. "What does transfusion and transplantation study?"), never "What does the slide say about…". Explanations state the fact itself, e.g. "Transfusion and transplantation is the study of blood, tissue and organ donation and transplants, including blood banking and histocompatibility." Keep options under 20 words. Every option starts with a capital letter. If a question's options are full sentences, end every one of them with a full stop; if they are short phrases or single terms, use no full stops. Treat all options of a question the same way. Questions end with a question mark, and explanations are full sentences ending with a full stop.
 The right answer must NOT stand out: all 5 options must be about the same length (within a few words of each other), equally detailed, equally specific, equally technical and in the same grammatical form. Never make the correct option the longest, the most precise or the only one with a qualifier; often a wrong option should be the longest. Don't let the question's wording hint at the answer (no repeated keywords only in the right option).
 Reply with JSON only:
 {"questions":[{"pageId":"…","question":"…","correct":"…","wrong":["…","…","…","…"],"explanation":"one short sentence giving the key fact that makes the answer right, stated directly"}]}`,
@@ -189,20 +189,34 @@ Object.assign(TASKS, {
   writtenQuestions: {
     maxTokens: 6000,
     system: `${STYLE}
-You write short written-answer exam questions (worth 1 to 6 marks) with clear mark schemes, like real exam papers.`,
+You are an experienced exam writer. You write short written-answer questions (worth 1 to 6 marks) with precise mark schemes, like real exam papers.`,
     prompt: (b: any, pages: string) => `Lecture: "${b.title}"
 Slides (each starts with [id]):
 ${pages}
 
-Write ${Math.min(10, Math.max(3, Number(b.count) || 6))} different written-answer questions on this lecture, worth between 1 and 6 marks, mixing sizes (mostly 2 to 4 marks). Use real command words (State, Describe, Explain, Outline, Compare, Suggest). The marks must match how much is needed: one mark per creditworthy point. Cover the main topics and don't repeat anything below.${Array.isArray(b.avoid) && b.avoid.length ? `\nAlready asked:\n${b.avoid.slice(0, 30).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
-For each, give a mark scheme: the creditworthy points (at least as many as the marks; extra alternatives are fine), each with the id of the slide it comes from, and a short model answer that would get full marks.
+Write ${Math.min(10, Math.max(3, Number(b.count) || 6))} different written-answer questions on this lecture.
+Questions:
+- Each tests one clear idea from the lecture and can be fully answered from the slides alone. No trick questions, nothing vague ("Discuss X") and nothing trivial.
+- Match the command word to the marks: 1 mark "State", "Name" or "Give"; 2 to 3 marks "Describe", "Outline" or "Explain"; 4 to 6 marks "Explain", "Compare" or "Evaluate". Mix sizes, mostly 2 to 4 marks.
+- Say exactly what is wanted, e.g. "Explain two reasons why…" or "Describe how…", so a student knows how much to write.
+- Write each question as a full sentence: questions starting with a question word end with a question mark; command-word questions ("Explain why…") end with a full stop.
+- Cover different topics across the lecture and don't repeat anything below.${Array.isArray(b.avoid) && b.avoid.length ? `\nAlready asked:\n${b.avoid.slice(0, 30).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
+Mark scheme:
+- One creditworthy point per mark: each point is a single, specific, checkable idea (not a vague theme), written as a full sentence ending with a full stop. Give at least as many points as marks; extra acceptable alternatives are fine. Put acceptable alternative wordings in brackets, e.g. "(accept …)".
+- Give each point the id of the slide it comes from.
+- Model answer: a concise answer in full sentences, ending with full stops, that would get full marks and no more, the way a strong student would write it.
 Reply with JSON only:
 {"questions":[{"question":"…","marks":3,"points":[{"text":"…","pageId":"…"}],"model":"…"}]}`,
   },
   markWritten: {
     maxTokens: 1200,
     system: `${STYLE}
-You are a fair, encouraging examiner marking a student's short written answer against a mark scheme. Give credit for any wording that shows the same understanding; don't require exact phrases. Never award more than the marks available. Speak to the student as "you".`,
+You are a fair, experienced examiner marking a student's short written answer against a mark scheme. Speak to the student as "you", warmly and briefly.
+How to mark:
+- Award a mark scheme point only if the answer clearly gets that idea across and it is correct. Accept any wording that shows the same understanding, including spelling mistakes; never require exact phrases.
+- Don't credit vague answers, keywords dropped in without meaning, or a point that is contradicted elsewhere in the answer.
+- One mark per point. Never award more than the marks available. A blank, off-topic or "don't know" answer gets 0.
+- Feedback refers to the content itself, never to point numbers or "the mark scheme". Write full sentences that end with full stops.`,
     prompt: (b: any) => `Question (${Number(b.marks) || 1} marks): ${String(b.question ?? "").slice(0, 600)}
 Mark scheme points (one mark each, up to the total):
 ${(Array.isArray(b.points) ? b.points : []).slice(0, 12).map((p: any, i: number) => `${i}. ${String(p?.text ?? p).slice(0, 300)}`).join("\n")}
@@ -213,7 +227,7 @@ Student's answer:
 ${String(b.answer ?? "").slice(0, 3000)}
 >>>
 
-Mark it. List which mark scheme points (by number) the answer earns. Then one or two short sentences of feedback, and the single most useful thing to add or fix for more marks (empty if full marks).
+Mark it. List which mark scheme points (by number) the answer earns; "awarded" is how many marks that gives, up to the total. Then "feedback": one or two short sentences on what was good and what was missing. Then "improve": the single most useful thing to add or fix for more marks, as one sentence (empty if full marks).
 Reply with JSON only:
 {"awarded":2,"hit":[0,2],"feedback":"…","improve":"…"}`,
   },

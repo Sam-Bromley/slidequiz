@@ -86,12 +86,24 @@ export function tidyTerm(raw: string): string {
   return common(raw).replace(/[\s,;:.–—-]+$/, "").trim();
 }
 
-/** A question: tidy, and ends with "?" if it's worded as one. */
+/** Adds a full stop to a sentence that doesn't already end with one (or with ? ! …). */
+export function endSentence(t: string): string {
+  const s = t.trim();
+  return !s || /[.?!…]$/.test(s) ? s : s + ".";
+}
+
+/** A question: tidy, and ends with "?" if it's worded as one, otherwise a full stop ("Explain why…"). */
 export function tidyQuestion(raw: string): string {
   let t = common(raw).replace(/[,;:]+$/, "");
   if (/^(what|which|who|whom|whose|when|where|why|how|is|are|was|were|do|does|did|can|could|should|would|will)\b/i.test(t) && !/[?]$/.test(t)) t = t.replace(/\.$/, "") + "?";
-  return t;
+  return endSentence(t);
 }
+
+/**
+ * Whether a question's options read as sentences (then every option gets a full stop, so
+ * punctuation never gives the answer away). Short answers like "Mitochondria" get none.
+ */
+export const optionsAreSentences = (options: string[]) => options.length > 0 && options.reduce((n, o) => n + tidyOption(o).split(/\s+/).length, 0) / options.length >= 4;
 
 /**
  * An answer option: tidy, capital first letter, no full stop or trailing punctuation,
@@ -107,9 +119,14 @@ export function tidyOption(raw: string): string {
   return t;
 }
 
-/** An explanation or flashcard side: tidy sentence(s). */
-export function tidySentence(raw: string): string {
+/** Flashcard text: tidy, punctuation left as written (a back can be a single word). */
+export function tidyCard(raw: string): string {
   return common(raw).replace(/[,;:]+$/, "").trim();
+}
+
+/** An explanation, mark scheme point, model answer or feedback: tidy sentence(s), ending with a full stop. */
+export function tidySentence(raw: string): string {
+  return endSentence(common(raw).replace(/[,;:]+$/, "").trim());
 }
 
 /**

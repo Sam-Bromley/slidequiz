@@ -8,6 +8,7 @@ import { CONTACT_EMAIL } from "@/pages/privacy";
 import { openBilling, PLUS, PLUS_ON, usePlan } from "@/services/plus";
 import { lecturesLeft, useAllowance } from "@/services/ai/cloud";
 import { openInvite } from "@/services/invites";
+import { ADS_READY, setAdConsent, useAdConsent } from "@/services/ads";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -90,6 +91,7 @@ export function SettingsPage() {
   const [restoring, setRestoring] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const account = useAccount();
+  const adConsent = useAdConsent();
   const plan = usePlan();
   const [auth, setAuth] = useState<AuthMode | null>(null);
   const [newPw, setNewPw] = useState(false);
@@ -141,7 +143,7 @@ export function SettingsPage() {
         {(PLUS_ON || plan.plus) && (
         <Row
             label={plan.plus ? "SlideQuiz Pro" : "Get more with Pro"}
-            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz") : `${PLUS.plusLectures} credits a month, ${PLUS.price} a ${PLUS.period}`}
+            hint={plan.plus ? (plan.cancelling ? `Ends on ${new Date(plan.until!).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}` : "Thank you for supporting SlideQuiz, you're a legend") : `${PLUS.plusLectures} credits a month, ${PLUS.price} a ${PLUS.period}`}
           >
             {plan.plus && !plan.customer ? (
               <span />
@@ -196,16 +198,21 @@ export function SettingsPage() {
             <option value="xl">Extra large</option>
           </Select>
         </Row>
-        <Row label="Font" hint="Easy-read and dyslexia-friendly fonts for notes and questions" htmlFor="set-font">
+        <Row label="Font" htmlFor="set-font">
           <Select id="set-font" value={s.font ?? "default"} onChange={(e) => actions.updateSettings({ font: e.target.value as Settings["font"] })} className="sm:w-48">
             <option value="default">Standard</option>
             <option value="readable">Easy-read (Atkinson)</option>
             <option value="dyslexic">Dyslexia-friendly</option>
           </Select>
         </Row>
-        <Row label="Colour subjects" hint="Each subject gets its own soft colour on your materials" htmlFor="set-subjects" inline>
+        <Row label="Colour subjects" htmlFor="set-subjects" inline>
           <Switch id="set-subjects" checked={!!s.subjectColours} onChange={(v) => set({ subjectColours: v })} label="Colour subjects" />
         </Row>
+        {ADS_READY && (
+          <Row label="Cookies" htmlFor="set-cookies" inline>
+            <Switch id="set-cookies" checked={adConsent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Cookies" />
+          </Row>
+        )}
         <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>
@@ -251,7 +258,7 @@ export function SettingsPage() {
           </div>
         </Row>
         {TIKTOK_URL && (
-          <Row label="Follow us on TikTok" hint="Revision tips and what's new on SlideQuiz.">
+          <Row label="Follow us on TikTok">
             <a href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-2 rounded-lg border bg-card px-4 text-sm font-medium transition-colors hover:bg-accent focus-ring">
               <TikTokIcon /> Follow
             </a>

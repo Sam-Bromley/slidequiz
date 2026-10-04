@@ -1,0 +1,5 @@
+/** Throwaway email services (kept in step with blocked_email_domains in supabase/ai-setup.sql). */
+const THROWAWAY = new Set(
+  "mailinator.com guerrillamail.com guerrillamail.net guerrillamailblock.com sharklasers.com grr.la 10minutemail.com 10minutemail.net temp-mail.org tempmail.com tempmail.net tempmailo.com tmpmail.org yopmail.com yopmail.net trashmail.com trashmail.de getnada.com nada.email dispostable.com maildrop.cc throwawaymail.com fakeinbox.com mintemail.com mohmal.com emailondeck.com burnermail.io spamgourmet.com mailnesia.com mytemp.email 1secmail.com 1secmail.org 1secmail.net tmail.ws tempr.email discard.email mailcatch.com inboxkitten.com emailfake.com fakemail.net minuteinbox.com tempinbox.com spambox.us mailpoof.com moakt.com tempmailaddress.com crazymailing.com mail.tm mail.gw emltmp.com linshiyouxiang.net dropmail.me 10mail.org anonaddy.me".split(" "),
+);
+export const isThrowawayEmail = (email: string) => THROWAWAY.has(email.trim().toLowerCase().split("@")[1] ?? "");

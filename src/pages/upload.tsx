@@ -10,7 +10,7 @@ import { navigate, useLocation } from "@/lib/router";
 import { cn, formatBytes, uid } from "@/lib/utils";
 import { ACCEPT_ATTR, buildMaterial, detectType, FILE_TYPE_LABEL, ParseError, parseFile, parsePastedText, validateFile } from "@/services/parsing";
 import { persistPendingImages } from "@/services/storage/images";
-import { enhanceMaterial } from "@/services/ai/cloud";
+import { enhanceMaterial, waitUntilReady } from "@/services/ai/cloud";
 import { AllowanceNote } from "@/components/ai/allowance-note";
 import { AuthDialog } from "@/components/account/auth-dialog";
 import { useAccount } from "@/services/account";
@@ -53,6 +53,7 @@ export function UploadPage() {
   const [ytUrl, setYtUrl] = useState("");
   const pro = usePlan().plus;
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState("");
   // Making material needs a free account: you can pick files first, then sign up to generate.
   const user = useAccount().user;
   const [auth, setAuth] = useState(false);
@@ -198,13 +199,17 @@ export function UploadPage() {
       // Pictures save in the background (they show from memory meanwhile), so the lecture opens straight away.
       void persistPendingImages(mats.flatMap((m) => m.pages.flatMap((p) => (p.images ?? []).map((i) => i.id))));
       actions.addMaterials(mats);
-      navigate(mats.length === 1 ? `/materials/${mats[0].id}` : "/materials");
-      // Notes and questions are written in the background, one lecture at a time.
+      // Notes and questions are written one lecture at a time. The first lecture opens once its notes
+      // and first questions are ready, so there's something to read and practise straight away.
+      setStep("Writing your notes and questions…");
       (async () => {
         for (const m of mats) await enhanceMaterial(m.id);
       })();
+      await waitUntilReady(mats[0].id);
+      navigate(mats.length === 1 ? `/materials/${mats[0].id}` : "/materials");
     } finally {
       setSaving(false);
+      setStep("");
     }
   };
 
@@ -306,6 +311,12 @@ export function UploadPage() {
             {busy ? "Reading…" : "Generate"}
           </Button>
           {!saving && !busy && user && <AllowanceNote materials={ready.map((i) => i.material!)} />}
+          {saving && step && (
+            <p className="text-center text-[13px] text-muted-foreground" aria-live="polite">
+              {step}
+              <span className="block text-[12px]">This usually takes under a minute.</span>
+            </p>
+          )}
         </div>
       )}
       {auth && (

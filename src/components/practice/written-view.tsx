@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
+import { endSentence, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { confetti } from "@/lib/confetti";
 import { cn } from "@/lib/utils";
 import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, ensureCredits, refreshAllowance, textSize } from "@/services/ai/cloud";
@@ -25,6 +26,7 @@ export function WrittenView({ material: m }: { material: Material }) {
   const qs = m.written ?? [];
   const [busy, setBusy] = useState(false);
   const [i, setI] = useState(0);
+  const [resets, setResets] = useState(0);
   const idx = Math.min(i, Math.max(0, qs.length - 1));
 
   // A set of written questions uses about half the lecture's credits.
@@ -89,11 +91,30 @@ export function WrittenView({ material: m }: { material: Material }) {
             · Best so far {totalBest}/{totalMarks} marks
           </span>
         )}
-        <Button variant="outline" size="sm" className="ml-auto" onClick={generate} loading={busy} title={`Uses ${costText(cost)}`}>
+        {tried > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const before = list(m.id);
+              save(m.id, before.map(({ last: _l, best: _b, ...rest }) => rest));
+              setI(0);
+              setResets((n) => n + 1);
+              toast.undo("Progress reset", () => {
+                save(m.id, before);
+                setResets((n) => n + 1);
+              });
+            }}
+            title="Clear your answers and marks and start again"
+            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring"
+          >
+            <RotateCcw className="size-3.5" /> Reset progress
+          </button>
+        )}
+        <Button variant="outline" size="sm" className={cn(!tried && "ml-auto")} onClick={generate} loading={busy} title={`Uses ${costText(cost)}`}>
           <Plus /> More questions
         </Button>
       </div>
-      <QuestionCard key={q.id} material={m} q={q} />
+      <QuestionCard key={`${q.id}-${resets}`} material={m} q={q} />
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" disabled={idx === 0} onClick={() => setI(idx - 1)}>
           <ArrowLeft /> Back
@@ -154,7 +175,7 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
   return (
     <article className="rounded-2xl border bg-card p-5 sm:p-6">
       <div className="flex items-start gap-3">
-        <p className="flex-1 text-[16.5px] font-semibold leading-snug">{q.question}</p>
+        <p className="flex-1 text-[16.5px] font-semibold leading-snug">{tidyQuestion(q.question)}</p>
         <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[12px] font-semibold tabular-nums text-secondary-foreground">
           {q.marks} {q.marks === 1 ? "mark" : "marks"}
         </span>
@@ -217,7 +238,7 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold">{pct === 1 ? "Full marks!" : pct >= 0.5 ? "Good start" : "Not quite there yet"}</p>
-                {last.feedback && <p className="mt-0.5 text-[13.5px] text-foreground/85">{last.feedback}</p>}
+                {last.feedback && <p className="mt-0.5 text-[13.5px] text-foreground/85">{tidySentence(last.feedback)}</p>}
               </div>
             </div>
 
@@ -228,8 +249,7 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
                   <li key={k} className={cn("flex items-start gap-2.5 rounded-lg px-3 py-2 text-[14px]", got ? "bg-success-soft" : "bg-muted/60")}>
                     {got ? <Check className="mt-0.5 size-4 shrink-0 text-success" /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
                     <span className={cn(!got && "text-foreground/75")}>
-                      {p.text}
-                      {p.label && <span className="ml-1.5 rounded bg-background/70 px-1.5 py-px text-[11px] text-muted-foreground">{p.label}</span>}
+                      {endSentence(p.text)}
                     </span>
                   </li>
                 );
@@ -239,14 +259,14 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
             {last.improve && (
               <p className="rounded-xl bg-warning-soft/70 px-4 py-3 text-[13.5px]">
                 <span className="font-semibold">To get more marks: </span>
-                {last.improve}
+                {tidySentence(last.improve)}
               </p>
             )}
 
             {showModel && q.model && (
               <div className="rounded-xl border-l-4 border-success bg-card px-4 py-3">
                 <p className="text-[11.5px] font-semibold uppercase tracking-wide text-success">Full-mark answer</p>
-                <p className="mt-1 text-[14px] leading-relaxed">{q.model}</p>
+                <p className="mt-1 text-[14px] leading-relaxed">{tidySentence(q.model)}</p>
               </div>
             )}
 

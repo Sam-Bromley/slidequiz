@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { AIError, cloudMoreQuestions, refreshAllowance } from "@/services/ai/cloud";
 import { cn } from "@/lib/utils";
-import { tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
+import { endSentence, optionsAreSentences, tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { confetti } from "@/lib/confetti";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
@@ -450,7 +450,8 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             );
           })()}
           <div className="mt-4 space-y-2" role="radiogroup" aria-label="Answers" data-no-bounce>
-            {sView!.options.map((o, i) => {
+            {sView!.options.map((o, i, all) => {
+              const sentences = optionsAreSentences(all);
               const isRight = i === sView!.correct;
               const isChosen = i === sChosen;
               return (
@@ -479,7 +480,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                   >
                     {sAnswered && isRight ? <Check className={cn("size-3.5", !rev && isChosen && "animate-tick-pop")} strokeWidth={3} /> : sAnswered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
                   </span>
-                  <span className="pt-0.5">{tidyOption(o)}</span>
+                  <span className="pt-0.5">{sentences ? endSentence(tidyOption(o)) : tidyOption(o)}</span>
                 </button>
               );
             })}
