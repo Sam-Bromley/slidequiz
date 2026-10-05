@@ -1,8 +1,8 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Plus, RotateCcw, Shuffle, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { AIError, cloudMoreQuestions, refreshAllowance } from "@/services/ai/cloud";
+import { cloudMoreQuestions, refreshAllowance } from "@/services/ai/cloud";
 import { cn } from "@/lib/utils";
 import { endSentence, optionsAreSentences, tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
@@ -11,7 +11,6 @@ import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } fr
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
 import type { ID, Material, Question } from "@/types/models";
-import { Spinner } from "@/components/ui/spinner";
 
 const LETTERS = "ABCDEF";
 const COUNTS = [3, 4, 5, 6];
@@ -236,22 +235,28 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setPos((p) => p + 1);
   };
 
-  /** Writing more questions (once everything's covered); they join the queue as each batch arrives. */
+  /** Questions never run out: when you're nearly through and have covered almost everything,
+   *  new ones are written in the background and join the end of the queue. */
   const [making, setMaking] = useState(false);
-  const makeMore = async () => {
-    if (making || mixed) return;
+  const noMore = useRef<Record<string, boolean>>({});
+  const remaining = queue.length - pos - 1;
+  const uncovered = topicQs.filter((x) => !isCovered(x)).length;
+  useEffect(() => {
+    if (mixed || making || noMore.current[material.id] || !all.length) return;
+    if (remaining > 3 || uncovered > 3) return;
     setMaking(true);
-    try {
-      const n = await cloudMoreQuestions(material.id);
-      if (!n) toast("No new questions this time. Your slides may already be fully covered.");
-    } catch (e) {
-      const err = e as AIError;
-      toast.error(err?.message === "busy" ? "SlideQuiz is very busy right now. Try again in a little while." : (err?.message ?? "Couldn't write more questions.").replace(/\s*\(\d{3}\)$/, ""));
-    } finally {
-      setMaking(false);
-      refreshAllowance();
-    }
-  };
+    cloudMoreQuestions(material.id)
+      .then((n) => {
+        if (!n) noMore.current[material.id] = true;
+      })
+      .catch(() => {
+        noMore.current[material.id] = true;
+      })
+      .finally(() => {
+        setMaking(false);
+        refreshAllowance();
+      });
+  }, [remaining, uncovered, mixed, making, all.length, material.id]);
 
   /** Start this lecture's practice from scratch (with undo). */
   const resetProgress = () => {
@@ -285,6 +290,12 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qid, pos, viewIdx]);
+
+  // Carry straight on: a new round starts by itself (wrong answers first, then the rest).
+  useEffect(() => {
+    if (roundOver && topicQs.length) again();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundOver]);
 
   const again = () => {
     const d = getState();
@@ -429,29 +440,12 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           <p className="mt-1 text-[14px] text-muted-foreground">Questions are made from the facts in your slides. Include slides with some text to get started.</p>
         </div>
       ) : !sq || !sView ? (
-        <div className="animate-fade-up rounded-2xl border bg-card p-8 text-center">
-          <p className="text-[20px] font-semibold">{topicQs.every(isCovered) ? "You've covered everything here" : "Round finished"}</p>
-          <p className="mt-2 text-[14px] text-muted-foreground">
-            This round: {session.right} right, {session.wrong} wrong.
-            {topicQs.some(needsReview) ? " The ones you got wrong will come up again." : ""}
-          </p>
-          {making ? (
-            <p className="mt-6 flex items-center justify-center gap-2 text-[14px] text-muted-foreground" aria-live="polite">
-              <Spinner className="size-4" /> Writing new questions… the first ones will appear here in a moment.
-            </p>
-          ) : (
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {!mixed && topicQs.every(isCovered) && (
-                <Button onClick={makeMore}>
-                  <Plus /> More questions
-                </Button>
-              )}
-              <Button variant={!mixed && topicQs.every(isCovered) ? "outline" : "default"} onClick={again}>
-                <RotateCcw /> Keep practising
-              </Button>
-            </div>
-          )}
-        </div>
+        topicQs.length ? null : (
+          <div className="rounded-2xl border border-dashed py-14 text-center">
+            <p className="font-medium">No questions for {mixed ? "these materials" : "these topics"} yet</p>
+            <p className="mt-1 text-[14px] text-muted-foreground">Pick {mixed ? "other materials" : "other topics"} above to keep practising.</p>
+          </div>
+        )
       ) : (
         <article key={rev ? `past-${viewIdx}` : `${qid}-${pos}-${round}-${tries}`} ref={card} className="animate-fade-up scroll-mt-20 scroll-mb-24 rounded-2xl border bg-card p-5 sm:p-6 lg:scroll-mb-6" aria-live="polite">
           <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
