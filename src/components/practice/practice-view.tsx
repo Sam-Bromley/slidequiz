@@ -72,6 +72,9 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs, shuffle));
   const [pos, setPos] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
+  /** Having another go at a question you got wrong (fresh order, doesn't count towards your progress). */
+  const [tries, setTries] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   const [round, setRound] = useState(0);
   const [session, setSession] = useState({ right: 0, wrong: 0 });
   const nextBtn = useRef<HTMLButtonElement>(null);
@@ -113,6 +116,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setQueue(practiceQueue(topicQs, shuffle));
     setPos(0);
     setChosen(null);
+    setRetrying(false);
     setRound((r) => r + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setKey]);
@@ -124,7 +128,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   // unless the question has already been answered (then it waits for the next one).
   const frozen = useRef(count);
   if (!answered) frozen.current = count;
-  const view = useMemo(() => (q ? shuffleOptions(q, frozen.current) : null), [qid, pos, round, frozen.current]); // eslint-disable-line react-hooks/exhaustive-deps
+  const view = useMemo(() => (q ? shuffleOptions(q, frozen.current) : null), [qid, pos, round, tries, frozen.current]); // eslint-disable-line react-hooks/exhaustive-deps
   // Looking back at an earlier question, or at the current one.
   const rev = viewIdx !== null ? past[viewIdx] : null;
   const sq = rev ? all.find((x) => x.id === rev.qid) : q;
@@ -171,6 +175,10 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     if (!q || !view || answered) return;
     setChosen(i);
     setPast((ps) => [...ps, { qid: q.id, view, chosen: i }]);
+    if (retrying) {
+      requestAnimationFrame(() => nextBtn.current?.focus({ preventScroll: true }));
+      return;
+    }
     const ok = i === view.correct;
     actions.answerPractice(q.id, ok);
     setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
@@ -187,7 +195,16 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     requestAnimationFrame(() => nextBtn.current?.focus({ preventScroll: true }));
   };
 
+  const retry = () => {
+    if (!q) return;
+    setPast((ps) => (ps.length && ps[ps.length - 1].qid === q.id ? ps.slice(0, -1) : ps));
+    setChosen(null);
+    setRetrying(true);
+    setTries((t) => t + 1);
+  };
+
   const next = () => {
+    setRetrying(false);
     setChosen(null);
     setViewIdx(null);
     setPos((p) => p + 1);
@@ -213,6 +230,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     if (!q || !view) return;
     setPast((ps) => [...ps, { qid: q.id, view, chosen: null }]);
     setQueue((qu) => (pos + 1 < qu.length ? [...qu.slice(0, pos + 1), ...qu.slice(pos + 1), q.id] : qu));
+    setRetrying(false);
     setChosen(null);
     setViewIdx(null);
     setPos((p) => p + 1);
@@ -274,6 +292,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setQueue(practiceQueue(qs, shuffle));
     setPos(0);
     setChosen(null);
+    setRetrying(false);
     setRound((r) => r + 1);
     setSession({ right: 0, wrong: 0 });
     setViewIdx(null);
@@ -434,12 +453,22 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           )}
         </div>
       ) : (
-        <article key={rev ? `past-${viewIdx}` : `${qid}-${pos}-${round}`} ref={card} className="animate-fade-up scroll-mt-20 scroll-mb-24 rounded-2xl border bg-card p-5 sm:p-6 lg:scroll-mb-6" aria-live="polite">
+        <article key={rev ? `past-${viewIdx}` : `${qid}-${pos}-${round}-${tries}`} ref={card} className="animate-fade-up scroll-mt-20 scroll-mb-24 rounded-2xl border bg-card p-5 sm:p-6 lg:scroll-mb-6" aria-live="polite">
           <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
             {topicName && <span>{topicName}</span>}
             {before === "incorrect" && <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning">You got this wrong before</span>}
             {before === "correct" && <span className="rounded-full bg-success-soft px-2 py-0.5 font-medium text-success">You got this right before</span>}
             {rev && <span className="rounded-full bg-muted px-2 py-0.5 font-medium">{revSkipped ? "Skipped" : "Looking back"}</span>}
+            {!rev && sAnswered && !sCorrect && (
+              <button
+                type="button"
+                onClick={retry}
+                data-no-bounce
+                className="-my-1 ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-ring"
+              >
+                <RotateCcw className="size-3.5" /> Retry
+              </button>
+            )}
           </p>
           {(() => {
             const p = splitPrompt(sq!.prompt);
@@ -512,7 +541,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                 {rev ? (sCorrect ? "You got this right" : `You got this wrong. The answer is ${LETTERS[sView!.correct]}.`) : sCorrect ? "Correct" : `Not quite. The answer is ${LETTERS[sView!.correct]}.`}
               </p>
               <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>
-              {!rev && !sCorrect && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
+              {!rev && !sCorrect && !retrying && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
               <div className="mt-4 flex items-center justify-between gap-3">
                 {page ? (
                   <button type="button" onClick={() => onOpenNotes(page.id, sq!.materialId)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
