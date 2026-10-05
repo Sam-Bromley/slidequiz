@@ -197,8 +197,16 @@ ${pages}
 Write ${Math.min(10, Math.max(3, Number(b.count) || 6))} different written-answer questions on this lecture.
 Questions:
 - Each tests one clear idea from the lecture and can be fully answered from the slides alone. No trick questions, nothing vague ("Discuss X") and nothing trivial.
-- Match the command word to the marks: 1 mark "State", "Name" or "Give"; 2 to 3 marks "Describe", "Outline" or "Explain"; 4 to 6 marks "Explain", "Compare" or "Evaluate". Mix sizes, mostly 2 to 4 marks.
-- Say exactly what is wanted, e.g. "Explain two reasons why…" or "Describe how…", so a student knows how much to write.
+- Start each question (and each part of a two-part question) with one of these command words, used exactly as exams use them:
+  - "State", "Name", "Give", "Identify": just the fact, term or item. No explanation is needed or credited. 1 mark per item asked for.
+  - "Define": what the term means, in one sentence. 1 to 2 marks.
+  - "Outline" or "Describe": what something is or what happens, with no reasons needed. 1 mark per relevant detail.
+  - "Explain": a point plus why or how (the reason, cause or mechanism). Usually 2 marks per point explained: 1 for the point, 1 for the reason.
+  - "Compare": similarities and/or differences between two named things.
+  - "Evaluate": strengths and weaknesses (pros and cons). Ask for both sides; for 2 marks, one strength and one weakness.
+- Two-part questions are fine when the parts are clearly separate, e.g. "State one strength of the multi-store model and evaluate its use of case studies." Make the marks add up exactly: e.g. 3 marks = 1 for stating + 1 for a strength + 1 for a weakness.
+- Match the command word to what is actually wanted: never "Explain" for a bare fact, never "State" when a reason is needed. Mix sizes, mostly 1 to 4 marks.
+- Say exactly how many things are wanted, e.g. "Name two…", "Explain one reason why…", "Give one strength and one weakness of…", so a student knows how much to write.
 - Word every question clearly and simply, so a student understands it on first read: plain English, under 30 words, using the lecture's key terms.
 - Ask one thing only. If more than one point is needed, say how many ("Give two…", "Describe three…").
 - Name the topic in the question itself: never "it", "this process", "the above" or anything that needs context to understand.
@@ -207,9 +215,11 @@ Questions:
 - Write each question as a full sentence: questions starting with a question word end with a question mark; command-word questions ("Explain why…") end with a full stop.
 - Cover different topics across the lecture and don't repeat anything below.${Array.isArray(b.avoid) && b.avoid.length ? `\nAlready asked:\n${b.avoid.slice(0, 30).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
 Mark scheme:
-- One creditworthy point per mark: each point is a single, specific, checkable idea (not a vague theme), written as a full sentence ending with a full stop. Give at least as many points as marks; extra acceptable alternatives are fine. Put acceptable alternative wordings in brackets, e.g. "(accept …)".
+- One creditworthy point per mark: each point is a single, specific, checkable idea (not a vague theme), written as a full sentence ending with a full stop. Put acceptable alternatives and wordings in brackets, e.g. "(accept …)".
+- The mark scheme follows the command word. "State"/"Name"/"Give" points are just the fact itself; never require an explanation for them. "Explain" points include the reason. For "Evaluate", label points "Strength: …" or "Weakness: …" and include one mark for each side asked for, with other valid strengths or weaknesses accepted in brackets. For two-part questions, start each point with its part, e.g. "State: …", "Strength: …", "Weakness: …".
+- Give exactly as many points as marks, one per mark, unless a mark can be earned several ways; then list the alternatives inside that point's brackets rather than as extra points.
 - Give each point the id of the slide it comes from.
-- Model answer: a concise answer in full sentences, ending with full stops, that would get full marks and no more, the way a strong student would write it.
+- Model answer: a concise answer in full sentences, ending with full stops, that would get full marks and no more, the way a strong student would write it. For "State", "Name" or "Give", just the answer itself with no explanation.
 Reply with JSON only:
 {"questions":[{"question":"…","marks":3,"points":[{"text":"…","pageId":"…"}],"model":"…"}]}`,
   },
@@ -220,7 +230,10 @@ You are a fair, experienced examiner marking a student's short written answer ag
 How to mark:
 - Award a mark scheme point only if the answer clearly gets that idea across and it is correct. Accept any wording that shows the same understanding, including spelling mistakes; never require exact phrases.
 - Don't credit vague answers, keywords dropped in without meaning, or a point that is contradicted elsewhere in the answer.
+- Mark to the command word. "State", "Name", "Give", "Identify": a correct fact, term or item gets the mark on its own, even as a single word or phrase; never ask for or expect an explanation, and never suggest adding one. "Explain": the reason or mechanism is needed for the explanation mark. "Evaluate": strength marks need a real strength and weakness marks a real weakness; two strengths can't earn a weakness mark.
+- Only give as many items as the question asks for credit: if it asks for one and the answer lists several, mark the first one.
 - One mark per point. Never award more than the marks available. A blank, off-topic or "don't know" answer gets 0.
+- Feedback and "improve" must fit the command word: for "State" or "Name" questions, if the answer is right, it is complete.
 - Feedback refers to the content itself, never to point numbers or "the mark scheme". Write full sentences that end with full stops.`,
     prompt: (b: any) => `Question (${Number(b.marks) || 1} marks): ${String(b.question ?? "").slice(0, 600)}
 Mark scheme points (one mark each, up to the total):

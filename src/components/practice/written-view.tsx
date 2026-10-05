@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
 import { endSentence, tidyQuestion, tidySentence } from "@/lib/tidy";
+import { commandHints, commandParts } from "@/lib/command-words";
 import { confetti } from "@/lib/confetti";
 import { cn } from "@/lib/utils";
 import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, ensureCredits, refreshAllowance, textSize } from "@/services/ai/cloud";
@@ -176,7 +177,27 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
   return (
     <article className="rounded-2xl border bg-card p-5 sm:p-6">
       <div className="flex items-start gap-3">
-        <p className="flex-1 text-[16.5px] font-semibold leading-snug">{tidyQuestion(q.question)}</p>
+        <div className="flex-1">
+          <p className="text-[16.5px] font-semibold leading-snug">
+            {commandParts(tidyQuestion(q.question)).map((p, i) =>
+              p.command ? (
+                <span key={i} className="underline decoration-2 underline-offset-[3px]">{p.text}</span>
+              ) : (
+                <span key={i}>{p.text}</span>
+              ),
+            )}
+          </p>
+          {commandHints(q.question).length > 0 && (
+            <p className="mt-1.5 text-[13px] leading-snug text-muted-foreground">
+              {commandHints(q.question).map((c, i) => (
+                <span key={c.word}>
+                  {i > 0 && <br />}
+                  <span className="font-semibold text-foreground/80">{c.word}:</span> {c.hint}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
         <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[12px] font-semibold tabular-nums text-secondary-foreground">
           {q.marks} {q.marks === 1 ? "mark" : "marks"}
         </span>
