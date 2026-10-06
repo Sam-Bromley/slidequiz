@@ -353,10 +353,9 @@ export function NotesView({ material }: { material: Material }) {
             onClick={() => setAsking(true)}
             aria-label="Ask about these notes"
             title="Ask about these notes"
-            className="group fixed bottom-[calc(80px+env(safe-area-inset-bottom,0px))] left-4 z-40 flex h-14 animate-fade-up items-center gap-2 rounded-full bg-foreground pl-[17px] pr-[17px] text-background shadow-pop transition-[transform,padding] duration-200 hover:scale-[1.03] focus-ring lg:bottom-6 lg:left-[calc(var(--sb,248px)+24px)] lg:hover:pr-5"
+            className="fixed bottom-[calc(80px+env(safe-area-inset-bottom,0px))] right-4 z-40 grid size-14 animate-fade-up place-items-center rounded-full bg-foreground text-background shadow-pop transition-transform duration-200 hover:scale-105 focus-ring lg:bottom-6 lg:right-6 [html[data-timer]_&]:bottom-[calc(132px+env(safe-area-inset-bottom,0px))] lg:[html[data-timer]_&]:bottom-[76px]"
           >
-            <MessageCircle className="size-[22px] shrink-0" />
-            <span className="hidden max-w-0 overflow-hidden whitespace-nowrap text-[14px] font-semibold transition-[max-width] duration-200 lg:inline lg:group-hover:max-w-[180px]">Ask about these notes</span>
+            <MessageCircle className="size-[22px]" />
           </button>,
           document.body,
         )}

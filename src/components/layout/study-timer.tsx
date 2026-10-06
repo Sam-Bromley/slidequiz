@@ -194,6 +194,14 @@ export function StudyTimerPill() {
     }, 500);
     return () => clearInterval(t);
   }, [!!s]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Lets other corner buttons (e.g. Ask about these notes) sit above the timer.
+  useEffect(() => {
+    if (!s) return;
+    document.documentElement.dataset.timer = "1";
+    return () => {
+      delete document.documentElement.dataset.timer;
+    };
+  }, [!!s]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!s) return null;
   const left = s.endsAt ? s.endsAt - Date.now() : s.left ?? 0;
   const total = (s.phase === "focus" ? s.focusMin : s.breakMin) * 60_000;
