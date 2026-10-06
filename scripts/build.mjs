@@ -54,7 +54,7 @@ fs.copyFileSync(path.join(root, "public/index.html"), path.join(dist, "index.htm
   const body = html.slice(html.indexOf("<body>") + 6, html.indexOf("</body>")).replace(/<!-- Cloudflare Web Analytics -->[\s\S]*?<!-- End Cloudflare Web Analytics -->/, "");
   fs.writeFileSync(path.join(dist, "embed.html"), (head + body).replace(/\n\s*\n/g, "\n").trim() + "\n");
 }
-for (const f of fs.readdirSync(path.join(root, "public"))) if (f !== "index.html") fs.copyFileSync(path.join(root, "public", f), path.join(dist, f));
+for (const f of fs.readdirSync(path.join(root, "public"))) if (f !== "index.html") fs.cpSync(path.join(root, "public", f), path.join(dist, f), { recursive: true });
 // Information pages (About and search-friendly guides) as plain HTML, plus the sitemap listing them.
 {
   const { PAGES, renderPage, sitemap } = await import("./pages.mjs");
