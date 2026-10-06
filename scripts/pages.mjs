@@ -21,6 +21,7 @@ const COMMON_FAQ = [
 export const PAGES = [
   {
     slug: "about",
+    shots: ["notes","quiz","flashcards"],
     title: "About SlideQuiz",
     description: "SlideQuiz turns your lecture slides, PDFs and notes into clean notes, practice questions and flashcards. Free, and your files stay on your device.",
     h1: "Revise straight from your lecture slides",
@@ -41,6 +42,7 @@ export const PAGES = [
   },
   {
     slug: "powerpoint-to-flashcards",
+    shots: ["notes","flashcards","quiz"],
     title: "Turn PowerPoint slides into flashcards",
     description: "Upload your lecture PowerPoint and SlideQuiz makes flashcards from it automatically. Free account, no card needed.",
     h1: "Turn PowerPoint slides into flashcards",
@@ -66,6 +68,7 @@ export const PAGES = [
   },
   {
     slug: "lecture-slides-to-practice-questions",
+    shots: ["quiz","marked","progress"],
     title: "Practice questions from your lecture slides",
     description: "Make multiple-choice practice questions from your lecture slides or PDF in seconds. Free, covers every topic, and brings back the ones you get wrong.",
     h1: "Practice questions from your lecture slides",
@@ -88,6 +91,7 @@ export const PAGES = [
   },
   {
     slug: "revision-notes-from-slides",
+    shots: ["upload","notes","flashcards"],
     title: "Make revision notes from lecture slides",
     description: "Turn lecture slides into clean, organised revision notes grouped by topic. Free, works with PowerPoint, PDF and Word, and exports to PDF or Word.",
     h1: "Make revision notes from your slides",
@@ -110,6 +114,7 @@ export const PAGES = [
   },
   {
     slug: "essay-plans",
+    shots: ["notes","marked","progress"],
     note: "Free account, no card needed.",
     title: "Essay questions, plans and feedback from your lectures",
     description: "Get exam-style essay questions from your own lectures, plan your essay step by step, and get feedback on every part. Free.",
@@ -134,6 +139,7 @@ export const PAGES = [
   },
   {
     slug: "pro",
+    shots: ["notes","marked","progress"],
     cta: ["Get SlideQuiz Pro", "/#/pro"],
     note: "£3.99 a month. Cancel any time.",
     title: "SlideQuiz Pro",
@@ -165,48 +171,82 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, 
 const LOGO = `<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#111"/><rect x="7" y="8" width="18" height="13" rx="2.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M16 21v4M12 25h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="m12.5 14.5 2.5 2.5 4.5-4.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const CSS = `
-:root{--bg:#fff;--fg:#111;--muted:#666;--line:#e6e6e6;--card:#fafafa}
-@media (prefers-color-scheme:dark){:root{--bg:#0b0b0c;--fg:#f2f2f2;--muted:#a0a0a0;--line:#262628;--card:#151517}}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 Arial,Helvetica,sans-serif}
-a{color:inherit}
-.wrap{max-width:760px;margin:0 auto;padding:0 20px}
-header{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;font-size:17px}
-.btn{display:inline-block;background:var(--fg);color:var(--bg);text-decoration:none;font-weight:600;border-radius:999px;padding:12px 24px}
-.btn.small{padding:8px 16px;font-size:14px}
-h1{font-size:clamp(30px,6vw,44px);line-height:1.15;margin:48px 0 16px;letter-spacing:-.02em}
-h2{font-size:22px;margin:56px 0 16px}
-.lead{font-size:18px;color:var(--muted);margin:0 0 28px}
-.note{font-size:14px;color:var(--muted);margin-top:12px}
-.steps{list-style:none;padding:0;margin:0;display:grid;gap:12px}
-.steps li{display:flex;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
-.num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-weight:700;font-size:14px}
-.steps b,.feat b{display:block;margin-bottom:2px}
-.steps p,.feat p{margin:0;color:var(--muted)}
-.feat{list-style:none;padding:0;margin:0;display:grid;gap:18px}
-details{border-bottom:1px solid var(--line);padding:14px 0}
-summary{cursor:pointer;font-weight:600}
-details p{margin:8px 0 0;color:var(--muted)}
-.cta{text-align:center;margin:64px 0 24px;padding:36px 20px;border:1px solid var(--line);border-radius:18px;background:var(--card)}
-.cta p{margin:0 0 18px;font-size:18px}
-footer{border-top:1px solid var(--line);margin-top:48px;padding:24px 0 40px;font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 18px}
-footer a{text-decoration:none}footer a:hover{text-decoration:underline}
+:root{--bg:#fff;--fg:#111;--muted:#5f6368;--line:#e8e8e8;--soft:#f6f6f4;--card:#fff}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}img{display:block;max-width:100%}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.narrow{max-width:760px;margin:0 auto}
+header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.88);backdrop-filter:saturate(1.6) blur(12px);-webkit-backdrop-filter:saturate(1.6) blur(12px);border-bottom:1px solid transparent}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;font-size:17px;letter-spacing:-.02em}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--fg);color:#fff;text-decoration:none;font-weight:700;border-radius:999px;padding:14px 26px;font-size:16px;transition:transform .15s,box-shadow .15s;box-shadow:0 1px 0 rgba(0,0,0,.04),0 8px 24px -10px rgba(0,0,0,.45)}
+.btn:hover{transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--fg);box-shadow:none;border:1px solid var(--line);padding:9px 16px;font-size:14px}
+.hero{text-align:center;padding:56px 0 0}
+.pill{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 14px;background:var(--soft)}
+.pill b{color:var(--fg)}
+h1{font-size:clamp(36px,6.4vw,62px);line-height:1.04;letter-spacing:-.045em;margin:22px auto 18px;max-width:820px}
+.lead{font-size:clamp(17px,2.2vw,20px);line-height:1.55;color:var(--muted);margin:0 auto 30px;max-width:640px}
+.ctas{display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
+.link{font-weight:700;text-decoration:none;color:var(--muted);font-size:15px}.link:hover{color:var(--fg)}
+.note{font-size:13px;color:var(--muted);margin-top:14px}
+.phones{position:relative;display:flex;justify-content:center;align-items:flex-end;gap:0;margin:48px auto 0;height:clamp(380px,62vw,620px);max-width:860px;overflow:hidden;padding:0 10px}
+.phones::after{content:"";position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(transparent,var(--bg))}
+.phone{flex:none;width:clamp(170px,27vw,280px);border-radius:34px;border:8px solid #111;background:#111;overflow:hidden;box-shadow:0 30px 60px -25px rgba(0,0,0,.45)}
+.phone img{border-radius:26px;width:100%;height:auto}
+.phone.side{transform:translateY(40px) scale(.9);opacity:.96}
+.phone.l{margin-right:-34px;transform:translateY(40px) rotate(-5deg) scale(.9)}
+.phone.r{margin-left:-34px;transform:translateY(40px) rotate(5deg) scale(.9)}
+.phone.mid{position:relative;z-index:2;transform:translateY(0)}
+section{padding:72px 0 0}
+h2{font-size:clamp(26px,3.6vw,36px);letter-spacing:-.035em;line-height:1.1;margin:0 0 10px;text-align:center}
+.sub{color:var(--muted);text-align:center;margin:0 auto 34px;max-width:560px}
+.steps{list-style:none;padding:0;margin:34px 0 0;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.steps li{background:var(--soft);border-radius:22px;padding:24px}
+.num{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--fg);color:#fff;font-weight:700;font-size:15px;margin-bottom:16px}
+.steps b,.feat b{display:block;font-size:17px;letter-spacing:-.01em;margin-bottom:6px}
+.steps p,.feat p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
+.feat{list-style:none;padding:0;margin:34px 0 0;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.feat li{border:1px solid var(--line);border-radius:22px;padding:24px;background:var(--card)}
+.tick{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;background:var(--soft);margin-bottom:14px;font-weight:700;font-size:14px}
+.prose{max-width:680px;margin:0 auto;text-align:center;color:var(--muted);font-size:17px}
+.prose p{margin:0 0 14px}
+.faq{max-width:760px;margin:30px auto 0;display:grid;gap:10px}
+details{border:1px solid var(--line);border-radius:16px;padding:16px 20px;background:var(--card)}
+summary{cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-weight:400;font-size:22px;line-height:1;color:var(--muted)}
+details[open] summary::after{content:"–"}
+details p{margin:10px 0 0;color:var(--muted)}
+.cta{text-align:center;margin:80px 0 0;padding:56px 24px;border-radius:30px;background:#111;color:#fff}
+.cta h2{color:#fff;margin-bottom:12px}
+.cta p{color:#b9b9b9;margin:0 0 26px;font-size:17px}
+.cta .btn{background:#fff;color:#111}
+footer{margin-top:64px;padding:28px 0 44px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:10px 20px}
+footer a{text-decoration:none}footer a:hover{color:var(--fg)}
+@media (max-width:640px){.hero{padding-top:36px}.phone.l,.phone.r{margin:0 -70px}.phone{width:200px}section{padding-top:56px}.cta{border-radius:24px;padding:44px 20px}}
 `;
 
 export function renderPage(page, analytics) {
   const url = `${SITE}/${page.slug}/`;
   const faqLd = { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: page.faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) };
+  const steps = (items) => `<ol class="steps">${items.map(([t, d], i) => `<li><span class="num">${i + 1}</span><b>${esc(t)}</b><p>${esc(d)}</p></li>`).join("")}</ol>`;
   const body = page.sections
-    .map((s) => {
-      let h = `<h2>${esc(s.h)}</h2>`;
-      if (s.steps) h += `<ol class="steps">${s.steps.map(([t, d], i) => `<li><span class="num">${i + 1}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join("")}</ol>`;
-      if (s.list) h += `<ul class="feat">${s.list.map(([t, d]) => `<li><b>${esc(t)}</b><p>${esc(d)}</p></li>`).join("")}</ul>`;
-      if (s.paras) h += s.paras.map((p) => `<p>${esc(p)}</p>`).join("");
-      return h;
+    .map((s, k) => {
+      let h = `<section${k === 0 ? ' id="how"' : ""}><div class="narrow"><h2>${esc(s.h)}</h2></div>`;
+      if (s.steps) h += steps(s.steps);
+      if (s.list) h += `<ul class="feat">${s.list.map(([t, d]) => `<li><span class="tick">✓</span><b>${esc(t)}</b><p>${esc(d)}</p></li>`).join("")}</ul>`;
+      if (s.paras) h += `<div class="prose" style="margin-top:18px">${s.paras.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`;
+      return h + "</section>";
     })
     .join("\n");
-  const steps = page.slug === "about" ? `<h2>How it works</h2><ol class="steps">${STEPS.map(([t, d], i) => `<li><span class="num">${i + 1}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join("")}</ol>` : "";
+  const how = page.slug === "about" ? `<section><div class="narrow"><h2>How it works</h2></div>${steps(STEPS)}</section>` : "";
+  const shots = page.shots ?? ["notes", "quiz", "flashcards"];
+  const alt = { notes: "Revision notes in SlideQuiz", quiz: "A practice question in SlideQuiz", flashcards: "A flashcard in SlideQuiz", marked: "A written answer marked in SlideQuiz", progress: "Progress by topic in SlideQuiz", upload: "Uploading lecture slides to SlideQuiz" };
+  const phone = (n, cls) => `<div class="phone ${cls}"><img src="/img/${n}.webp" alt="${alt[n]}" width="600" height="1240" loading="${cls === "mid" ? "eager" : "lazy"}" /></div>`;
+  const cta = page.cta ?? ["Try SlideQuiz free", "/"];
   const others = PAGES.filter((p) => p.slug !== page.slug);
   return `<!doctype html>
 <html lang="en">
@@ -242,25 +282,29 @@ gtag("set","ads_data_redaction",ok!=="granted");gtag("js",new Date());gtag("conf
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="SlideQuiz" />
 <meta name="theme-color" content="#ffffff" />
+<meta name="color-scheme" content="light" />
 <style>${CSS.trim()}</style>
 <script type="application/ld+json">${JSON.stringify(faqLd)}</script>
 </head>
 <body>
-<div class="wrap">
-<header><a class="brand" href="/">${LOGO}SlideQuiz</a><a class="btn small" href="/">Open SlideQuiz</a></header>
-<main>
+<header><div class="wrap"><a class="brand" href="/">${LOGO}SlideQuiz</a><a class="btn ghost" href="/">Open SlideQuiz</a></div></header>
+<main class="wrap">
+<div class="hero">
+<span class="pill"><b>Free to try</b> · No card needed · Phone and laptop</span>
 <h1>${esc(page.h1)}</h1>
 <p class="lead">${esc(page.lead)}</p>
-<a class="btn" href="${page.cta?.[1] ?? "/"}">${page.cta?.[0] ?? "Try SlideQuiz free"}</a>
-<p class="note">${esc(page.note ?? "Free account, no card needed.")}</p>
-${steps}
-${body}
-<h2>Questions</h2>
-${page.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("\n")}
-<div class="cta"><p>Ready to revise from your own slides?</p><a class="btn" href="${page.cta?.[1] ?? "/"}">${page.cta?.[0] ?? "Try SlideQuiz free"}</a></div>
-</main>
-<footer><a href="/">SlideQuiz</a>${others.map((p) => `<a href="/${p.slug}/">${esc(p.title)}</a>`).join("")}<a href="/#/privacy">Privacy policy</a></footer>
+<div class="ctas"><a class="btn" href="${cta[1]}">${esc(cta[0])} →</a><a class="link" href="#how">How it works ↓</a></div>
+${page.note && page.note !== "Free account, no card needed." ? `<p class="note">${esc(page.note)}</p>` : ""}
+<div class="phones">${phone(shots[0], "l")}${phone(shots[1], "mid")}${phone(shots[2], "r")}</div>
 </div>
+${how}
+${body}
+<section><div class="narrow"><h2>Questions</h2></div><div class="faq">
+${page.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("\n")}
+</div></section>
+<div class="cta"><h2>Revise from your own slides</h2><p>Upload a lecture and get notes, flashcards and practice questions in about a minute.</p><a class="btn" href="${cta[1]}">${esc(cta[0])} →</a></div>
+</main>
+<footer><div class="wrap"><a href="/">SlideQuiz</a>${others.map((p) => `<a href="/${p.slug}/">${esc(p.title)}</a>`).join("")}<a href="/#/privacy">Privacy policy</a></div></footer>
 ${analytics}
 <script>
   // Coming from an ad: keep the ad's click id on links into the app, so a later sign-up or purchase is credited to the ad.

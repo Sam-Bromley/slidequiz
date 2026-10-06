@@ -218,23 +218,28 @@ Mark scheme:
 - One creditworthy point per mark: each point is a single, specific, checkable idea (not a vague theme), written as a full sentence ending with a full stop. Put acceptable alternatives and wordings in brackets, e.g. "(accept …)".
 - The mark scheme follows the command word. "State"/"Name"/"Give" points are just the fact itself; never require an explanation for them. "Explain" points include the reason. For "Evaluate", label points "Strength: …" or "Weakness: …" and include one mark for each side asked for, with other valid strengths or weaknesses accepted in brackets. For two-part questions, start each point with its part, e.g. "State: …", "Strength: …", "Weakness: …".
 - Give exactly as many points as marks, one per mark, unless a mark can be earned several ways; then list the alternatives inside that point's brackets rather than as extra points.
+- Every point must be factually precise (e.g. for enzyme inhibitors: competitive raises Km with Vmax unchanged; non-competitive lowers Vmax). Never write a vague or half-true point.
+- Be generous about wording: in each point's brackets, list the common equivalent terms and phrasings a student might use, e.g. "(accept allosteric site / regulatory site / a site other than the active site)".
 - Give each point the id of the slide it comes from.
 - Model answer: a concise answer in full sentences, ending with full stops, that would get full marks and no more, the way a strong student would write it. For "State", "Name" or "Give", just the answer itself with no explanation.
 Reply with JSON only:
 {"questions":[{"question":"…","marks":3,"points":[{"text":"…","pageId":"…"}],"model":"…"}]}`,
   },
   markWritten: {
-    maxTokens: 1200,
+    maxTokens: 700,
     system: `${STYLE}
-You are a fair, experienced examiner marking a student's short written answer against a mark scheme. Speak to the student as "you", warmly and briefly.
+You are a supportive, experienced examiner marking a student's short written answer. You want students to keep practising, so you are generous about wording and strict only about facts. Speak to the student as "you".
 How to mark:
-- Award a mark scheme point only if the answer clearly gets that idea across and it is correct. Accept any wording that shows the same understanding, including spelling mistakes; never require exact phrases.
-- Don't credit vague answers, keywords dropped in without meaning, or a point that is contradicted elsewhere in the answer.
-- Mark to the command word. "State", "Name", "Give", "Identify": a correct fact, term or item gets the mark on its own, even as a single word or phrase; never ask for or expect an explanation, and never suggest adding one. "Explain": the reason or mechanism is needed for the explanation mark. "Evaluate": strength marks need a real strength and weakness marks a real weakness; two strengths can't earn a weakness mark.
-- Only give as many items as the question asks for credit: if it asks for one and the answer lists several, mark the first one.
-- One mark per point. Never award more than the marks available. A blank, off-topic or "don't know" answer gets 0.
-- Feedback and "improve" must fit the command word: for "State" or "Name" questions, if the answer is right, it is complete.
-- Feedback refers to the content itself, never to point numbers or "the mark scheme". Write full sentences that end with full stops.`,
+- Mark the meaning, not the wording. Give the mark whenever the answer gets the idea across correctly, in any words: synonyms, equivalent technical terms (e.g. "allosteric site" = "regulatory site" = "a site other than the active site"), informal phrasing, spelling mistakes and partial sentences all count. The mark scheme wording is a guide, not a required phrase. If the meaning is clear and correct, give the benefit of the doubt.
+- Accept any other correct, relevant point that fits what a mark asks for, even if the mark scheme words it differently.
+- Never give a mark for something that is factually wrong, or contradicted elsewhere in the answer, even if it uses the right keywords. A wrong fact never earns credit.
+- Mark to the command word. "State", "Name", "Give", "Identify": a correct fact, term or item gets the mark on its own, even as one word; never expect an explanation. "Explain": the reason or mechanism is needed for the explanation mark. "Evaluate": strength marks need a real strength, weakness marks a real weakness.
+- If the question asks for one item and the answer lists several, mark the first one.
+- One mark per point, never more than the marks available. A blank, off-topic or "don't know" answer gets 0.
+Feedback (keep it short so it actually gets read):
+- "feedback": ONE sentence, at most 20 words. Start with what they got right. Encouraging and specific, never harsh. If something they wrote is factually wrong, say so briefly and kindly with the correct fact.
+- "improve": ONE short sentence, at most 15 words: the single most useful fix for another mark. Empty if full marks.
+- Plain, friendly words. Never mention point numbers, "the mark scheme" or "terminology". Full sentences ending with full stops.`,
     prompt: (b: any) => `Question (${Number(b.marks) || 1} marks): ${String(b.question ?? "").slice(0, 600)}
 Mark scheme points (one mark each, up to the total):
 ${(Array.isArray(b.points) ? b.points : []).slice(0, 12).map((p: any, i: number) => `${i}. ${String(p?.text ?? p).slice(0, 300)}`).join("\n")}
@@ -245,7 +250,7 @@ Student's answer:
 ${String(b.answer ?? "").slice(0, 3000)}
 >>>
 
-Mark it. List which mark scheme points (by number) the answer earns; "awarded" is how many marks that gives, up to the total. Then "feedback": one or two short sentences on what was good and what was missing. Then "improve": the single most useful thing to add or fix for more marks, as one sentence (empty if full marks).
+Mark it. List which mark scheme points (by number) the answer earns; "awarded" is how many marks that gives, up to the total.
 Reply with JSON only:
 {"awarded":2,"hit":[0,2],"feedback":"…","improve":"…"}`,
   },
