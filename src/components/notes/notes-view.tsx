@@ -2,6 +2,7 @@ import { BookOpen, ChevronLeft, Download, Image as ImageIcon, ListTree, MessageC
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { StoredImage } from "@/components/materials/stored-image";
+import { imageStore } from "@/services/storage/images";
 import { ChatPanel } from "@/components/tutor/chat-panel";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { Button } from "@/components/ui/button";
@@ -152,9 +153,10 @@ function Figure({ img, label, open, className }: { img: PageImage; label: string
   );
 }
 
-function SlideBlock({ s, first, showImages, openImage, marks, onMark }: { s: NoteSlide; first: boolean; showImages: boolean; openImage: (img: PageImage, label: string) => void; marks: Map<string, NoteMark[]>; onMark: (m: NoteMark, el: HTMLElement) => void }) {
+function SlideBlock({ s, first, showImages, onDevice, openImage, marks, onMark }: { s: NoteSlide; first: boolean; showImages: boolean; onDevice: Set<string> | null; openImage: (img: PageImage, label: string) => void; marks: Map<string, NoteMark[]>; onMark: (m: NoteMark, el: HTMLElement) => void }) {
   const hasText = s.lines.length > 0 || !!s.table;
-  const imgs = showImages ? s.images : [];
+  // Pictures are saved on the device the slides were uploaded on; skip any that aren't here.
+  const imgs = showImages && onDevice ? s.images.filter((i) => onDevice.has(i.id)) : [];
   // One picture sits beside the text like a textbook figure; wide ones or several go underneath.
   const beside = hasText && imgs.length === 1 && imgs[0].width / imgs[0].height < 1.9;
   const text = (
@@ -217,6 +219,18 @@ export function NotesView({ material }: { material: Material }) {
   const sections = useMemo(() => buildNotes(material), [material]);
   const showImages = !!data.settings.notesImages;
   const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
+  const imageIds = useMemo(() => sections.flatMap((sec) => sec.slides.flatMap((x) => x.images.map((i) => i.id))), [sections]);
+  /** Which of the pictures are saved on this device (checked once pictures are switched on). */
+  const [onDevice, setOnDevice] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!showImages || !imageIds.length) return;
+    let live = true;
+    Promise.all(imageIds.map(async (id) => ((await imageStore.get(id)) ? id : null))).then((r) => live && setOnDevice(new Set(r.filter((x): x is string => !!x))));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showImages, imageIds.join(",")]);
   const [asking, setAsking] = useState(false);
   // Text picked in the notes to ask about (explained as soon as the panel opens).
   const [askText, setAskText] = useState<string | null>(null);
@@ -286,16 +300,13 @@ export function NotesView({ material }: { material: Material }) {
         </div>
       </nav>
 
-      <div className="min-w-0 max-w-[780px]">
+      <div className="min-w-0 max-w-[780px] pb-24 lg:pb-16">
         <div className="-ml-2.5 mb-2 flex flex-wrap items-center gap-2 py-1">
           {!contents && (
             <Button variant="ghost" size="sm" className="hidden rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground lg:inline-flex" onClick={toggleContents} aria-expanded={false}>
               <ListTree /> Contents
             </Button>
           )}
-          <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setAsking(true)}>
-            <MessageCircle /> Ask about these notes
-          </Button>
           <Button variant="ghost" size="sm" className="rounded-full bg-transparent text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={() => setExporting(true)}>
             <Download /> Export
           </Button>
@@ -312,6 +323,10 @@ export function NotesView({ material }: { material: Material }) {
           )}
         </div>
 
+        {showImages && onDevice && onDevice.size === 0 && (
+          <p className="mb-4 rounded-xl bg-muted/60 px-3.5 py-2.5 text-[13px] text-muted-foreground">Pictures from your slides are saved on the device you uploaded them on, so they only show there.</p>
+        )}
+
         <Highlighter
           material={material}
           active={activeMark}
@@ -325,11 +340,26 @@ export function NotesView({ material }: { material: Material }) {
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
             {sec.slides.map((s, i) => (
-              <SlideBlock key={s.page.id} s={s} first={i === 0} showImages={showImages} openImage={(img, label) => setBig({ img, label })} marks={marksByLine} onMark={openMark} />
+              <SlideBlock key={s.page.id} s={s} first={i === 0} showImages={showImages} onDevice={onDevice} openImage={(img, label) => setBig({ img, label })} marks={marksByLine} onMark={openMark} />
             ))}
           </section>
         ))}
       </div>
+
+      {!asking &&
+        createPortal(
+          <button
+            type="button"
+            onClick={() => setAsking(true)}
+            aria-label="Ask about these notes"
+            title="Ask about these notes"
+            className="group fixed bottom-[calc(80px+env(safe-area-inset-bottom,0px))] left-4 z-40 flex h-14 animate-fade-up items-center gap-2 rounded-full bg-foreground pl-[17px] pr-[17px] text-background shadow-pop transition-[transform,padding] duration-200 hover:scale-[1.03] focus-ring lg:bottom-6 lg:left-[calc(var(--sb,248px)+24px)] lg:hover:pr-5"
+          >
+            <MessageCircle className="size-[22px] shrink-0" />
+            <span className="hidden max-w-0 overflow-hidden whitespace-nowrap text-[14px] font-semibold transition-[max-width] duration-200 lg:inline lg:group-hover:max-w-[180px]">Ask about these notes</span>
+          </button>,
+          document.body,
+        )}
 
       {asking &&
         createPortal(
