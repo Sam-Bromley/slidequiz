@@ -1,4 +1,4 @@
-import { ArrowUp, Paperclip, X } from "lucide-react";
+import { ArrowUp, Check, FileText, Layers, ListChecks, Paperclip, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { handOffUpload } from "@/lib/handoff";
@@ -7,10 +7,15 @@ import { quoteOfTheDay } from "@/lib/quotes";
 import { useData } from "@/store/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { ACCEPT_ATTR } from "@/services/parsing";
+import { useAccount } from "@/services/account";
 
 /** Home: one quiet box in the middle. Drop files or paste notes, press go. */
 export function HomePage() {
-  const showQuote = useData().settings.showQuote !== false;
+  const data = useData();
+  const user = useAccount().user;
+  /** Someone new (not logged in, nothing uploaded): say what SlideQuiz does. */
+  const intro = !user && data.materials.length === 0;
+  const showQuote = !intro && data.settings.showQuote !== false;
   const quote = quoteOfTheDay();
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
@@ -36,6 +41,14 @@ export function HomePage() {
   return (
     <div className="home-page flex min-h-[calc(100dvh-10rem)] flex-col items-center justify-center py-8">
       <div className="w-full max-w-2xl">
+        {intro && (
+          <div className="mb-7 px-1 text-center">
+            <h1 className="text-balance text-[32px] font-bold leading-[1.08] tracking-[-0.035em] sm:text-[46px]">Turn your lecture slides into revision</h1>
+            <p className="mx-auto mt-3.5 max-w-xl text-balance text-[15.5px] leading-relaxed text-muted-foreground sm:text-[17px]">
+              Upload your PowerPoint, PDF or Word file and get clean notes, flashcards and practice questions, with your written answers marked.
+            </p>
+          </div>
+        )}
         {showQuote && (
           <figure className="home-quote mx-auto mb-6 w-fit max-w-full px-2 text-center">
             <blockquote className="text-[16px] italic leading-relaxed text-foreground/80">“{quote.text}”</blockquote>
@@ -101,7 +114,42 @@ export function HomePage() {
             }}
           />
         </div>
+
+        {intro && (
+          <>
+            <p className="mt-3.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <Check className="size-3.5" strokeWidth={2.5} /> Free to try
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Check className="size-3.5" strokeWidth={2.5} /> No card needed
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Check className="size-3.5" strokeWidth={2.5} /> Phone and laptop
+              </span>
+            </p>
+            <ul className="mt-10 grid gap-2.5 sm:grid-cols-3 sm:gap-3">
+              {FEATURES.map(({ icon: Icon, title, text }) => (
+                <li key={title} className="flex items-start gap-3 rounded-2xl border bg-card p-4 sm:flex-col sm:gap-2.5">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-secondary text-foreground">
+                    <Icon className="size-[18px]" />
+                  </span>
+                  <span>
+                    <span className="block text-[14.5px] font-semibold">{title}</span>
+                    <span className="mt-0.5 block text-[13.5px] leading-snug text-muted-foreground">{text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
     </div>
   );
 }
+
+const FEATURES = [
+  { icon: FileText, title: "Clean notes", text: "Every slide turned into tidy, organised notes." },
+  { icon: Layers, title: "Flashcards", text: "The key terms and facts, ready to test yourself on." },
+  { icon: ListChecks, title: "Practice questions", text: "Multiple choice, plus written answers marked like an exam." },
+];
