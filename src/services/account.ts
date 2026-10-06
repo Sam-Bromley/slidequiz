@@ -132,22 +132,54 @@ const toSession = (t: TokenResponse): Session => ({
 });
 
 let refreshing: Promise<string | null> | null = null;
+const fresh = (s: Session | null) => !!s && s.expires_at - 60 > Date.now() / 1000;
+
+/**
+ * Another tab (or the installed app) may have renewed the login since this tab loaded it. Logins
+ * can only be renewed once, so always use the newest copy saved on the device.
+ */
+function adoptStored(): void {
+  const s = load<Session>(SESSION_KEY);
+  if (!s) return;
+  if (!session || (s.user.id === session.user.id && s.expires_at > session.expires_at)) {
+    const was = session;
+    session = s;
+    if (!was) set({ user: s.user });
+  }
+}
+
+/** Only one tab renews the login at a time (where the browser supports it). */
+function oneAtATime<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = (navigator as Navigator & { locks?: { request: (name: string, cb: () => Promise<T>) => Promise<T> } }).locks;
+  return locks ? locks.request("slidequiz-login", fn) : fn();
+}
+
 async function accessToken(): Promise<string | null> {
+  adoptStored();
   if (!session) return null;
-  if (session.expires_at - 60 > Date.now() / 1000) return session.access_token;
-  refreshing ??= (async () => {
+  if (fresh(session)) return session.access_token;
+  refreshing ??= oneAtATime(async () => {
+    // Another tab may have renewed it while this one waited.
+    adoptStored();
+    if (!session) return null;
+    if (fresh(session)) return session.access_token;
     try {
-      const t = await call<TokenResponse>("/auth/v1/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: session!.refresh_token }) });
+      const t = await call<TokenResponse>("/auth/v1/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: session.refresh_token }) });
       setSession(toSession(t));
       return session!.access_token;
     } catch (e) {
       // A rejected refresh token means the login has ended; a network error doesn't.
-      if (e instanceof AccountError && !/reach the server/.test(e.message)) setSession(null);
+      if (e instanceof AccountError && !/reach the server/.test(e.message)) {
+        adoptStored();
+        if (fresh(session)) return session!.access_token;
+        setSession(null);
+        import("@/components/ui/toast").then(({ toast }) => toast("You've been logged out. Log in again to keep your work synced.")).catch(() => {});
+      }
       return null;
-    } finally {
-      refreshing = null;
     }
-  })();
+  }).finally(() => {
+    refreshing = null;
+  });
   return refreshing;
 }
 
@@ -484,7 +516,12 @@ export function startAccount() {
       import("@/components/ui/toast").then(({ toast }) => toast.error(friendly(msg) || "Couldn't log in with Google. Try again.")).catch(() => {});
       return;
     }
-    if (e.key !== SESSION_KEY || session) return;
+    if (e.key !== SESSION_KEY) return;
+    // Another tab renewed the login: keep using the newest copy.
+    if (session) {
+      adoptStored();
+      return;
+    }
     const s = load<Session>(SESSION_KEY);
     if (!s) return;
     session = s;
