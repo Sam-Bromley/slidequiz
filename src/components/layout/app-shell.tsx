@@ -287,7 +287,7 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
       /* storage blocked */
     }
   }, [accent]);
-  const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} photo={photoUrl} />;
+  const bg = <AppBackground scene={data.settings.scene ?? "none"} dark={isDarkTheme(effectiveTheme(data.settings))} photo={photoUrl} accent={accent} />;
   if (bare)
     return (
       <div className="min-h-[100dvh]">

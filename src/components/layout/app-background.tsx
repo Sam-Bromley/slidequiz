@@ -67,6 +67,52 @@ export const SCENES: Record<Exclude<BackgroundScene, "none">, { label: string; l
   },
 };
 
+/** Hue of each Pro accent colour. With an accent picked, the chosen background is colour-graded to it. */
+const ACCENT_HUE: Record<string, number> = { blue: 221, green: 150, purple: 262, pink: 330, orange: 24 };
+
+function toHsl(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, s, l];
+}
+/** Back to hex (the sun adds a hex alpha to its colour for its glow). */
+function hsl(h: number, s: number, l: number) {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  return "#" + [f(0), f(8), f(4)].map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Re-colours a scene in shades of the accent: every colour keeps its lightness (so the depth, light and shadow of the
+ * scene stay the same) but takes the accent's hue, nudged slightly per layer so the layers still read apart.
+ */
+function grade(p: Pal, hue: number, dark: boolean): Pal {
+  const c = (hex: string, shift = 0, sat?: number) => {
+    if (!hex.startsWith("#")) return hex;
+    const [, s, l] = toHsl(hex);
+    const lo = dark ? 0.3 : 0.35, hi = dark ? 0.6 : 0.8;
+    return hsl((((hue + shift) % 360) + 360) % 360, sat ?? Math.min(hi, Math.max(lo, s)), l);
+  };
+  return {
+    ...p,
+    sky: [c(p.sky[0], -6), c(p.sky[1]), c(p.sky[2], 6)],
+    sun: p.sun === "transparent" ? p.sun : c(p.sun, 10, dark ? 0.75 : 0.85),
+    layers: [c(p.layers[0], -10), c(p.layers[1]), c(p.layers[2], 10)],
+    glow: p.glow ? [c(p.glow[0], -25, 0.75), c(p.glow[1], 25, 0.75)] : undefined,
+  };
+}
+
+export function scenePalette(scene: Exclude<BackgroundScene, "none">, dark: boolean, accent?: string | null): Pal {
+  const p = dark ? SCENES[scene].dark : SCENES[scene].light;
+  const hue = accent ? ACCENT_HUE[accent] : undefined;
+  return hue === undefined ? p : grade(p, hue, dark);
+}
+
 export const SCENE_ORDER: BackgroundScene[] = ["none", "sunset", "forest", "peaks", "hills", "ocean", "canyon", "dunes", "aurora"];
 
 /** Scenes whose shapes rise higher up the screen. */
@@ -478,7 +524,7 @@ function ForestSvg({ p }: { p: Pal }) {
 }
 
 /** Decorative background preset, fixed behind the app. "none" = plain theme background. `photo`: a Pro member's own picture instead. */
-export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; dark: boolean; photo?: string | null }) {
+export function AppBackground({ scene, dark, photo, accent }: { scene: BackgroundScene; dark: boolean; photo?: string | null; accent?: string | null }) {
   if (photo)
     return (
       // Runs under the left bar too, which is frosted glass, so the photo blurs softly into it.
@@ -488,8 +534,7 @@ export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; 
       </div>
     );
   if (scene === "none" || !SCENE_ORDER.includes(scene)) return null;
-  const def = SCENES[scene];
-  const p = dark ? def.dark : def.light;
+  const p = scenePalette(scene, dark, accent);
   const sun = SUN_SPOT[scene];
   return (
     // Runs under the left bar too (frosted glass), so the scene blurs softly into it.
@@ -521,9 +566,9 @@ export function AppBackground({ scene, dark, photo }: { scene: BackgroundScene; 
 }
 
 /** Small preview swatch used in the personalise menu. */
-export function ScenePreview({ scene, dark }: { scene: BackgroundScene; dark: boolean }) {
+export function ScenePreview({ scene, dark, accent }: { scene: BackgroundScene; dark: boolean; accent?: string | null }) {
   if (scene === "none") return <div className="size-full" style={{ background: dark ? "#000" : "#fff" }} />;
-  const p = dark ? SCENES[scene].dark : SCENES[scene].light;
+  const p = scenePalette(scene, dark, accent);
   const sun = SUN_SPOT[scene]?.preview;
   return (
     <div className="relative size-full overflow-hidden" style={{ background: `linear-gradient(${p.sky[0]}, ${p.sky[2]})` }}>

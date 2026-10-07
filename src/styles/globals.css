@@ -197,50 +197,6 @@ html.dark.accent-purple { --primary: 262 85% 72%; --primary-foreground: 262 50% 
 html.dark.accent-pink { --primary: 330 85% 70%; --primary-foreground: 330 50% 12%; --ring: 330 85% 70%; --brand: 330 85% 70%; }
 html.dark.accent-orange { --primary: 28 95% 62%; --primary-foreground: 28 60% 10%; --ring: 28 95% 62%; --brand: 28 95% 62%; }
 
-/* The accent also tints the whole page: pale shades of it on light, deep shades on dark.
-   (Not with night light, which keeps its own warm colours.) --h is the hue, --s scales how strong the tint is. */
-html.accent-blue { --h: 221; --s: 1; }
-html.accent-green { --h: 150; --s: 0.75; }
-html.accent-purple { --h: 262; --s: 1; }
-html.accent-pink { --h: 330; --s: 0.9; }
-html.accent-orange { --h: 26; --s: 0.9; }
-html[class*="accent-"]:not(.dark):not(.warmlight) {
-  --background: var(--h) calc(var(--s) * 75%) 95.5%;
-  --subtle: var(--h) calc(var(--s) * 65%) 93.5%;
-  --card: var(--h) calc(var(--s) * 100%) 99.2%;
-  --popover: var(--h) calc(var(--s) * 100%) 99.2%;
-  --foreground: var(--h) 35% 11%;
-  --card-foreground: var(--h) 35% 11%;
-  --popover-foreground: var(--h) 35% 11%;
-  --secondary: var(--h) calc(var(--s) * 60%) 91%;
-  --secondary-foreground: var(--h) 35% 14%;
-  --muted: var(--h) calc(var(--s) * 55%) 92%;
-  --muted-foreground: var(--h) 14% 40%;
-  --accent: var(--h) calc(var(--s) * 65%) 89.5%;
-  --accent-foreground: var(--h) 35% 11%;
-  --primary-soft: var(--h) calc(var(--s) * 85%) 90%;
-  --border: var(--h) calc(var(--s) * 40%) 84%;
-  --input: var(--h) calc(var(--s) * 28%) 80%;
-}
-html.dark[class*="accent-"]:not(.warm) {
-  --background: var(--h) calc(var(--s) * 50%) 6.5%;
-  --subtle: var(--h) calc(var(--s) * 45%) 8.5%;
-  --card: var(--h) calc(var(--s) * 40%) 11%;
-  --popover: var(--h) calc(var(--s) * 40%) 13%;
-  --foreground: var(--h) 25% 93%;
-  --card-foreground: var(--h) 25% 93%;
-  --popover-foreground: var(--h) 25% 93%;
-  --secondary: var(--h) calc(var(--s) * 32%) 16%;
-  --secondary-foreground: var(--h) 25% 92%;
-  --muted: var(--h) calc(var(--s) * 32%) 15%;
-  --muted-foreground: var(--h) 14% 64%;
-  --accent: var(--h) calc(var(--s) * 38%) 18%;
-  --accent-foreground: var(--h) 25% 95%;
-  --primary-soft: var(--h) calc(var(--s) * 50%) 19%;
-  --border: var(--h) calc(var(--s) * 30%) 21%;
-  --input: var(--h) calc(var(--s) * 26%) 27%;
-}
-
 /* Reading fonts (loaded only when picked). */
 html.font-readable body, html.font-readable body * { font-family: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif !important; }
 html.font-dyslexic body, html.font-dyslexic body * { font-family: "OpenDyslexic", ui-sans-serif, system-ui, sans-serif !important; }

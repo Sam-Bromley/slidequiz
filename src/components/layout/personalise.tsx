@@ -123,7 +123,7 @@ export function Personalise() {
               return (
                 <button key={s} role="radio" aria-checked={on} onClick={() => actions.updateSettings({ scene: s, bgPhotoOn: false })} className="group text-left focus-ring rounded-xl">
                   <span className={cn("relative block h-14 overflow-hidden rounded-xl border-2 transition-colors", on ? "border-foreground" : "border-transparent group-hover:border-border")}>
-                    <ScenePreview scene={s} dark={dark} />
+                    <ScenePreview scene={s} dark={dark} accent={plan.plus && data.settings.accent !== "default" ? data.settings.accent : null} />
                     {on && (
                       <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-foreground text-background">
                         <Check className="size-3" strokeWidth={3} />
