@@ -266,6 +266,15 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
   );
 }
 
+/** The accent that was showing last time (saved only while they had Pro). */
+function lastAccent() {
+  try {
+    return localStorage.getItem("slidequiz:accent") || null;
+  } catch {
+    return null;
+  }
+}
+
 export function AppShell({ children, bare }: { children: ReactNode; bare?: boolean }) {
   const [drawer, setDrawer] = useState(false);
   const data = useData();
@@ -276,7 +285,9 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
   const zoom = TEXT_ZOOM[data.settings.textSize ?? "default"] ?? 1;
   useEffect(() => applyFont(data.settings.font), [data.settings.font]);
   // Pro accent colour on the whole page (only while they have Pro).
-  const accent = plan.plus && data.settings.accent && data.settings.accent !== "default" ? data.settings.accent : null;
+  // Until the plan has been checked, keep the accent from last time so the page doesn't flash the default colours.
+  const chosen = data.settings.accent && data.settings.accent !== "default" ? data.settings.accent : null;
+  const accent = plan.loaded ? (plan.plus ? chosen : null) : chosen && lastAccent() === chosen ? chosen : null;
   useEffect(() => {
     const cl = document.documentElement.classList;
     for (const c of [...cl]) if (c.startsWith("accent-")) cl.remove(c);

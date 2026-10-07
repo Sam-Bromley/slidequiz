@@ -233,7 +233,7 @@ export interface Folder {
   examDate?: string;
 }
 
-export type BackgroundScene = "none" | "sunset" | "forest" | "ocean" | "aurora" | "dunes" | "peaks" | "snow" | "hills" | "lake" | "canyon";
+export type BackgroundScene = "none" | "sunset" | "forest" | "ocean" | "aurora" | "dunes" | "peaks" | "snow" | "hills" | "lake" | "canyon" | "neon";
 
 export interface SourceRef {
   pageId: ID;
