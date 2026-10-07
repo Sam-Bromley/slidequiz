@@ -450,9 +450,71 @@ Deno.serve(async (req) => {
   const text: string = (out.content ?? []).map((c: any) => c.text ?? "").join("");
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
+  let result: any;
   try {
-    return json(JSON.parse(text.slice(start, end + 1)), 200, origin);
+    result = JSON.parse(text.slice(start, end + 1));
   } catch {
     return json({ error: "The reply was cut short. Try again." }, 502, origin);
   }
+  if (body.task === "questions" && Array.isArray(result?.questions)) result.questions = await balanceOptions(result.questions);
+  return json(result, 200, origin);
 });
+
+/* ---------------------------------------------------------------- multiple choice: the right answer mustn't stand out */
+
+/** True when the right answer gives itself away by being clearly longer than the wrong ones. */
+function standsOut(q: any) {
+  const wrong: string[] = Array.isArray(q?.wrong) ? q.wrong.map(String) : [];
+  if (typeof q?.correct !== "string" || !wrong.length) return false;
+  const c = q.correct.length;
+  const lens = wrong.map((w) => w.length);
+  const avg = lens.reduce((a, b) => a + b, 0) / lens.length;
+  return c > Math.max(...lens) && c > avg * 1.2 + 4;
+}
+
+/**
+ * Checks every question; any whose right answer is clearly the longest gets its options rewritten
+ * (right answer made shorter, wrong ones fuller) in one quick extra request. If that fails, the originals are kept.
+ */
+async function balanceOptions(qs: any[]) {
+  const bad = qs.map((q, i) => (standsOut(q) ? i : -1)).filter((i) => i >= 0);
+  if (!bad.length) return qs;
+  const list = bad.map((i) => ({ i, question: qs[i].question, correct: qs[i].correct, wrong: qs[i].wrong }));
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: Math.min(8000, 400 + bad.length * 350),
+        system: "You fix multiple-choice revision questions so the right answer can't be guessed from how the options look.",
+        messages: [{
+          role: "user",
+          content: `In each of these questions the right answer is longer and more detailed than the wrong ones, so students can spot it without knowing the material.
+Rewrite the options of each so all 5 are the same length (within about 3 words), equally detailed, equally technical and written in the same style:
+- Make the right answer shorter and plainer, keeping it fully correct (keep only the core idea).
+- Make the wrong answers fuller and just as specific and technical, using real terms from the same topic, so each sounds like it could be right. They must still be clearly wrong to someone who knows the material.
+- In about half of the questions, make one wrong answer slightly longer than the right one.
+- Keep the same punctuation style for all options of a question (all full sentences with full stops, or all short phrases without).
+Questions:
+${JSON.stringify(list)}
+Reply with JSON only:
+{"fixed":[{"i":0,"correct":"…","wrong":["…","…","…","…"]}]}`,
+        }],
+      }),
+    });
+    if (!r.ok) return qs;
+    const out = await r.json();
+    const t: string = (out.content ?? []).map((c: any) => c.text ?? "").join("");
+    const fixed: any[] = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1))?.fixed ?? [];
+    const next = [...qs];
+    for (const f of fixed) {
+      const i = Number(f?.i);
+      if (!bad.includes(i) || typeof f.correct !== "string" || !Array.isArray(f.wrong) || f.wrong.length !== qs[i].wrong.length) continue;
+      next[i] = { ...qs[i], correct: f.correct, wrong: f.wrong.map(String) };
+    }
+    return next;
+  } catch {
+    return qs;
+  }
+}
