@@ -270,12 +270,14 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     });
   };
 
-  // Keep the question and what's said about the answer on screen, without having to scroll.
+  // After answering, scroll right to the bottom so the explanation and Next button have room, with nothing left to scroll.
   const card = useRef<HTMLElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!sAnswered) return;
-    const id = requestAnimationFrame(() => feedbackRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }));
+    });
     return () => cancelAnimationFrame(id);
   }, [sAnswered, viewIdx, qid]);
   // (Not when the page first opens: the controls at the top should stay in view then.)
