@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { BackgroundScene } from "@/types/models";
 import { moonLitPath, moonPhase, moonPhaseName } from "@/lib/moon";
-import { NeonCity, NeonRain } from "./neon-city";
 
 type Pal = { sky: [string, string, string]; sun: string; layers: [string, string, string]; stars?: boolean; glow?: [string, string] };
 
@@ -61,11 +60,6 @@ export const SCENES: Record<Exclude<BackgroundScene, "none">, { label: string; l
     light: { sky: ["#f4f6fa", "#e7ebf3", "#dbe1ec"], sun: "transparent", layers: ["#c9d1df", "#a5b1c6", "#7a88a1"] },
     dark: { sky: ["#020308", "#060a14", "#0d1424"], sun: "transparent", layers: ["#1a2336", "#121a2a", "#0a101c"], stars: true },
   },
-  neon: {
-    label: "Tokyo street",
-    light: { sky: ["#e9eef7", "#dde2ef", "#ccd1e4"], sun: "#ffcf7a", layers: ["#b7b2c4", "#9a94ab", "#77718a"], glow: ["#f0508a", "#1fb0c4"] },
-    dark: { sky: ["#05070e", "#11162a", "#251f38"], sun: "#ffc46e", layers: ["#2a2738", "#1d1b29", "#121019"], stars: true, glow: ["#ff4f8b", "#3fd5e8"] },
-  },
   snow: {
     label: "Snowy peaks",
     light: { sky: ["#f5f9fd", "#e8eff8", "#dce7f3"], sun: "transparent", layers: ["#d8e3ef", "#c3d2e3", "#aebfd4"] },
@@ -119,7 +113,7 @@ export function scenePalette(scene: Exclude<BackgroundScene, "none">, dark: bool
   return hue === undefined ? p : grade(p, hue, dark);
 }
 
-export const SCENE_ORDER: BackgroundScene[] = ["none", "sunset", "forest", "peaks", "hills", "ocean", "canyon", "dunes", "aurora", "neon"];
+export const SCENE_ORDER: BackgroundScene[] = ["none", "sunset", "forest", "peaks", "hills", "ocean", "canyon", "dunes", "aurora"];
 
 /** Scenes whose shapes rise higher up the screen. */
 const TALL: Partial<Record<BackgroundScene, true>> = { peaks: true };
@@ -542,14 +536,6 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
   if (scene === "none" || !SCENE_ORDER.includes(scene)) return null;
   const p = scenePalette(scene, dark, accent);
   const sun = SUN_SPOT[scene];
-  if (scene === "neon")
-    return (
-      <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 50%, ${p.sky[2]} 100%)` }}>
-        {p.stars && <StarField />}
-        <NeonCity p={p} dark={dark} />
-        {dark && <NeonRain />}
-      </div>
-    );
   return (
     // Runs under the left bar too (frosted glass), so the scene blurs softly into it.
     <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
@@ -583,12 +569,6 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
 export function ScenePreview({ scene, dark, accent }: { scene: BackgroundScene; dark: boolean; accent?: string | null }) {
   if (scene === "none") return <div className="size-full" style={{ background: dark ? "#000" : "#fff" }} />;
   const p = scenePalette(scene, dark, accent);
-  if (scene === "neon")
-    return (
-      <div className="relative size-full overflow-hidden" style={{ background: `linear-gradient(${p.sky[0]}, ${p.sky[2]})` }}>
-        <NeonCity p={p} dark={dark} small />
-      </div>
-    );
   const sun = SUN_SPOT[scene]?.preview;
   return (
     <div className="relative size-full overflow-hidden" style={{ background: `linear-gradient(${p.sky[0]}, ${p.sky[2]})` }}>

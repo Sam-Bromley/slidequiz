@@ -197,18 +197,6 @@ html.dark.accent-purple { --primary: 262 85% 72%; --primary-foreground: 262 50% 
 html.dark.accent-pink { --primary: 330 85% 70%; --primary-foreground: 330 50% 12%; --ring: 330 85% 70%; --brand: 330 85% 70%; }
 html.dark.accent-orange { --primary: 28 95% 62%; --primary-foreground: 28 60% 10%; --ring: 28 95% 62%; --brand: 28 95% 62%; }
 
-/* Neon city: thin rain streaks drifting down. */
-.neon-rain {
-  background-image:
-    repeating-linear-gradient(100deg, transparent 0 46px, rgba(170, 220, 255, 0.07) 46px 47px, transparent 47px 97px),
-    repeating-linear-gradient(100deg, transparent 0 71px, rgba(255, 170, 240, 0.05) 71px 72px, transparent 72px 133px);
-  background-size: 100% 180px, 100% 260px;
-  animation: neon-rain 0.9s linear infinite;
-  mask-image: linear-gradient(to bottom, transparent, #000 15%, #000 70%, transparent);
-}
-@keyframes neon-rain { to { background-position: -30px 180px, -40px 260px; } }
-@media (prefers-reduced-motion: reduce) { .neon-rain { animation: none; } }
-
 /* Reading fonts (loaded only when picked). */
 html.font-readable body, html.font-readable body * { font-family: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif !important; }
 html.font-dyslexic body, html.font-dyslexic body * { font-family: "OpenDyslexic", ui-sans-serif, system-ui, sans-serif !important; }
