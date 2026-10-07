@@ -48,6 +48,8 @@
           if (localStorage.getItem("slidequiz:v7") !== "1") t = t === "warm" ? "warm" : "light";
           auto = localStorage.getItem("slidequiz:nightauto") === "1";
           times = localStorage.getItem("slidequiz:nighttimes") || times;
+          // Switched off by hand tonight.
+          if (Date.now() < Number(localStorage.getItem("slidequiz:nightoff") || 0)) auto = false;
         } catch (e) {}
         var m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(times) || [0, 21, 0, 6, 0];
         var d = new Date(), now = d.getHours() * 60 + d.getMinutes(), a = m[1] * 60 + +m[2], b = m[3] * 60 + +m[4];

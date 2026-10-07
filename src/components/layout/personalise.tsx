@@ -1,7 +1,7 @@
 import { Check, Moon, Palette, Sun, Sunset, ImagePlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { baseTheme, effectiveTheme, isDarkTheme } from "@/lib/theme";
+import { baseTheme, effectiveTheme, isDarkTheme, nightLightOn, toggleNightLight } from "@/lib/theme";
 
 import { cn } from "@/lib/utils";
 import { navigate } from "@/lib/router";
@@ -32,7 +32,7 @@ export function Personalise() {
   const current = effectiveTheme(data.settings);
   const dark = isDarkTheme(current);
   const base = baseTheme(data.settings);
-  const night = data.settings.theme === "warm" || !!data.settings.nightLight;
+  const night = nightLightOn(data.settings);
   const plan = usePlan();
   const photoUrl = useBackgroundPhotoUrl(data.settings.bgPhoto);
   const photoOn = plan.plus && !!data.settings.bgPhotoOn && !!photoUrl;
@@ -71,7 +71,7 @@ export function Personalise() {
                 Icon: Sunset,
                 on: night,
                 // Warms whatever you're on: from Light it stays light (no moon and stars).
-                set: () => actions.updateSettings(data.settings.theme === "warm" ? { theme: "dark", nightLight: false } : { nightLight: !night }),
+                set: () => actions.updateSettings(toggleNightLight(data.settings)),
               },
             ] as const).map((t) => (
               <button

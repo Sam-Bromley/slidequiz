@@ -59,6 +59,8 @@ export interface Settings {
   theme: ThemeName | "system";
   /** Switch to the warm night light automatically between nightStart and nightEnd. */
   nightLightAuto?: boolean;
+  /** Night light was switched off by hand during its hours: the schedule waits until this time. */
+  nightOffUntil?: string;
   /** "HH:MM", local time. Defaults 21:00 and 06:00. */
   nightStart?: string;
   nightEnd?: string;

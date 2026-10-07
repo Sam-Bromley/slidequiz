@@ -33,12 +33,34 @@ export function isNightHours(s?: Pick<Settings, "nightStart" | "nightEnd">, d = 
   return a < b ? now >= a && now < b : now >= a || now < b;
 }
 
-type ThemeInput = Pick<Settings, "theme" | "nightLight" | "nightLightAuto" | "nightStart" | "nightEnd">;
+type ThemeInput = Pick<Settings, "theme" | "nightLight" | "nightLightAuto" | "nightStart" | "nightEnd" | "nightOffUntil">;
 
 /** Light or dark underneath (the old "Night light" theme counts as dark). */
 export const baseTheme = (s: Pick<Settings, "theme">): "light" | "dark" => (s.theme === "dark" || s.theme === "warm" ? "dark" : "light");
 /** Is night light on right now (by hand, the old Night light theme, or the schedule)? */
-export const nightLightOn = (s: ThemeInput) => s.theme === "warm" || !!s.nightLight || (!!s.nightLightAuto && isNightHours(s));
+export const nightLightOn = (s: ThemeInput) => s.theme === "warm" || !!s.nightLight || (!!s.nightLightAuto && isNightHours(s) && !snoozed(s));
+
+/** Switched off by hand tonight: the schedule stays off until tonight's night-light hours end. */
+const snoozed = (s: Pick<Settings, "nightOffUntil">) => !!s.nightOffUntil && Date.now() < Date.parse(s.nightOffUntil);
+
+/** When the current night-light hours end (the next time the clock reaches the end time). */
+export function nightHoursEnd(s?: Pick<Settings, "nightEnd">, d = new Date()) {
+  const end = toMin(s?.nightEnd, DEFAULT_NIGHT.end);
+  const t = new Date(d);
+  t.setHours(Math.floor(end / 60), end % 60, 0, 0);
+  if (t <= d) t.setDate(t.getDate() + 1);
+  return t;
+}
+
+/** Settings that turn night light on or off by hand, whatever the schedule says. */
+export function toggleNightLight(s: ThemeInput): Partial<Settings> {
+  if (!nightLightOn(s)) return { nightLight: true, nightOffUntil: undefined };
+  return {
+    ...(s.theme === "warm" ? { theme: "dark" as const } : {}),
+    nightLight: false,
+    nightOffUntil: s.nightLightAuto && isNightHours(s) ? nightHoursEnd(s).toISOString() : undefined,
+  };
+}
 
 /**
  * The theme actually shown. With automatic night light, during the chosen hours a light theme
@@ -60,6 +82,7 @@ export function applyTheme(s: ThemeInput) {
     localStorage.setItem("slidequiz:appearance", effectiveTheme({ ...s, nightLightAuto: false }));
     localStorage.setItem("slidequiz:v7", "1");
     localStorage.setItem("slidequiz:nightauto", s.nightLightAuto ? "1" : "0");
+    localStorage.setItem("slidequiz:nightoff", s.nightOffUntil ? String(Date.parse(s.nightOffUntil)) : "0");
     localStorage.setItem("slidequiz:nighttimes", `${s.nightStart ?? DEFAULT_NIGHT.start}-${s.nightEnd ?? DEFAULT_NIGHT.end}`);
   } catch {
     /* ignore */
@@ -78,5 +101,5 @@ export function useThemeSync(s: ThemeInput) {
       tick((n) => n + 1);
     }, 30_000);
     return () => clearInterval(t);
-  }, [s.theme, s.nightLight, s.nightLightAuto, s.nightStart, s.nightEnd]);
+  }, [s.theme, s.nightLight, s.nightLightAuto, s.nightStart, s.nightEnd, s.nightOffUntil]);
 }

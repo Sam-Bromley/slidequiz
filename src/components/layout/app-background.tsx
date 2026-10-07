@@ -62,9 +62,9 @@ export const SCENES: Record<Exclude<BackgroundScene, "none">, { label: string; l
     dark: { sky: ["#020308", "#060a14", "#0d1424"], sun: "transparent", layers: ["#1a2336", "#121a2a", "#0a101c"], stars: true },
   },
   neon: {
-    label: "Neon city",
-    light: { sky: ["#fff1fb", "#fbd6f1", "#f4b6e4"], sun: "#ffb347", layers: ["#d7b6ec", "#a982cf", "#5e3f8c"], glow: ["#ff3fb4", "#00b3d6"] },
-    dark: { sky: ["#05010d", "#170630", "#3d0a4f"], sun: "#ffb03b", layers: ["#24104a", "#160a31", "#08030f"], stars: true, glow: ["#ff2bd6", "#19e6ff"] },
+    label: "Tokyo street",
+    light: { sky: ["#e9eef7", "#dde2ef", "#ccd1e4"], sun: "#ffcf7a", layers: ["#b7b2c4", "#9a94ab", "#77718a"], glow: ["#f0508a", "#1fb0c4"] },
+    dark: { sky: ["#05070e", "#11162a", "#251f38"], sun: "#ffc46e", layers: ["#2a2738", "#1d1b29", "#121019"], stars: true, glow: ["#ff4f8b", "#3fd5e8"] },
   },
   snow: {
     label: "Snowy peaks",
