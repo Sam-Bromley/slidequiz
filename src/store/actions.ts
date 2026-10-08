@@ -281,6 +281,18 @@ export const actions = {
   },
 
   /* ------------------------------------------------------------ questions */
+  /** New wording for the options of some questions (same answers, progress kept). */
+  rewordOptions(changes: { id: ID; options?: string[] }[]) {
+    const by = new Map(changes.map((c) => [c.id, c]));
+    setState((s) => ({
+      ...s,
+      questions: s.questions.map((q) => {
+        const c = by.get(q.id);
+        if (!c) return q;
+        return c.options ? { ...q, options: c.options, answer: c.options[q.correctIndex ?? 0] ?? q.answer, balanced: true } : { ...q, balanced: true };
+      }),
+    }));
+  },
   replaceQuestion(id: ID, draft: QuestionDraft) {
     setState((s) => ({
       ...s,

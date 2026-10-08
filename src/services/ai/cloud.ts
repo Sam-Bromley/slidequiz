@@ -393,6 +393,7 @@ function toDraft(q: CloudQuestion, m: Material, topicOf: Map<ID, ID | null>, lab
       options: [q.correct.trim(), ...wrong],
       correctIndex: 0,
       pool: true,
+      balanced: true,
       answer: q.correct.trim(),
       keyPoints: [],
       explanation: q.explanation?.trim() || "",
@@ -426,6 +427,50 @@ export async function cloudMoreQuestions(id: ID, onAdded?: (total: number) => vo
     onAdded?.(total);
   }
   return total;
+}
+
+/** True when a question's options aren't all about the same length (matches the check on the server). */
+function uneven(options: string[]) {
+  const l = options.map((o) => o.length);
+  const avg = l.reduce((a, b) => a + b, 0) / l.length;
+  return Math.max(...l) - Math.min(...l) > Math.max(10, avg * 0.25);
+}
+
+const balancing = new Set<ID>();
+/**
+ * Questions made before the length check: rewrites the options of any whose right answer could be spotted
+ * by its length, 20 at a time, in the background. Each question is only ever checked once.
+ */
+export async function balanceOldQuestions(materialId: ID) {
+  if (balancing.has(materialId) || !isLoggedIn()) return;
+  balancing.add(materialId);
+  try {
+    const old = getState().questions.filter((q) => q.materialId === materialId && q.pool && !q.balanced && q.type === "mcq" && (q.options?.length ?? 0) >= 3);
+    const fine = old.filter((q) => !uneven(q.options!));
+    if (fine.length) actions.rewordOptions(fine.map((q) => ({ id: q.id })));
+    const todo = old.filter((q) => uneven(q.options!));
+    for (let i = 0; i < todo.length; i += 20) {
+      const batch = todo.slice(i, i + 20);
+      const r = await call<{ questions: { question: string; correct: string; wrong: string[] }[] }>("balance", {
+        questions: batch.map((q) => ({ question: q.prompt, correct: q.options![q.correctIndex ?? 0], wrong: q.options!.filter((_, k) => k !== (q.correctIndex ?? 0)) })),
+      });
+      const back = r.questions ?? [];
+      actions.rewordOptions(
+        batch.map((q, k) => {
+          const b = back[k];
+          const ok = b && typeof b.correct === "string" && Array.isArray(b.wrong) && b.wrong.length === q.options!.length - 1;
+          if (!ok) return { id: q.id };
+          const ci = q.correctIndex ?? 0;
+          const options = [...b.wrong];
+          options.splice(ci, 0, b.correct);
+          return { id: q.id, options };
+        }),
+      );
+    }
+  } catch {
+    /* try again next time */
+    balancing.delete(materialId);
+  }
 }
 
 /** Flashcards written by the AI. Throws an AIError if it can't. */

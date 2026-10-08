@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { cloudMoreQuestions, refreshAllowance } from "@/services/ai/cloud";
+import { balanceOldQuestions, cloudMoreQuestions, refreshAllowance } from "@/services/ai/cloud";
 import { cn } from "@/lib/utils";
 import { endSentence, optionsAreSentences, tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
@@ -69,6 +69,11 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const topicQs = topicIds.length ? all.filter((q) => groupOf(q) && topicIds.includes(groupOf(q)!)) : all;
   const shuffle = !!data.settings.practiceShuffle;
   const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs, shuffle));
+  // Even out the options of older questions, so the answer can't be spotted by its length.
+  const materialIds = (mixed ?? [material]).map((m) => m.id).join(",");
+  useEffect(() => {
+    for (const id of materialIds.split(",")) balanceOldQuestions(id);
+  }, [materialIds]);
   const [pos, setPos] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
   /** Having another go at a question you got wrong (fresh order, doesn't count towards your progress). */

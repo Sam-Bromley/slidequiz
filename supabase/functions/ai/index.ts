@@ -390,6 +390,20 @@ Deno.serve(async (req) => {
     return json(info, "error" in info ? 422 : 200, origin);
   }
 
+  // Even out the options of questions made before the length check existed (fair use, small).
+  if (body?.task === "balance") {
+    const qs = (Array.isArray(body.questions) ? body.questions : [])
+      .slice(0, 20)
+      .map((q: any) => ({ question: String(q?.question ?? "").slice(0, 400), correct: String(q?.correct ?? "").slice(0, 300), wrong: (Array.isArray(q?.wrong) ? q.wrong : []).slice(0, 6).map((w: any) => String(w).slice(0, 300)) }))
+      .filter((q: any) => q.question && q.correct && q.wrong.length >= 2);
+    if (!qs.length) return json({ questions: [] }, 200, origin);
+    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, JSON.stringify(qs).length) }) });
+    const left = use.ok ? await use.json() : null;
+    if (left === null || left < 0) return json({ error: "Not right now.", limit: true }, 429, origin);
+    return json({ questions: await balanceOptions(qs) }, 200, origin);
+  }
+
   const task = TASKS[body?.task];
   if (!task || !Array.isArray(body.pages)) return json({ error: "Unknown task" }, 400, origin);
 

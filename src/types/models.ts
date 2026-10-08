@@ -285,6 +285,8 @@ export interface Question {
    * The practice screen picks how many to show and shuffles them every time.
    */
   pool?: boolean;
+  /** The options have been evened out to the same length (so the answer can't be spotted by its length). */
+  balanced?: boolean;
 }
 
 export interface SrsState {
