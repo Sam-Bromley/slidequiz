@@ -57,18 +57,6 @@ function revision(d: AppData): Row[] {
   return [...byTitle.values()];
 }
 
-/** One slice of a donut, from angle a to b (radians, 0 = top). */
-function arc(cx: number, cy: number, r: number, inner: number, a: number, b: number) {
-  const p = (ang: number, rad: number) => [cx + rad * Math.sin(ang), cy - rad * Math.cos(ang)];
-  if (b - a >= Math.PI * 2 - 1e-6) b = a + Math.PI * 2 - 1e-4;
-  const large = b - a > Math.PI ? 1 : 0;
-  const [x1, y1] = p(a, r);
-  const [x2, y2] = p(b, r);
-  const [x3, y3] = p(b, inner);
-  const [x4, y4] = p(a, inner);
-  return `M${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z`;
-}
-
 const fmtPct = (x: number) => (x > 0 && x < 0.01 ? "<1%" : `${Math.round(x * 100)}%`);
 
 export function StatsPage() {
@@ -107,8 +95,9 @@ export function StatsPage() {
 
   let start = 0;
   const S = 220;
-  const R = 100;
-  const IN = 64;
+  const WIDTH = 34;
+  const RING = (S - WIDTH - 12) / 2;
+  const C = 2 * Math.PI * RING;
   const shown = hover !== null ? slices[hover] : null;
 
   return (
@@ -136,26 +125,32 @@ export function StatsPage() {
         <p className="-mt-1 mb-5 text-[13px] text-muted-foreground">Share of everything you've revised (questions, flashcards and written answers), by lecture.</p>
         <div className="flex flex-col items-center gap-6 md:flex-row md:items-start md:gap-10">
           <div className="relative shrink-0" style={{ width: S, height: S }}>
-            <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} role="img" aria-label="Pie chart of revision by lecture" onMouseLeave={() => setHover(null)}>
+            <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} role="img" aria-label="Pie chart of revision by lecture" className="-rotate-90" onMouseLeave={() => setHover(null)}>
+              {/* One smooth ring: each slice is a stretch of the same circle's outline, so the edges line up exactly. */}
               {slices.map((s, i) => {
-                const a = start;
-                const b = start + (s.total / grand) * Math.PI * 2;
-                start = b;
+                const len = (s.total / grand) * C;
+                const offset = start;
+                start += len;
                 const on = hover === i;
                 return (
-                  <path
+                  <circle
                     key={s.id}
-                    d={arc(S / 2, S / 2, on ? R + 6 : R, IN, a, b)}
-                    fill={s.colour}
-                    stroke="hsl(var(--card))"
-                    strokeWidth={slices.length > 1 ? 2 : 0}
-                    opacity={hover === null || on ? 1 : 0.45}
-                    className="cursor-pointer transition-[opacity] duration-150"
+                    cx={S / 2}
+                    cy={S / 2}
+                    r={RING}
+                    fill="none"
+                    stroke={s.colour}
+                    strokeWidth={on ? WIDTH + 10 : WIDTH}
+                    // A hair of overlap so no hairline shows where two slices meet.
+                    strokeDasharray={`${Math.min(C, len + (slices.length > 1 ? 0.6 : 0))} ${C}`}
+                    strokeDashoffset={-offset}
+                    opacity={hover === null || on ? 1 : 0.5}
+                    className="cursor-pointer transition-[stroke-width,opacity] duration-200 ease-out"
                     onMouseEnter={() => setHover(i)}
                     onClick={() => s.id !== "other" && navigate(`/materials/${s.id}`)}
                   >
                     <title>{`${s.title}: ${fmtPct(s.total / grand)}`}</title>
-                  </path>
+                  </circle>
                 );
               })}
             </svg>
@@ -183,7 +178,7 @@ export function StatsPage() {
                     </span>
                     {s.id !== "other" && (
                       <span className="mt-1 block text-[12px] text-muted-foreground">
-                        {[s.questions && `${s.questions} ${s.questions === 1 ? "question" : "questions"}`, s.cards && `${s.cards} ${s.cards === 1 ? "card" : "cards"}`, s.written && `${s.written} written`, (s.copies ?? 1) > 1 && `uploaded ${s.copies} times`].filter(Boolean).join(" · ")}
+                        {[s.questions && `${s.questions} ${s.questions === 1 ? "question" : "questions"}`, s.cards && `${s.cards} ${s.cards === 1 ? "card" : "cards"}`, s.written && `${s.written} written`].filter(Boolean).join(" · ")}
                       </span>
                     )}
                   </span>
