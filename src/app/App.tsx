@@ -28,6 +28,7 @@ import { UploadPage } from "@/pages/upload";
 import { MixedPracticePage } from "@/pages/practice";
 import { PrivacyPage } from "@/pages/privacy";
 import { PlusPage } from "@/pages/plus";
+import { StatsPage } from "@/pages/stats";
 
 type Route = { pattern: string; render: (p: Record<string, string>) => React.ReactNode; bare?: boolean };
 
@@ -51,6 +52,7 @@ const ROUTES: Route[] = [
   { pattern: "/quiz/:id", render: (p) => <QuizPage id={p.id} />, bare: true },
   { pattern: "/quiz/:id/results", render: (p) => <QuizResultsPage id={p.id} /> },
   { pattern: "/history", render: () => <HistoryPage /> },
+  { pattern: "/stats", render: () => <StatsPage /> },
   { pattern: "/ask", render: () => <AskPage /> },
   { pattern: "/settings", render: () => <SettingsPage /> },
 ];

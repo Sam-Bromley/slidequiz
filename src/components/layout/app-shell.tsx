@@ -194,7 +194,8 @@ function MobileTopBar(_: { onMenu: () => void }) {
   );
 }
 
-const MOBILE_TABS = NAV;
+// Stats lives in the side bar and the menu; the bottom bar keeps the five main tabs.
+const MOBILE_TABS = NAV.filter((n) => n.to !== "/stats");
 
 function BottomNav() {
   const { path } = useLocation();
