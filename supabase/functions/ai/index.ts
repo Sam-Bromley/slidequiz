@@ -53,7 +53,7 @@ ${pages}
 Write about ${b.count ?? 1} question(s) per slide that has real content, covering every important fact.${Array.isArray(b.avoid) && b.avoid.length ? ` These questions already exist, so write different ones (other facts, or the same facts from a new angle):\n${b.avoid.slice(0, 80).map((q: string) => "- " + String(q).slice(0, 160)).join("\n")}\n` : ""} Each has ONE correct answer and 4 wrong answers that are believable (same kind of thing, drawn from the same subject) but clearly wrong to someone who knows the material. Never use "all of the above" or "none of the above". Write each question directly about the subject (e.g. "What does transfusion and transplantation study?"), never "What does the slide say about…". Explanations state the fact itself, e.g. "Transfusion and transplantation is the study of blood, tissue and organ donation and transplants, including blood banking and histocompatibility." Keep options under 20 words. Every option starts with a capital letter. If a question's options are full sentences, end every one of them with a full stop; if they are short phrases or single terms, use no full stops. Treat all options of a question the same way. Questions end with a question mark, and explanations are full sentences ending with a full stop.
 The right answer must NOT stand out. A student who doesn't know the material must not be able to guess it from the options alone:
 - Every wrong answer must be genuinely tempting: a real term, idea, value or claim from this lecture or subject, of exactly the same kind as the right answer (if the answer is a type of memory, every option is a type of memory; if it's a number, every option is a believable number; if it's a mechanism, every option is a believable mechanism). Use common mix-ups and misconceptions students actually make. Never a random word, an obvious joke, or something from a different topic.
-- All 5 options must be the same length (within about 3 words of each other), equally detailed, equally specific, equally technical, in the same grammatical form and the same style. The right answer must not be the longest, the most precise, the most complete, the most "textbook-sounding", or the only one with a qualifier, a reason or an example. Often make a wrong option the longest.
+- All 5 options must be the same length (within about 5 characters of each other: count them), equally detailed, equally specific, equally technical, in the same grammatical form and the same style. The right answer must not be the longest, the most precise, the most complete, the most "textbook-sounding", or the only one with a qualifier, a reason or an example. Often make a wrong option the longest.
 - Don't let the question hint at the answer: no word or phrase from the question that only appears in the right option, and no option that is obviously wrong because it contradicts the question.
 - Before replying, check each question: if someone could pick the right answer just by spotting the longest, most detailed or most different-looking option, rewrite the options until they can't.
 Reply with JSON only:
@@ -460,26 +460,40 @@ Deno.serve(async (req) => {
   return json(result, 200, origin);
 });
 
-/* ---------------------------------------------------------------- multiple choice: the right answer mustn't stand out */
+/* ---------------------------------------------------------------- multiple choice: all options the same length */
 
-/** True when the right answer gives itself away by being clearly longer than the wrong ones. */
-function standsOut(q: any) {
-  const wrong: string[] = Array.isArray(q?.wrong) ? q.wrong.map(String) : [];
-  if (typeof q?.correct !== "string" || !wrong.length) return false;
-  const c = q.correct.length;
-  const lens = wrong.map((w) => w.length);
-  const avg = lens.reduce((a, b) => a + b, 0) / lens.length;
-  return c > Math.max(...lens) && c > avg * 1.2 + 4;
+const lengths = (q: any): number[] => [String(q?.correct ?? ""), ...(Array.isArray(q?.wrong) ? q.wrong.map(String) : [])].map((t) => t.length);
+
+/** True when the options aren't all about the same length (so one could stand out). */
+function uneven(q: any) {
+  if (typeof q?.correct !== "string" || !Array.isArray(q?.wrong) || !q.wrong.length) return false;
+  const l = lengths(q);
+  const avg = l.reduce((a, b) => a + b, 0) / l.length;
+  return Math.max(...l) - Math.min(...l) > Math.max(10, avg * 0.25);
+}
+
+/** The length every option of a question should be: the typical length of its wrong answers (so the right one never grows). */
+function target(q: any) {
+  const w = q.wrong.map((t: any) => String(t).length).sort((a: number, b: number) => a - b);
+  return Math.max(12, w[Math.floor(w.length / 2)]);
 }
 
 /**
- * Checks every question; any whose right answer is clearly the longest gets its options rewritten
- * (right answer made shorter, wrong ones fuller) in one quick extra request. If that fails, the originals are kept.
+ * Any question whose options differ in length gets them rewritten to one target length, in one quick extra request
+ * (and a second try for any still uneven). If that fails, the originals are kept.
  */
 async function balanceOptions(qs: any[]) {
-  const bad = qs.map((q, i) => (standsOut(q) ? i : -1)).filter((i) => i >= 0);
-  if (!bad.length) return qs;
-  const list = bad.map((i) => ({ i, question: qs[i].question, correct: qs[i].correct, wrong: qs[i].wrong }));
+  let out = qs;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const bad = out.map((q, i) => (uneven(q) ? i : -1)).filter((i) => i >= 0);
+    if (!bad.length) break;
+    out = await rewriteOptions(out, bad);
+  }
+  return out;
+}
+
+async function rewriteOptions(qs: any[], bad: number[]) {
+  const list = bad.map((i) => ({ i, question: qs[i].question, correct: qs[i].correct, wrong: qs[i].wrong, length: target(qs[i]) }));
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -487,15 +501,14 @@ async function balanceOptions(qs: any[]) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: Math.min(8000, 400 + bad.length * 350),
-        system: "You fix multiple-choice revision questions so the right answer can't be guessed from how the options look.",
+        system: "You fix multiple-choice revision questions so every option is the same length and none can be guessed from how it looks.",
         messages: [{
           role: "user",
-          content: `In each of these questions the right answer is longer and more detailed than the wrong ones, so students can spot it without knowing the material.
-Rewrite the options of each so all 5 are the same length (within about 3 words), equally detailed, equally technical and written in the same style:
-- Make the right answer shorter and plainer, keeping it fully correct (keep only the core idea).
-- Make the wrong answers fuller and just as specific and technical, using real terms from the same topic, so each sounds like it could be right. They must still be clearly wrong to someone who knows the material.
-- In about half of the questions, make one wrong answer slightly longer than the right one.
-- Keep the same punctuation style for all options of a question (all full sentences with full stops, or all short phrases without).
+          content: `Rewrite the options of each question so that ALL 5 options (the right answer and the 4 wrong ones) are the same length: each must be within 6 characters of that question's "length" value (counting spaces).
+- Shorten long options by keeping only their core idea; lengthen short ones with a relevant, specific detail from the same topic.
+- The right answer must stay fully correct. The wrong answers must stay clearly wrong to someone who knows the material, but sound just as believable, specific and technical as the right one.
+- All options of a question use the same style and punctuation (all full sentences with full stops, or all short phrases without).
+- Count the characters of every option before replying and fix any that are outside the range.
 Questions:
 ${JSON.stringify(list)}
 Reply with JSON only:
@@ -511,7 +524,10 @@ Reply with JSON only:
     for (const f of fixed) {
       const i = Number(f?.i);
       if (!bad.includes(i) || typeof f.correct !== "string" || !Array.isArray(f.wrong) || f.wrong.length !== qs[i].wrong.length) continue;
-      next[i] = { ...qs[i], correct: f.correct, wrong: f.wrong.map(String) };
+      const cand = { ...qs[i], correct: f.correct, wrong: f.wrong.map(String) };
+      // Keep the rewrite only if it's at least as even as before.
+      const spread = (q: any) => Math.max(...lengths(q)) - Math.min(...lengths(q));
+      if (spread(cand) <= spread(qs[i])) next[i] = cand;
     }
     return next;
   } catch {
