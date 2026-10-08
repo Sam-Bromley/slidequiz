@@ -16,7 +16,7 @@ const DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", 
 const OTHER = { light: "#a8a8a2", dark: "#6b6b66" };
 const MAX_SLICES = 6;
 
-type Row = { id: ID | "other"; title: string; questions: number; cards: number; written: number; total: number };
+type Row = { id: ID | "other"; title: string; questions: number; cards: number; written: number; total: number; copies?: number };
 
 /** How much each lecture has been revised: questions answered, flashcard reviews and written answers marked. */
 function revision(d: AppData): Row[] {
@@ -34,7 +34,27 @@ function revision(d: AppData): Row[] {
     const r = rows.get(m.id)!;
     r.written = (m.written ?? []).filter((w) => w.last).length;
   }
-  return [...rows.values()].map((r) => ({ ...r, total: r.questions + r.cards + r.written })).filter((r) => r.total > 0);
+  // The same lecture uploaded more than once counts as one (opening the copy revised most).
+  const byTitle = new Map<string, Row & { copies: number; best: number }>();
+  for (const r of rows.values()) {
+    const total = r.questions + r.cards + r.written;
+    if (!total) continue;
+    const key = r.title.trim().toLowerCase();
+    const prev = byTitle.get(key);
+    if (!prev) byTitle.set(key, { ...r, total, copies: 1, best: total });
+    else
+      byTitle.set(key, {
+        ...prev,
+        id: total > prev.best ? r.id : prev.id,
+        best: Math.max(prev.best, total),
+        questions: prev.questions + r.questions,
+        cards: prev.cards + r.cards,
+        written: prev.written + r.written,
+        total: prev.total + total,
+        copies: prev.copies + 1,
+      });
+  }
+  return [...byTitle.values()];
 }
 
 /** One slice of a donut, from angle a to b (radians, 0 = top). */
@@ -163,7 +183,7 @@ export function StatsPage() {
                     </span>
                     {s.id !== "other" && (
                       <span className="mt-1 block text-[12px] text-muted-foreground">
-                        {[s.questions && `${s.questions} ${s.questions === 1 ? "question" : "questions"}`, s.cards && `${s.cards} ${s.cards === 1 ? "card" : "cards"}`, s.written && `${s.written} written`].filter(Boolean).join(" · ")}
+                        {[s.questions && `${s.questions} ${s.questions === 1 ? "question" : "questions"}`, s.cards && `${s.cards} ${s.cards === 1 ? "card" : "cards"}`, s.written && `${s.written} written`, (s.copies ?? 1) > 1 && `uploaded ${s.copies} times`].filter(Boolean).join(" · ")}
                       </span>
                     )}
                   </span>
