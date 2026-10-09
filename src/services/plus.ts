@@ -40,6 +40,9 @@ export function setPlusTesting(on: boolean): boolean {
 export const PLUS = {
   price: "£3.99",
   period: "month",
+  /** Shown only once a yearly price is set up in Stripe (STRIPE_PRICE_YEAR_ID). */
+  yearPrice: "£24.99",
+  yearSaving: "48%",
   guestLectures: "2",
   freeLectures: "10",
   plusLectures: "100",
@@ -119,7 +122,7 @@ export function usePlan(): PlanState {
   );
 }
 
-async function plusCall(action: "checkout" | "portal"): Promise<string> {
+async function plusCall(action: "checkout" | "portal", extra: Record<string, string> = {}): Promise<string> {
   const token = await authToken();
   if (!token) throw new Error("Log in first.");
   let r: Response;
@@ -127,7 +130,7 @@ async function plusCall(action: "checkout" | "portal"): Promise<string> {
     r = await fetch(`${SUPABASE_URL}/functions/v1/plus`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, ...extra }),
     });
   } catch {
     throw new Error("Couldn't reach the server. Check your internet connection.");
@@ -138,8 +141,24 @@ async function plusCall(action: "checkout" | "portal"): Promise<string> {
 }
 
 /** Sends the student to Stripe's secure payment page. */
-export async function startCheckout() {
-  window.location.href = await plusCall("checkout");
+export async function startCheckout(plan: "month" | "year" = "month") {
+  try {
+    sessionStorage.setItem("slidequiz:plan", plan);
+  } catch {
+    /* storage blocked */
+  }
+  window.location.href = await plusCall("checkout", { plan });
+}
+
+/** Whether a yearly plan can be bought (set up in Stripe). */
+export async function plusOptions(): Promise<{ yearly: boolean }> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/plus`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "options" }) });
+    const d = await r.json();
+    return { yearly: !!d?.yearly };
+  } catch {
+    return { yearly: false };
+  }
 }
 
 /** Sends the student to Stripe's page to cancel, or change their card. */

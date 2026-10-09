@@ -8,6 +8,7 @@
 // Secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY      required (starts sk_live_ or sk_test_)
 //   STRIPE_PRICE_ID        required (starts price_, the monthly Plus price)
+//   STRIPE_PRICE_YEAR_ID   optional (starts price_, a yearly price); when set, the Pro page offers "Yearly" too
 //   STRIPE_WEBHOOK_SECRET  required (starts whsec_, from the webhook you add in Stripe)
 //   STRIPE_MANAGED         optional: "off" to stop using Managed Payments (Stripe as merchant of record,
 //                          handling VAT, fraud and disputes). On by default.
@@ -130,18 +131,20 @@ Deno.serve(async (req) => {
     return new Response("ok");
   }
 
-  // The website, on behalf of a logged-in student.
-  const who = await fetch(`${base()}/auth/v1/user`, { headers: { apikey: env("SUPABASE_ANON_KEY"), Authorization: req.headers.get("authorization") ?? "" } });
-  if (!who.ok) return json({ error: "Log in first." }, 401, origin);
-  const user = await who.json();
-  if (user.is_anonymous || !user.email) return json({ error: "Make an account first." }, 401, origin);
-
   let body: any = {};
   try {
     body = await req.json();
   } catch {
     /* empty body */
   }
+  // Which plans can be bought (anyone can ask).
+  if (body.action === "options") return json({ yearly: !!env("STRIPE_PRICE_YEAR_ID") }, 200, origin);
+
+  // The website, on behalf of a logged-in student.
+  const who = await fetch(`${base()}/auth/v1/user`, { headers: { apikey: env("SUPABASE_ANON_KEY"), Authorization: req.headers.get("authorization") ?? "" } });
+  if (!who.ok) return json({ error: "Log in first." }, 401, origin);
+  const user = await who.json();
+  if (user.is_anonymous || !user.email) return json({ error: "Make an account first." }, 401, origin);
   const site = siteFor(origin);
   try {
     const plan = await getPlan(user.id);
@@ -149,7 +152,7 @@ Deno.serve(async (req) => {
       if (plan?.plus_until && new Date(plan.plus_until) > new Date() && !plan.cancel_at_period_end) return json({ error: "You already have Pro." }, 400, origin);
       const session = await stripe("checkout/sessions", {
         mode: "subscription",
-        line_items: { 0: { price: env("STRIPE_PRICE_ID"), quantity: 1 } },
+        line_items: { 0: { price: body.plan === "year" && env("STRIPE_PRICE_YEAR_ID") ? env("STRIPE_PRICE_YEAR_ID") : env("STRIPE_PRICE_ID"), quantity: 1 } },
         client_reference_id: user.id,
         metadata: { user_id: user.id },
         subscription_data: { metadata: { user_id: user.id } },

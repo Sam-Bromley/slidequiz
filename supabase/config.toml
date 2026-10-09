@@ -1,0 +1,19 @@
+# Settings for deploying the Edge Functions with the Supabase CLI (see .github/workflows/functions.yml).
+# Every function checks who is calling itself (or, for Stripe and the daily reminders, a signature or key),
+# so the platform's own login check is off: Stripe's webhook and the unsubscribe links can't send a login.
+project_id = "oksfbksrfrqsbtmjqtfz"
+
+[functions.ai]
+verify_jwt = false
+
+[functions.media]
+verify_jwt = false
+
+[functions.welcome]
+verify_jwt = false
+
+[functions.plus]
+verify_jwt = false
+
+[functions.reminders]
+verify_jwt = false

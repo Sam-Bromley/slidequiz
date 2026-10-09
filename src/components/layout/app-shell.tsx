@@ -165,6 +165,7 @@ function FreeCreditsButton() {
     <button type="button" onClick={openEarnCredits} title="Free credits" aria-label="Free credits" className={cn(buttonClass("ghost", "sm"), "h-9 gap-1.5 rounded-full px-2.5 sm:px-3")}>
       <Gift className="size-[18px] text-primary" />
       <span className="hidden text-[13.5px] font-medium sm:inline">Free credits</span>
+      <span className="text-[13px] font-medium max-[370px]:hidden sm:hidden">Credits</span>
     </button>
   );
 }

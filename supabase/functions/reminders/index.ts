@@ -50,7 +50,7 @@ function html(name: string, items: Item[], unsub: string) {
     .slice(0, 5)
     .map(
       (it) => `<tr><td style="padding:10px 14px;border:1px solid #e5e5e5;border-radius:10px;">
-        <a href="${SITE}/#/materials/${encodeURIComponent(it.id)}" style="color:#111;text-decoration:none;font-weight:bold;">${esc(it.title)}</a>
+        <a href="${SITE}/#/questions?m=${encodeURIComponent(it.id)}" style="color:#111;text-decoration:none;font-weight:bold;">${esc(it.title)}</a>
         <div style="font-size:12.5px;color:#777;margin-top:2px;">Made ${ago(it.days)}</div>
       </td></tr><tr><td style="height:8px;"></td></tr>`,
     )
@@ -60,7 +60,7 @@ function html(name: string, items: Item[], unsub: string) {
   <p style="margin:0 0 14px;">${items.length === 1 ? `You made notes on <b>${esc(first.title)}</b> ${ago(first.days)}. ${why(first.days)}` : MANY}</p>
   ${items.length > 1 ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 12px;border-collapse:separate;">${list}</table>` : ""}
   <p style="margin:0 0 20px;">
-    <a href="${SITE}/#/materials/${encodeURIComponent(first.id)}" style="display:inline-block;background:#111;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:8px;">Review now</a>
+    <a href="${SITE}/#/questions?m=${encodeURIComponent(first.id)}" style="display:inline-block;background:#111;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 20px;border-radius:8px;">Review now</a>
   </p>
   <p style="margin:0 0 20px;color:#555;">5 minutes is enough.</p>
   <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
@@ -75,12 +75,12 @@ function html(name: string, items: Item[], unsub: string) {
 
 function text(name: string, items: Item[], unsub: string) {
   const first = items[0];
-  const lines = items.slice(0, 5).map((it) => `- ${it.title} (made ${ago(it.days)}): ${SITE}/#/materials/${encodeURIComponent(it.id)}`);
+  const lines = items.slice(0, 5).map((it) => `- ${it.title} (made ${ago(it.days)}): ${SITE}/#/questions?m=${encodeURIComponent(it.id)}`);
   return `${name ? `Hey ${name},` : "Hey,"}
 
 ${items.length === 1 ? `You made notes on ${first.title} ${ago(first.days)}. ${why(first.days)}` : MANY}
 
-${items.length === 1 ? `Review now: ${SITE}/#/materials/${encodeURIComponent(first.id)}` : lines.join("\n")}
+${items.length === 1 ? `Review now: ${SITE}/#/questions?m=${encodeURIComponent(first.id)}` : lines.join("\n")}
 
 5 minutes is enough.
 

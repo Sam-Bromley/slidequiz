@@ -8,6 +8,7 @@ import { useData } from "@/store/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { ACCEPT_ATTR } from "@/services/parsing";
 import { useAccount } from "@/services/account";
+import { Today } from "@/components/home/today";
 
 /** Home: one quiet box in the middle. Drop files or paste notes, press go. */
 export function HomePage() {
@@ -114,6 +115,8 @@ export function HomePage() {
             }}
           />
         </div>
+
+        {!intro && <Today />}
 
         {intro && (
           <>

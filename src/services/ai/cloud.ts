@@ -281,6 +281,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
       const [sections] = await Promise.all([notesJob, questionsJob]);
       if (notesDone) actions.retopicPractice(id);
       setAi({ status: "done", notes: sections, questions: count > 0 });
+      if (notesDone) autoFlashcards(id);
     } catch (e) {
       const cur = getState().materials.find((x) => x.id === id);
       const err = e instanceof AIError ? e : null;
@@ -473,11 +474,34 @@ export async function balanceOldQuestions(materialId: ID) {
   }
 }
 
+/** A deck of flashcards for a new lecture, made in the background once its notes are done (no extra credits). */
+async function autoFlashcards(id: ID) {
+  if ((getState().decks ?? []).some((d) => d.materialIds.includes(id))) return;
+  try {
+    const m = getState().materials.find((x) => x.id === id);
+    if (!m) return;
+    const cards = await cloudFlashcards(m, [], true);
+    const m2 = getState().materials.find((x) => x.id === id);
+    if (!m2 || !cards.length || (getState().decks ?? []).some((d) => d.materialIds.includes(id))) return;
+    const seen = new Set<string>();
+    const drafts = cards.flatMap((c) => {
+      const k = c.back.trim().toLowerCase();
+      if (seen.has(k)) return [];
+      seen.add(k);
+      const page = m2.pages.find((p) => p.id === c.pageId);
+      return [{ materialId: id, topicId: page?.topicId ?? null, source: page ? { pageId: page.id, label: page.label } : undefined, front: c.front.trim(), back: c.back.trim() }];
+    });
+    actions.createDeck(m2.title, [id], drafts);
+  } catch {
+    /* they can still make them on the Flashcards page */
+  }
+}
+
 /** Flashcards written by the AI. Throws an AIError if it can't. */
-export async function cloudFlashcards(m: Material, topicIds: ID[]): Promise<{ front: string; back: string; pageId: ID }[]> {
+export async function cloudFlashcards(m: Material, topicIds: ID[], auto = false): Promise<{ front: string; back: string; pageId: ID }[]> {
   const pages = cloudPages(m, topicIds);
   if (!pages.length) return [];
-  const res = await runLimited(chunks(pages), 4, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>("flashcards", { title: m.title, pages: c }));
+  const res = await runLimited(chunks(pages), 4, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>(auto ? "autoFlashcards" : "flashcards", { title: m.title, pages: c }));
   return res.flatMap((r) => r.cards ?? []).filter((c) => c.front?.trim() && c.back?.trim());
 }
 

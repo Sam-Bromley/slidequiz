@@ -8,7 +8,8 @@ import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
 import { navigate, useLocation } from "@/lib/router";
 import { useAccount } from "@/services/account";
-import { openBilling, PLUS, PLUS_ON, refreshPlan, setPlusTesting, startCheckout, usePlan } from "@/services/plus";
+import { openBilling, PLUS, PLUS_ON, plusOptions, refreshPlan, setPlusTesting, startCheckout, usePlan } from "@/services/plus";
+import { cn } from "@/lib/utils";
 
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "");
 
@@ -38,6 +39,11 @@ export function PlusPage() {
   const { query } = useLocation();
   const [busy, setBusy] = useState(false);
   const [auth, setAuth] = useState(false);
+  const [yearly, setYearly] = useState(false);
+  const [billing, setBilling] = useState<"month" | "year">("month");
+  useEffect(() => {
+    plusOptions().then((o) => setYearly(o.yearly));
+  }, []);
   const done = query.get("done") === "1";
   // Private testing before Plus is live: /#/pro?test=1 (and ?test=0 to stop).
   useEffect(() => {
@@ -59,7 +65,13 @@ export function PlusPage() {
       if (stop) return;
       if (s.plus) {
         setWaiting(false);
-        trackConversion("purchase", { value: 3.99, id: oneWay(`${account.user!.id}:${s.until ?? ""}`) });
+        let bought = "month";
+        try {
+          bought = sessionStorage.getItem("slidequiz:plan") ?? "month";
+        } catch {
+          /* storage blocked */
+        }
+        trackConversion("purchase", { value: bought === "year" ? 24.99 : 3.99, id: oneWay(`${account.user!.id}:${s.until ?? ""}`) });
         toast("Welcome to Pro! Thank you for supporting SlideQuiz.");
         navigate("/pro", { replace: true });
       } else if (++tries < 10) setTimeout(tick, 2000);
@@ -122,17 +134,51 @@ export function PlusPage() {
     );
   } else {
     action = (
-      <Button className="w-full" loading={busy} onClick={() => go(startCheckout)}>
-        Get Pro
+      <Button className="w-full" loading={busy} onClick={() => go(() => startCheckout(billing))}>
+        Get Pro{billing === "year" ? " for a year" : ""}
       </Button>
     );
   }
 
   return (
     <div className="max-w-3xl">
-      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Pro" description="More credits every month, and you help keep SlideQuiz free for everyone." />
+      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Pro" description="Turn your lecture recordings and YouTube videos into notes and questions, with 10 times the credits." />
+
+      {yearly && !plan.plus && (
+        <div className="mb-4 inline-flex rounded-full border bg-card p-1" role="radiogroup" aria-label="Billing">
+          {(["month", "year"] as const).map((b) => (
+            <button
+              key={b}
+              type="button"
+              role="radio"
+              aria-checked={billing === b}
+              onClick={() => setBilling(b)}
+              className={cn("rounded-full px-4 py-1.5 text-[13.5px] font-medium transition-colors focus-ring", billing === b ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}
+            >
+              {b === "month" ? "Monthly" : `Yearly · save ${PLUS.yearSaving}`}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <Plan
+          name="Pro"
+          price={billing === "year" ? `${PLUS.yearPrice} a year` : `${PLUS.price} a ${PLUS.period}`}
+          highlight
+          points={[
+            "Notes and questions from your lecture recordings (audio and video) and YouTube videos",
+            `${PLUS.plusLectures} credits a month (10 times the free amount)`,
+            "Download your notes as a designed PDF or Word document",
+            "Highlight your notes and add your own notes to them",
+            "A weekly recap of how your revision is going",
+            "Your own photo as the background, accent colours and coloured folders",
+            "Never held up when SlideQuiz is busy",
+            "Cancel any time",
+          ]}
+        >
+          {action}
+        </Plan>
         <Plan
           name="Free"
           price="£0"
@@ -143,30 +189,12 @@ export function PlusPage() {
             "Practice, flashcards, essays and everything else",
           ]}
         />
-        <Plan
-          name="Pro"
-          price={`${PLUS.price} a ${PLUS.period}`}
-          highlight
-          points={[
-            "Everything in Free",
-            `${PLUS.plusLectures} credits a month`,
-            "Notes from lecture recordings (audio and video) and YouTube videos",
-            "Highlight your notes and add your own notes to them",
-            "Download your notes as a designed PDF or Word document",
-            "A weekly recap of how your revision is going",
-            "Your own photo as the background, accent colours and coloured folders",
-            "Never held up when SlideQuiz is busy",
-            "Cancel any time",
-          ]}
-        >
-          {action}
-        </Plan>
       </div>
 
       <div className="mt-8 space-y-3 text-[13.5px] text-muted-foreground">
         <p>Payments are handled securely by Stripe. SlideQuiz never sees your card details.</p>
         <p>
-          Pro renews every {PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Pro); you keep Pro until the end of the {PLUS.period} you've paid for. Credits reset on the 1st of each month. One credit covers up to about 5,000 words of slide text (a normal 50–60 slide lecture); longer files use more.
+          Pro renews every {billing === "year" ? "year" : PLUS.period} until you cancel. You can cancel any time with “Manage or cancel” (or Settings → Pro); you keep Pro until the end of the {billing === "year" ? "year" : PLUS.period} you've paid for. Credits reset on the 1st of each month. One credit covers up to about 5,000 words of slide text (a normal 50–60 slide lecture); longer files use more.
         </p>
         <p>
           Something wrong with a payment? Email <a className="font-medium underline underline-offset-2" href="mailto:slidequiz.help@outlook.com">slidequiz.help@outlook.com</a>.

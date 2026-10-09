@@ -404,6 +404,8 @@ Deno.serve(async (req) => {
     return json({ questions: await balanceOptions(qs) }, 200, origin);
   }
 
+  // Flashcards made automatically with a lecture: the same as "flashcards" (older versions of this function don't know it, so they never charge for it).
+  if (body?.task === "autoFlashcards") body.task = "flashcards";
   const task = TASKS[body?.task];
   if (!task || !Array.isArray(body.pages)) return json({ error: "Unknown task" }, 400, origin);
 
@@ -431,8 +433,8 @@ Deno.serve(async (req) => {
   // What uses credits, and how much (1 credit = 30,000 characters). The same request is only
   // charged once a month, so "Try again" after an error is free.
   let charge: { key: string; chars: number } | null = null;
-  if (body.task === "notes" || body.task === "questions") charge = { key: await sha(pages), chars: pages.length };
-  else if (body.task === "flashcards") charge = { key: "cards:" + (await sha(pages)), chars: pages.length };
+  // Notes, questions and flashcards for the same lecture share one charge (1 credit makes all three).
+  if (body.task === "notes" || body.task === "questions" || body.task === "flashcards") charge = { key: await sha(pages), chars: pages.length };
   else if (body.task === "writtenQuestions") charge = { key: "written:" + (await sha(pages + JSON.stringify(body.avoid ?? []) + String(body.count ?? ""))), chars: Math.ceil(pages.length / 2) };
   else if (body.task === "essayFeedback") charge = { key: "essay:" + (await sha(String(body.essay ?? "") + String(body.question ?? ""))), chars: 30000 };
   if (charge) {
@@ -457,6 +459,7 @@ Deno.serve(async (req) => {
   if (!r.ok) {
     const detail = String((await r.json().catch(() => null))?.error?.message ?? r.status);
     console.error("Anthropic error:", detail);
+    await logFailure(body.task, `error ${r.status}`);
     const busy = r.status === 429 || r.status === 529;
     return json({ error: busy ? "SlideQuiz is busy right now. Try again in a minute." : `Couldn't write this right now (error ${r.status}). Try again in a minute.` }, 502, origin);
   }
@@ -468,11 +471,24 @@ Deno.serve(async (req) => {
   try {
     result = JSON.parse(text.slice(start, end + 1));
   } catch {
+    await logFailure(body.task, out.stop_reason === "max_tokens" ? "cut short" : "unreadable reply");
     return json({ error: "The reply was cut short. Try again." }, 502, origin);
   }
   if (body.task === "questions" && Array.isArray(result?.questions)) result.questions = await balanceOptions(result.questions);
   return json(result, 200, origin);
 });
+
+/** Counts something going wrong (which task, and roughly why: nothing about the student), so problems show up in the stats. */
+async function logFailure(task: string, reason: string) {
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url = Deno.env.get("SUPABASE_URL");
+  if (!service || !url) return;
+  await fetch(`${url}/rest/v1/ai_failures`, {
+    method: "POST",
+    headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ task: String(task).slice(0, 40), reason: reason.slice(0, 80) }),
+  }).catch(() => {});
+}
 
 /* ---------------------------------------------------------------- multiple choice: all options the same length */
 

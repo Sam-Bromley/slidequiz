@@ -189,7 +189,19 @@ export function UploadPage() {
 
   const save = async () => {
     const folderId = getState().folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
-    const mats = ready.map((i) => ({ ...i.material!, title: i.material!.title.trim() || "Untitled", folderId }));
+    // The same lecture uploaded again (same name and same slides): open the one they already have instead of making a copy.
+    const sig = (m: { title: string; pages: { text: string }[] }) => `${m.title.trim().toLowerCase()}|${m.pages.length}|${m.pages.map((p) => p.text).join("").slice(0, 2000)}`;
+    const have = new Map(getState().materials.map((m) => [sig(m), m]));
+    const all = ready.map((i) => ({ ...i.material!, title: i.material!.title.trim() || "Untitled", folderId }));
+    const dupes = all.filter((m) => have.has(sig(m)));
+    const mats = all.filter((m) => !have.has(sig(m)));
+    if (dupes.length && !mats.length) {
+      const existing = have.get(sig(dupes[0]))!;
+      toast(dupes.length === 1 ? "You already have this lecture, so we've opened it" : "You already have these lectures");
+      navigate(dupes.length === 1 ? `/materials/${existing.id}` : "/materials");
+      return;
+    }
+    if (dupes.length) toast(`Skipped ${dupes.length === 1 ? `“${dupes[0].title}”` : `${dupes.length} lectures`}: you already have ${dupes.length === 1 ? "it" : "them"}`);
     const empty = mats.find((m) => !m.pages.some((p) => p.included));
     if (empty) {
       toast.error(`Choose at least one slide in “${empty.title}”`);
