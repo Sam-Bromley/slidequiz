@@ -59,6 +59,8 @@ export interface Settings {
   theme: ThemeName | "system";
   /** Switch to the warm night light automatically between nightStart and nightEnd. */
   nightLightAuto?: boolean;
+  /** Emails reminding them to review a lecture 1, 3, 6, 14 and 30 days after making it (on unless turned off). */
+  reviewEmails?: boolean;
   /** Night light was switched off by hand during its hours: the schedule waits until this time. */
   nightOffUntil?: string;
   /** "HH:MM", local time. Defaults 21:00 and 06:00. */

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Review reminders turned off · SlideQuiz</title>
+<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
+<style>
+  body { margin: 0; background: #fff; color: #171717; font-family: Arial, Helvetica, sans-serif; }
+  main { max-width: 440px; margin: 0 auto; padding: 18vh 16px 40px; text-align: center; }
+  img { border-radius: 10px; }
+  h1 { font-size: 22px; margin: 18px 0 8px; }
+  p { color: #555; line-height: 1.6; margin: 0 0 22px; }
+  a.btn { display: inline-block; background: #111; color: #fff; text-decoration: none; font-weight: bold; padding: 11px 22px; border-radius: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/icon-192.png" width="44" height="44" alt="SlideQuiz" />
+  <h1 id="h">Review reminders turned off</h1>
+  <p id="p">You won't get any more review reminder emails. You can still revise any time on SlideQuiz.</p>
+  <a class="btn" href="/">Open SlideQuiz</a>
+</main>
+<script>
+  if (/[?&]error=1/.test(location.search)) {
+    document.getElementById("h").textContent = "That link didn't work";
+    document.getElementById("p").textContent = "You can turn off review reminders in SlideQuiz under Settings, or email slidequiz.help@outlook.com and we'll do it for you.";
+  }
+</script>
+</body>
+</html>
