@@ -119,7 +119,15 @@ function Line({ l, k, marks, onMark }: { l: NoteLine; k: string; marks: NoteMark
     </span>
   );
   let p: ReactNode;
-  if (l.kind === "sub") p = <p data-line-key={k} data-full={full} className="mt-3 font-semibold text-foreground">{body}</p>;
+  if (l.tone) {
+    const t = TONES[l.tone];
+    p = (
+      <div data-line-key={k} data-full={full} className={cn("my-2 rounded-r-xl border-l-[3px] px-3.5 py-2.5", t.box, l.depth === 1 && "ml-5")}>
+        <span className={cn("mb-0.5 block text-[11px] font-semibold uppercase tracking-wider", t.label)}>{t.name}</span>
+        <span className="block text-foreground/90">{body}</span>
+      </div>
+    );
+  } else if (l.kind === "sub") p = <p data-line-key={k} data-full={full} className="mt-3 font-semibold text-foreground">{body}</p>;
   else if (l.kind === "para") p = <p data-line-key={k} data-full={full} className="text-foreground/90">{body}</p>;
   else
     p = (
@@ -137,6 +145,13 @@ function Line({ l, k, marks, onMark }: { l: NoteLine; k: string; marks: NoteMark
     p
   );
 }
+
+/** Callouts that make the important bits stand out from the bullets. */
+const TONES: Record<NonNullable<NoteLine["tone"]>, { name: string; box: string; label: string }> = {
+  key: { name: "Key idea", box: "border-primary bg-primary/[0.07]", label: "text-primary" },
+  example: { name: "Example", box: "border-foreground/25 bg-muted/70", label: "text-muted-foreground" },
+  tip: { name: "Tip", box: "border-amber-400 bg-amber-50 dark:bg-amber-400/10", label: "text-amber-700 dark:text-amber-300" },
+};
 
 const NOTE_BOX: Record<NoteMark["color"], string> = {
   yellow: "border-yellow-400 bg-yellow-50 dark:bg-yellow-400/10",
@@ -214,9 +229,56 @@ function SlideBlock({ s, first, showImages, onDevice, openImage, marks, onMark }
 }
 
 /** The material as organised notes. */
+/**
+ * Where the student was in the notes, so going to another tab and back lands on the same spot.
+ * Kept only in memory: a refresh, or opening different notes, starts from the top again.
+ */
+let kept: { id: string; y: number } | null = null;
+
+function useKeepScroll(id: string, ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+    const want = kept?.id === id ? kept.y : 0;
+    kept = { id, y: want };
+    let live = true;
+    let tries = 0;
+    let listening = false;
+    const save = () => {
+      if (live) kept = { id, y: window.scrollY };
+    };
+    const listen = () => {
+      if (listening) return;
+      listening = true;
+      window.addEventListener("scroll", save, { passive: true });
+    };
+    // The page scrolls to the top when the route changes, and pictures can still be loading, so try for a moment.
+    const restore = () => {
+      if (!live) return;
+      if (want > 0 && Math.abs(window.scrollY - want) > 2) window.scrollTo({ top: want });
+      if (want > 0 && Math.abs(window.scrollY - want) > 2 && ++tries < 30) requestAnimationFrame(restore);
+      else listen();
+    };
+    requestAnimationFrame(restore);
+    // Stop fighting the student if they start scrolling themselves.
+    const stop = () => {
+      tries = 99;
+      listen();
+    };
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    return () => {
+      live = false;
+      window.removeEventListener("scroll", save);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+    };
+  }, [id, ready]);
+}
+
 export function NotesView({ material }: { material: Material }) {
   const data = useData();
   const sections = useMemo(() => buildNotes(material), [material]);
+  useKeepScroll(material.id, sections.length > 0);
   const showImages = !!data.settings.notesImages;
   const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
   const imageIds = useMemo(() => sections.flatMap((sec) => sec.slides.flatMap((x) => x.images.map((i) => i.id))), [sections]);
@@ -339,6 +401,7 @@ export function NotesView({ material }: { material: Material }) {
         {sections.map((sec, si) => (
           <section key={sec.id} id={sec.id} className={cn("scroll-mt-28", si > 0 && "mt-12 border-t pt-10")}>
             <h2 className="text-[22px] font-semibold leading-tight">{sec.title}</h2>
+            {sec.summary && <p className="mt-2 text-[1.06em] leading-relaxed text-muted-foreground">{linkify(tidyLine(sec.summary))}</p>}
             {sec.slides.map((s, i) => (
               <SlideBlock key={s.page.id} s={s} first={i === 0} showImages={showImages} onDevice={onDevice} openImage={(img, label) => setBig({ img, label })} marks={marksByLine} onMark={openMark} />
             ))}

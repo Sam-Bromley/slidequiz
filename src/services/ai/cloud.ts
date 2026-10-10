@@ -347,12 +347,12 @@ function mergeSections(raw: AINoteSection[], pages: CloudPage[]): AINoteSection[
   const out: AINoteSection[] = [];
   for (const s of raw) {
     const parts = (s.parts ?? [])
-      .map((p) => ({ heading: p.heading?.trim() || undefined, pageIds: (p.pageIds ?? []).filter((x) => ids.has(x)), points: (p.points ?? []).filter((x) => x && x.text?.trim()) }))
-      .filter((p) => p.points.length);
+      .map((p) => ({ heading: p.heading?.trim() || undefined, pageIds: (p.pageIds ?? []).filter((x) => ids.has(x)), intro: typeof p.intro === "string" && p.intro.trim() ? p.intro.trim() : undefined, points: (p.points ?? []).filter((x) => x && x.text?.trim()), table: Array.isArray(p.table) ? p.table : undefined }))
+      .filter((p) => p.points.length || p.intro || p.table);
     if (!parts.length) continue;
     const last = out[out.length - 1];
     if (last && last.title.trim().toLowerCase() === (s.title ?? "").trim().toLowerCase()) last.parts.push(...parts);
-    else out.push({ title: (s.title ?? "Notes").trim(), parts });
+    else out.push({ title: (s.title ?? "Notes").trim(), summary: typeof s.summary === "string" && s.summary.trim() ? s.summary.trim() : undefined, parts });
   }
   return out;
 }

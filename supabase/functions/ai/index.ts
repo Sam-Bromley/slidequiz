@@ -35,12 +35,16 @@ You turn slides into clear, concise revision notes that keep every fact.`,
 Slides (each starts with [id]):
 ${pages}
 
-Write revision notes grouped into 2–10 topics in lecture order. Each topic has short parts, each with a clear heading (a few words) and bullet points.
-Keep every fact, figure and definition; drop filler words. A definition becomes {"term": "…", "text": "…"}. Sub-points use "sub": true.
+Write revision notes grouped into 2–10 topics in lecture order, laid out like a good textbook summary, not just a wall of bullets:
+- Start each topic with a "summary": one or two plain sentences on what it's about and why it matters.
+- Each topic has short parts, each with a clear heading (a few words). A part may open with an "intro": one or two sentences that explain the idea in flowing prose so the points make sense (skip it when the points speak for themselves).
+- Then bullet points for the facts. Keep every fact, figure and definition; drop filler words. A definition becomes {"term": "…", "text": "…"}. Sub-points use "sub": true.
+- When the slides compare things (types, stages, theories, pros and cons, causes and effects) put the comparison in a "table": a list of rows, the first row being the column headings, 2–5 columns, short cells. Don't repeat the table's facts as bullets.
+- Mark the one or two most important ideas in each topic with "kind": "key". Mark a worked example or case from the slides with "kind": "example". Use "kind": "tip" sparingly for a memory aid or a common mix-up to avoid, and never invent facts for it. Everything else has no kind.
 List the ids of the slides each part comes from, in order, and every slide id must be used at least once.
 Also give the subject in one or two words (e.g. "Biology", "Psychology", "Modern History").
 Reply with JSON only:
-{"subject":"…","sections":[{"title":"…","parts":[{"heading":"…","pageIds":["…"],"points":[{"term":"optional","text":"…","sub":false}]}]}]}`,
+{"subject":"…","sections":[{"title":"…","summary":"…","parts":[{"heading":"…","pageIds":["…"],"intro":"optional","points":[{"term":"optional","text":"…","sub":false,"kind":"optional"}],"table":[["optional heading","…"],["…","…"]]}]}]}`,
   },
   questions: {
     maxTokens: 16000,

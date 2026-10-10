@@ -16,6 +16,8 @@ export interface NoteLine {
   /** What joins the term to the text: ": " for "Term: …", " " for "Term is …". */
   sep?: string;
   depth: 0 | 1;
+  /** Shown as a callout: the big idea, an example, or a tip. */
+  tone?: "key" | "example" | "tip";
 }
 
 /** A stable id for one line of the notes (highlights attach to it). */
@@ -39,6 +41,8 @@ export interface NoteSection {
   id: string;
   topicId: ID | null;
   title: string;
+  /** What the topic is about, in a sentence or two (shown under its title). */
+  summary?: string;
   slides: NoteSlide[];
   terms: { term: string; definition: string; label: string; pageId: ID }[];
 }
@@ -182,6 +186,15 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
   };
 }
 
+/** A comparison table from the AI, if it's a proper grid (2+ rows, 2–6 columns, all rows the same width). */
+function goodTable(t: unknown): string[][] | null {
+  if (!Array.isArray(t) || t.length < 2) return null;
+  const rows = t.filter(Array.isArray).map((r) => (r as unknown[]).map((c) => String(c ?? "").trim()));
+  const w = rows[0]?.length ?? 0;
+  if (w < 2 || w > 6 || rows.some((r) => r.length !== w)) return null;
+  return rows;
+}
+
 /** Notes written by the AI, shaped like the built-in ones so the same screen shows them. */
 function aiNotes(m: Material): NoteSection[] {
   const byId = new Map(m.pages.map((p) => [p.id, p]));
@@ -190,6 +203,7 @@ function aiNotes(m: Material): NoteSection[] {
     id: `sec-ai-${i}`,
     topicId: m.topics.find((t) => t.name === s.title)?.id ?? null,
     title: s.title,
+    summary: s.summary?.trim() || undefined,
     terms: [],
     slides: s.parts.map((part) => {
       const pages = part.pageIds.map((id) => byId.get(id)).filter((p): p is Page => !!p && p.included);
@@ -197,8 +211,11 @@ function aiNotes(m: Material): NoteSection[] {
       return {
         page: pages[0] ?? last,
         title: part.heading ?? null,
-        lines: part.points.map((pt) => ({ kind: "bullet" as const, text: pt.text, term: pt.term || undefined, sep: pt.term ? " – " : undefined, depth: (pt.sub ? 1 : 0) as 0 | 1 })),
-        table: null,
+        lines: [
+          ...(part.intro?.trim() ? [{ kind: "para" as const, text: part.intro.trim(), depth: 0 as const }] : []),
+          ...part.points.map((pt) => ({ kind: "bullet" as const, text: pt.text, term: pt.term || undefined, sep: pt.term ? " – " : undefined, depth: (pt.sub ? 1 : 0) as 0 | 1, tone: pt.kind && ["key", "example", "tip"].includes(pt.kind) ? pt.kind : undefined })),
+        ],
+        table: goodTable(part.table),
         images: pages.flatMap((p) => (p.images ?? []).filter((x) => x.included)),
         photo: pages.find((p) => p.imageDataUrl)?.imageDataUrl,
       };
@@ -292,6 +309,7 @@ export function notesExportDoc(m: Material): import("@/services/export").ExportD
   for (const mk of m.marks ?? []) byLine.set(mk.key, [...(byLine.get(mk.key) ?? []), mk]);
   for (const sec of buildNotes(m)) {
     blocks.push({ kind: "h2", text: sec.title });
+    if (sec.summary) blocks.push({ kind: "point", style: "para", depth: 0, text: sec.summary, sep: ": ", marks: [], notes: [] });
     for (const s of sec.slides) {
       if (s.title) blocks.push({ kind: "h3", text: s.title });
       s.lines.forEach((l, i) => {

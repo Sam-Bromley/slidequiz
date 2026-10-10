@@ -206,11 +206,23 @@ export interface AINotePoint {
   term?: string;
   text: string;
   sub?: boolean;
+  /** A point that stands out: the big idea, an example, or a tip for remembering it. */
+  kind?: "key" | "example" | "tip";
 }
 
 export interface AINoteSection {
   title: string;
-  parts: { heading?: string; pageIds: ID[]; points: AINotePoint[] }[];
+  /** One or two sentences on what the topic is about. */
+  summary?: string;
+  parts: {
+    heading?: string;
+    pageIds: ID[];
+    /** A short explanation before the points, when it helps it make sense. */
+    intro?: string;
+    points: AINotePoint[];
+    /** A comparison laid out as a table (first row is the headings). */
+    table?: string[][];
+  }[];
 }
 
 export interface MaterialAI {

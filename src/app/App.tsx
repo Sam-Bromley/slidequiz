@@ -127,6 +127,8 @@ export function App() {
     return () => void off();
   }, []);
   useEffect(() => {
+    // The app decides where each page starts (a refresh starts at the top), not the browser.
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
     window.scrollTo({ top: 0 });
     document.getElementById("main")?.focus({ preventScroll: true });
   }, [path]);

@@ -331,10 +331,22 @@ export async function logOut() {
   dirty = false;
   if (token) fetch(SUPABASE_URL + "/auth/v1/logout", { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } }).catch(() => {});
   // Leave this device clean (it may be shared); the work is safe in the account.
-  const s = getState();
   applying = true;
-  replaceState({ ...emptyData(s.settings.theme), settings: s.settings, onboarded: true });
+  replaceState({ ...emptyData(), onboarded: true });
+  forgetAppearance();
   applying = false;
+}
+
+/** Back to the standard look once signed out: no theme, accent, background or night light from the account. */
+function forgetAppearance() {
+  try {
+    for (const k of ["slidequiz:accent", "slidequiz:appearance", "slidequiz:nightauto", "slidequiz:nightoff", "slidequiz:nighttimes"]) localStorage.removeItem(k);
+  } catch {
+    /* storage blocked */
+  }
+  const c = document.documentElement.classList;
+  for (const x of [...c]) if (x.startsWith("accent-")) c.remove(x);
+  c.remove("dark", "warm", "warmlight");
 }
 
 export function clearNotice() {
@@ -352,12 +364,12 @@ export async function deleteAccount() {
     throw new AccountError("Couldn't delete your account here. Email slidequiz.help@outlook.com and we'll do it for you.");
   }
   dirty = false;
-  const s = getState();
   setSession(null);
   meta = null;
   save(META_KEY, null);
   applying = true;
-  replaceState({ ...emptyData(s.settings.theme), settings: s.settings, onboarded: true });
+  replaceState({ ...emptyData(), onboarded: true });
+  forgetAppearance();
   applying = false;
 }
 
