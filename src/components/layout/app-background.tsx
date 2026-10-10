@@ -421,6 +421,9 @@ function litSide(p: number) {
   return `M50 -12 L50 0 A${rx} 50 0 0 ${bulgeRight ? 1 : 0} 50 100 L50 112 L${x} 112 L${x} -12 Z`;
 }
 
+/** How much of the moon is lit, 0 (new) to 1 (full). */
+const litShare = (p: number) => (1 - Math.cos(2 * Math.PI * p)) / 2;
+
 function Moon({ sky }: { sky: string }) {
   const [phase, setPhase] = useState(() => moonPhase());
   useEffect(() => {
@@ -440,7 +443,8 @@ function Moon({ sky }: { sky: string }) {
       <g clipPath={`url(#${id}-disc)`}>
         <rect x={-5} y={-5} width={110} height={110} fill={sky} />
         <rect x={-5} y={-5} width={110} height={110} fill="#ffffff" fillOpacity={0.06} />
-        <path d={litSide(phase)} fill="#f3efe2" />
+        {/* Around new moon nothing is lit, around full moon all of it is: drawn as one shape so no specks show at the edge. */}
+        {litShare(phase) > 0.99 ? <rect x={-5} y={-5} width={110} height={110} fill="#f3efe2" /> : litShare(phase) > 0.02 && <path d={litSide(phase)} fill="#f3efe2" />}
       </g>
     </svg>
   );

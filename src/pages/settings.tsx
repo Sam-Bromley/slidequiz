@@ -208,20 +208,6 @@ export function SettingsPage() {
         <Row label="Colour subjects" htmlFor="set-subjects" inline>
           <Switch id="set-subjects" checked={!!s.subjectColours} onChange={(v) => set({ subjectColours: v })} label="Colour subjects" />
         </Row>
-        {ADS_READY && (
-          <Row label="Cookie preferences" htmlFor="set-cookies" inline>
-            <Switch id="set-cookies" checked={adConsent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Cookie preferences" />
-          </Row>
-        )}
-        <Row label="Review reminder emails" htmlFor="set-review-emails" inline>
-          <Switch id="set-review-emails" checked={s.reviewEmails !== false} onChange={(v) => set({ reviewEmails: v })} label="Review reminder emails" />
-        </Row>
-        <Row label="Explanations after answering" htmlFor="set-explain" inline>
-          <Switch id="set-explain" checked={s.showExplanations !== false} onChange={(v) => set({ showExplanations: v })} label="Explanations after answering" />
-        </Row>
-        <Row label="Sound effects" htmlFor="set-sound" inline>
-          <Switch id="set-sound" checked={s.soundEffects !== false} onChange={(v) => set({ soundEffects: v })} label="Sound effects" />
-        </Row>
         <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>
@@ -239,6 +225,26 @@ export function SettingsPage() {
         )}
       </Section>
 
+
+      <Section title="Practice">
+        <Row label="Explanations after answering" htmlFor="set-explain" inline>
+          <Switch id="set-explain" checked={s.showExplanations !== false} onChange={(v) => set({ showExplanations: v })} label="Explanations after answering" />
+        </Row>
+        <Row label="Sound effects" htmlFor="set-sound" inline>
+          <Switch id="set-sound" checked={s.soundEffects !== false} onChange={(v) => set({ soundEffects: v })} label="Sound effects" />
+        </Row>
+      </Section>
+
+      <Section title="Emails and privacy">
+        <Row label="Review reminder emails" htmlFor="set-review-emails" inline>
+          <Switch id="set-review-emails" checked={s.reviewEmails !== false} onChange={(v) => set({ reviewEmails: v })} label="Review reminder emails" />
+        </Row>
+        {ADS_READY && (
+          <Row label="Cookie preferences" htmlFor="set-cookies" inline>
+            <Switch id="set-cookies" checked={adConsent === "yes"} onChange={(v) => setAdConsent(v ? "yes" : "no")} label="Cookie preferences" />
+          </Row>
+        )}
+      </Section>
 
       <Section title="Feedback">
         <Row label="Found a problem or have an idea?" hint="Email me and I'll reply to each and every message.">
