@@ -20,7 +20,7 @@ export function CreditsDialogHost() {
     if (which && user) refreshAllowance();
   }, [which, user]);
   if (!which) return null;
-  if (!user) return <AuthDialog initial="signup" reason="Create a free account to get 10 credits a month and your own invite link." onClose={closeCreditsDialog} />;
+  if (!user) return <AuthDialog initial="signup" reason="Create a free account to get 5 credits a month and your own invite link." onClose={closeCreditsDialog} />;
   return which === "invite" ? <InviteDialog /> : which === "earn" ? <EarnCreditsDialog /> : <OutOfCreditsDialog />;
 }
 

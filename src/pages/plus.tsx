@@ -142,7 +142,7 @@ export function PlusPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Pro" description="Turn your lecture recordings and YouTube videos into notes and questions, with 10 times the credits." />
+      <PageHeader back={{ to: "/settings", label: "Settings" }} title="SlideQuiz Pro" description="Turn your lecture recordings and YouTube videos into notes and questions, with 20 times the credits." />
 
       {yearly && !plan.plus && (
         <div className="mb-4 inline-flex rounded-full border bg-card p-1" role="radiogroup" aria-label="Billing">
@@ -168,7 +168,7 @@ export function PlusPage() {
           highlight
           points={[
             "Notes and questions from your lecture recordings (audio and video) and YouTube videos",
-            `${PLUS.plusLectures} credits a month (10 times the free amount)`,
+            `${PLUS.plusLectures} credits a month (20 times the free amount)`,
             "Download your notes as a designed PDF or Word document",
             "Highlight your notes and add your own notes to them",
             "A weekly recap of how your revision is going",

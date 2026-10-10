@@ -7,7 +7,7 @@
 --   The same text is only ever counted once a month (notes and questions for one lecture = one charge,
 --   and "Try again" after a failure is free).
 --     without an account: none (an account is needed)
---     free account:      10 lectures a month (confirmed email, one free allowance per inbox, no throwaway emails)
+--     free account:      5 lectures a month (confirmed email, one free allowance per inbox, no throwaway emails)
 --     Pro:              100 lectures a month
 --   Safety net: all free students together can use up to 2,000,000 characters of new text a day
 --   (roughly 70–100 lectures, a few pounds). Plus students aren't limited by it.
@@ -225,7 +225,7 @@ declare
   p text := public.plan_for(p_user);
   lecture integer := 30000;
   -- Guests and accounts that aren't eligible for free credits start with none (Pro and bonus still count).
-  base integer := (case when p = 'plus' then 100 when p = 'guest' then 0 when public.free_eligible(p_user) then 10 else 0 end) * lecture;
+  base integer := (case when p = 'plus' then 100 when p = 'guest' then 0 when public.free_eligible(p_user) then 5 else 0 end) * lecture;
   used integer;
   bonus_used integer;
   bonus integer;

@@ -65,10 +65,11 @@ function useClickBounce() {
     const onClick = (e: MouseEvent) => {
       const el = (e.target as HTMLElement).closest<HTMLElement>("button, a, [role=radio], [role=tab], [role=switch], [role=checkbox]");
       if (!el || el.closest("[data-no-bounce]")) return;
-      const icon = el.querySelector<SVGElement>(":scope > svg, :scope > span > svg");
-      const target: Element = icon ?? el;
-      if (!icon && /\banimate-/.test(el.className)) return; // already animating (e.g. answer feedback)
-      const cls = icon ? "animate-boop" : "animate-press";
+      // Icons stay still; only plain buttons and links get a gentle press.
+      if (el.querySelector(":scope > svg, :scope > span > svg")) return;
+      const target: Element = el;
+      if (/\banimate-/.test(el.className)) return; // already animating (e.g. answer feedback)
+      const cls = "animate-press";
       target.classList.remove(cls);
       void (target as HTMLElement).getBoundingClientRect?.();
       target.classList.add(cls);

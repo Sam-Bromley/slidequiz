@@ -335,7 +335,7 @@ export function UploadPage() {
       {auth && (
         <AuthDialog
           initial="signup"
-          reason="Create a free account to make your notes, practice questions and flashcards. You get 10 credits a month, and your work is saved on any device."
+          reason="Create a free account to make your notes, practice questions and flashcards. You get 5 credits a month, and your work is saved on any device."
           onClose={() => setAuth(false)}
         />
       )}

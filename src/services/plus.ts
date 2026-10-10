@@ -44,7 +44,7 @@ export const PLUS = {
   yearPrice: "£24.99",
   yearSaving: "48%",
   guestLectures: "2",
-  freeLectures: "10",
+  freeLectures: "5",
   plusLectures: "100",
 };
 

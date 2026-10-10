@@ -27,7 +27,7 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
         <button type="button" className={link} onClick={() => setAuth(true)}>
           {fewer ? "make" : "Make"} a free account
         </button>{" "}
-        to get 10 a month.
+        to get 5 a month.
         {auth && <AuthDialog initial="signup" onClose={() => setAuth(false)} />}
       </>
     );
