@@ -10,6 +10,9 @@ import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material, WrittenQuestion } from "@/types/models";
 import { Spinner } from "@/components/ui/spinner";
+import { burst, chime, fanfare } from "@/lib/celebrate";
+import { confetti } from "@/lib/confetti";
+import { useCountUp } from "@/lib/count-up";
 
 const list = (id: string) => getState().materials.find((m) => m.id === id)?.written ?? [];
 const save = (id: string, written: WrittenQuestion[]) => actions.updateMaterial(id, { written });
@@ -19,6 +22,31 @@ function aiMessage(e: unknown) {
   const err = e as AIError;
   if (err?.message === "busy") return "SlideQuiz is very busy right now. Try again in a little while.";
   return (err?.message ?? "Something went wrong.").replace(/\s*\(\d{3}\)$/, "");
+}
+
+/** Unsent answers, kept while moving between questions (until the page is refreshed). */
+const drafts = new Map<string, string>();
+const STAGES = ["Reading your answer…", "Checking it against the mark scheme…", "Adding up your marks…"];
+
+/** The score as a ring that fills up, with the marks counting up in the middle. */
+function ScoreRing({ got, of }: { got: number; of: number }) {
+  const n = useCountUp(got, 900);
+  const pct = of ? n / of : 0;
+  const full = got === of;
+  const colour = full ? "stroke-success" : got / of >= 0.5 ? "stroke-warning" : "stroke-destructive";
+  const R = 26;
+  const C = 2 * Math.PI * R;
+  return (
+    <div className="relative size-[72px] shrink-0" aria-label={`${got} out of ${of} marks`}>
+      <svg viewBox="0 0 64 64" className="size-full -rotate-90" aria-hidden>
+        <circle cx="32" cy="32" r={R} fill="none" strokeWidth="6" className="stroke-muted" />
+        {pct > 0.01 && <circle cx="32" cy="32" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${pct * C} ${C}`} className={colour} />}
+      </svg>
+      <span data-score className={cn("absolute inset-0 grid place-items-center text-[17px] font-bold tabular-nums", full && n >= of - 0.01 && "animate-praise")}>
+        {Math.round(n)}/{of}
+      </span>
+    </div>
+  );
 }
 
 /** Written-answer practice: short exam questions (1 to 6 marks), typed answers, marked against a mark scheme. */
@@ -82,15 +110,20 @@ export function WrittenView({ material: m }: { material: Material }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      {tried > 0 && (
+        <div className="flex items-center gap-3" aria-label={`Best so far: ${totalBest} of ${totalMarks} marks`}>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className={cn("h-full rounded-full transition-[width] duration-700 ease-out", totalBest === totalMarks ? "bg-success" : "bg-primary")} style={{ width: `${(totalBest / Math.max(1, totalMarks)) * 100}%` }} />
+          </div>
+          <span className="text-[12.5px] font-semibold tabular-nums">
+            {totalBest}/{totalMarks} <span className="font-normal text-muted-foreground">marks</span>
+          </span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
         <span>
           Question {idx + 1} of {qs.length}
         </span>
-        {tried > 0 && (
-          <span>
-            · Best so far {totalBest}/{totalMarks} marks
-          </span>
-        )}
         {tried > 0 && (
           <button
             type="button"
@@ -114,7 +147,7 @@ export function WrittenView({ material: m }: { material: Material }) {
           <Plus /> More questions
         </Button>
       </div>
-      <QuestionCard key={`${q.id}-${resets}`} material={m} q={q} />
+      <QuestionCard key={`${q.id}-${resets}`} material={m} q={q} onNext={idx < qs.length - 1 ? () => setI(idx + 1) : undefined} />
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" disabled={idx === 0} onClick={() => setI(idx - 1)}>
           <ArrowLeft /> Back
@@ -142,9 +175,23 @@ export function WrittenView({ material: m }: { material: Material }) {
   );
 }
 
-function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuestion }) {
-  const [text, setText] = useState("");
+function QuestionCard({ material: m, q, onNext }: { material: Material; q: WrittenQuestion; onNext?: () => void }) {
+  const [text, setTextState] = useState(() => drafts.get(q.id) ?? "");
+  const setText = (t: string) => {
+    drafts.set(q.id, t);
+    setTextState(t);
+  };
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState(0);
+  // How the last marking compared with the best before it (for "+2 marks better").
+  const [gain, setGain] = useState<number | null>(null);
+  const [fresh, setFresh] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    setStage(0);
+    const t = setInterval(() => setStage((n) => Math.min(STAGES.length - 1, n + 1)), 1400);
+    return () => clearInterval(t);
+  }, [busy]);
   const [showModel, setShowModel] = useState(false);
   const [editing, setEditing] = useState(!q.last);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -158,8 +205,26 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
     setBusy(true);
     try {
       const r = await cloudMarkWritten(q, text.trim());
+      const before = q.best;
       patch(m.id, q.id, { last: r, best: Math.max(q.best ?? 0, r.awarded) });
+      drafts.delete(q.id);
+      actions.writtenMarked(r.awarded);
+      setGain(before !== undefined && r.awarded > before ? r.awarded - before : null);
+      setFresh(true);
       setEditing(false);
+      // A little celebration that grows with the marks.
+      const sound = getState().settings.soundEffects !== false;
+      setTimeout(() => {
+        const el = document.querySelector("[data-score]");
+        if (r.awarded === q.marks) {
+          if (q.marks >= 3) confetti();
+          else burst(el);
+          if (sound) fanfare();
+        } else if (r.awarded > 0) {
+          burst(el, ["#f59e0b", "#fbbf24", "#fde68a"]);
+          if (sound) chime(0);
+        }
+      }, 650);
     } catch (e) {
       toast.error(aiMessage(e));
     } finally {
@@ -208,8 +273,17 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
             aria-label="Your answer"
             className="w-full resize-y rounded-xl border bg-background px-3.5 py-3 text-[15px] leading-relaxed focus-ring"
           />
+          {busy && (
+            <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-primary/[0.06] px-3.5 py-2.5 text-[13px]" aria-live="polite">
+              <Spinner className="size-3.5" />
+              <span key={stage} className="animate-fade-up">{STAGES[stage]}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-[12px] text-muted-foreground">{words} words</span>
+            <span className="text-[12px] text-muted-foreground">
+              {words} {words === 1 ? "word" : "words"} · aim for {q.marks} {q.marks === 1 ? "point" : "key points"}
+              <span className="hidden sm:inline"> · Ctrl+Enter to mark</span>
+            </span>
             {last && (
               <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setEditing(false)}>
                 Cancel
@@ -229,14 +303,12 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
             </div>
 
             <div className="flex items-center gap-4">
-              <div
-                className={cn("grid size-16 shrink-0 place-items-center rounded-full border-4 text-[17px] font-bold tabular-nums", pct === 1 ? "border-success text-success" : pct >= 0.5 ? "border-warning text-warning" : "border-destructive text-destructive")}
-                aria-label={`${last.awarded} out of ${q.marks} marks`}
-              >
-                {last.awarded}/{q.marks}
-              </div>
+              <ScoreRing got={last.awarded} of={q.marks} />
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold">{pct === 1 ? "Full marks!" : pct >= 0.5 ? "Good start" : "Not quite there yet"}</p>
+                <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+                  {pct === 1 ? "Full marks!" : pct >= 0.5 ? "Good start" : last.awarded > 0 ? "Getting there" : "Not quite there yet"}
+                  {gain !== null && <span className="animate-praise rounded-full bg-success-soft px-2 py-0.5 text-[12px] font-semibold text-success">+{gain} on last time</span>}
+                </p>
                 {last.feedback && <p className="mt-0.5 text-[13.5px] text-foreground/85">{tidySentence(last.feedback)}</p>}
               </div>
             </div>
@@ -245,8 +317,8 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
               {q.points.map((p, k) => {
                 const got = last.hit.includes(k);
                 return (
-                  <li key={k} className={cn("flex items-start gap-2.5 rounded-lg px-3 py-2 text-[14px]", got ? "bg-success-soft" : "bg-muted/60")}>
-                    {got ? <Check className="mt-0.5 size-4 shrink-0 text-success" /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
+                  <li key={k} className={cn("flex items-start gap-2.5 rounded-lg px-3 py-2 text-[14px]", got ? "bg-success-soft" : "bg-muted/60", fresh && "animate-fade-up")} style={fresh ? { animationDelay: `${250 + k * 120}ms` } : undefined}>
+                    {got ? <Check className={cn("mt-0.5 size-4 shrink-0 text-success", fresh && "animate-tick-pop")} style={fresh ? { animationDelay: `${330 + k * 120}ms` } : undefined} /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
                     <span className={cn(!got && "text-foreground/75")}>
                       {endSentence(p.text)}
                     </span>
@@ -263,7 +335,7 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
             )}
 
             {showModel && q.model && (
-              <div className="rounded-xl border-l-4 border-success bg-card px-4 py-3">
+              <div className="rounded-r-xl border-l-4 border-success bg-card px-4 py-3">
                 <p className="text-[11.5px] font-semibold uppercase tracking-wide text-success">Full-mark answer</p>
                 <p className="mt-1 text-[14px] leading-relaxed">{tidySentence(q.model)}</p>
               </div>
@@ -283,6 +355,11 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
               {q.model && !showModel && (
                 <Button variant="ghost" size="sm" onClick={() => setShowModel(true)}>
                   <Eye /> Show a full-mark answer
+                </Button>
+              )}
+              {onNext && (
+                <Button size="sm" className="ml-auto" onClick={onNext}>
+                  Next question <ArrowRight />
                 </Button>
               )}
             </div>

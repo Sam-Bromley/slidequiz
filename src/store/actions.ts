@@ -401,6 +401,10 @@ export const actions = {
   },
 
   /* ------------------------------------------------------------ flashcards */
+  /** A written answer was marked: counts towards the streak, with points for the marks. */
+  writtenMarked(awarded: number) {
+    setState((s) => addXp(s, 5 + awarded * 5));
+  },
   rateCard(id: ID, rating: FlashcardRating) {
     setState((s) => addXp(logStudy({ ...s, flashcards: s.flashcards.map((c) => (c.id === id ? { ...c, srs: schedule(c.srs, rating) } : c)) }, [], 1), XP.card));
   },
