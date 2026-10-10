@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { BackgroundScene } from "@/types/models";
-import { moonLitPath, moonPhase, moonPhaseName } from "@/lib/moon";
+import { moonPhase, moonPhaseName } from "@/lib/moon";
 
 type Pal = { sky: [string, string, string]; sun: string; layers: [string, string, string]; stars?: boolean; glow?: [string, string] };
 
@@ -405,17 +405,43 @@ const MOON_SPOT: SunSpot = { left: "80%", top: "10%", size: "11vmin", preview: {
  * Today's moon, as it looks from England. Checks again every hour so it changes day by day.
  * The unlit part is solid (the sky's colour, a touch lighter) so stars never show through it.
  */
+/**
+ * The lit part as everything on the lit side of the line between light and dark, reaching past the edge of the moon
+ * (the circle clip gives the outline), so the outline is drawn once and the tips of a crescent stay sharp.
+ */
+function litSide(p: number) {
+  const k = Math.cos(2 * Math.PI * p); // 1 at new moon, -1 at full
+  // A touch past the true curve, so at new and full moon the line sits just outside the edge (no hairline rim).
+  const crescent = k > 0;
+  // A crescent too thin to draw cleanly (the day or two around new moon) shows as new moon instead of a hairline.
+  const rx = Math.abs(k) * 50 + (crescent && k > 0.94 ? 6 : 1.5);
+  const waxing = p < 0.5;
+  const bulgeRight = waxing === crescent;
+  const x = waxing ? 112 : -12;
+  return `M50 -12 L50 0 A${rx} 50 0 0 ${bulgeRight ? 1 : 0} 50 100 L50 112 L${x} 112 L${x} -12 Z`;
+}
+
 function Moon({ sky }: { sky: string }) {
   const [phase, setPhase] = useState(() => moonPhase());
   useEffect(() => {
     const t = setInterval(() => setPhase(moonPhase()), 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
+  const id = useId().replace(/:/g, "");
+  // One smooth outline: everything is drawn a little larger and cut by a single circle, so the lit part and the dark
+  // part share one clean edge (no thin rim or speckles where two edges would meet).
   return (
-    <svg viewBox="0 0 100 100" className="size-full overflow-visible" role="img" aria-label={moonPhaseName(phase)}>
-      <circle cx={50} cy={50} r={50} fill={sky} />
-      <circle cx={50} cy={50} r={50} fill="#ffffff" fillOpacity={0.06} />
-      <path d={moonLitPath(phase, 50)} fill="#f3efe2" />
+    <svg viewBox="0 0 100 100" className="size-full overflow-visible" role="img" aria-label={moonPhaseName(phase)} shapeRendering="geometricPrecision">
+      <defs>
+        <clipPath id={`${id}-disc`}>
+          <circle cx={50} cy={50} r={50} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${id}-disc)`}>
+        <rect x={-5} y={-5} width={110} height={110} fill={sky} />
+        <rect x={-5} y={-5} width={110} height={110} fill="#ffffff" fillOpacity={0.06} />
+        <path d={litSide(phase)} fill="#f3efe2" />
+      </g>
     </svg>
   );
 }

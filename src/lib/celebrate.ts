@@ -16,12 +16,12 @@ export function burst(el: Element | null, colours = ["#22c55e", "#4ade80", "#fac
   layer.setAttribute("aria-hidden", "true");
   Object.assign(layer.style, { position: "absolute", left: "0", top: "0", width: "0", height: "0", pointerEvents: "none", zIndex: "60" });
   document.body.appendChild(layer);
-  const n = 14;
+  const n = 22;
   for (let i = 0; i < n; i++) {
     const s = document.createElement("span");
     const angle = (i / n) * Math.PI * 2 + Math.random() * 0.4;
-    const dist = 26 + Math.random() * 22;
-    const size = 4 + Math.random() * 4;
+    const dist = 30 + Math.random() * 34;
+    const size = 3 + Math.random() * 5;
     Object.assign(s.style, {
       position: "absolute",
       left: `${cx - size / 2}px`,
@@ -32,7 +32,7 @@ export function burst(el: Element | null, colours = ["#22c55e", "#4ade80", "#fac
       background: colours[i % colours.length],
       opacity: "1",
       transform: "translate(0,0) scale(1)",
-      transition: "transform 520ms cubic-bezier(.15,.75,.25,1), opacity 520ms ease-out",
+      transition: "transform 620ms cubic-bezier(.12,.8,.25,1), opacity 620ms ease-out",
     });
     layer.appendChild(s);
     requestAnimationFrame(() =>
@@ -42,7 +42,7 @@ export function burst(el: Element | null, colours = ["#22c55e", "#4ade80", "#fac
       }),
     );
   }
-  setTimeout(() => layer.remove(), 700);
+  setTimeout(() => layer.remove(), 800);
 }
 
 let audio: AudioContext | null = null;

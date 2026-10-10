@@ -276,9 +276,14 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     });
   };
 
-  // The page stays still after answering (moving it then feels off balance).
+  // After answering, scroll gently down just enough to show the explanation and the Next button (no movement if they're already in view).
   const card = useRef<HTMLElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!sAnswered) return;
+    const id = setTimeout(() => feedbackRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 160);
+    return () => clearTimeout(id);
+  }, [sAnswered, viewIdx, qid]);
   // Each question (including the first when the page opens) is scrolled to the top of the screen, so the question
   // and all its answers are in view without touching anything. The first one jumps straight there.
   const firstShow = useRef(true);
@@ -488,7 +493,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                   disabled={sAnswered}
                   onClick={() => (rev ? answerPast(i) : answer(i))}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border px-3.5 py-2.5 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
+                    "relative flex w-full items-start gap-3 rounded-xl border px-3.5 py-2.5 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
                     !sAnswered && "hover:border-foreground/40 hover:bg-accent",
                     sAnswered && isRight && "border-success bg-success-soft",
                     !rev && sAnswered && isRight && isChosen && "animate-correct",
@@ -497,14 +502,26 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                     sAnswered && !isRight && !isChosen && "opacity-60",
                   )}
                 >
+                  {!rev && sAnswered && isRight && isChosen && (
+                    // A bright sheen that sweeps across the right answer once.
+                    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+                      <span className="absolute inset-0 animate-shine bg-[linear-gradient(105deg,transparent_35%,rgba(255,255,255,0.65)_50%,transparent_65%)] bg-[length:250%_100%] bg-no-repeat dark:bg-[linear-gradient(105deg,transparent_35%,rgba(255,255,255,0.18)_50%,transparent_65%)]" />
+                    </span>
+                  )}
                   <span
                     data-tick
                     className={cn(
-                      "grid size-6 shrink-0 place-items-center rounded-full border text-[12px] font-semibold",
+                      "relative grid size-6 shrink-0 place-items-center rounded-full border text-[12px] font-semibold",
                       sAnswered && isRight ? "border-success bg-success text-success-foreground" : sAnswered && isChosen ? "border-destructive bg-destructive text-destructive-foreground" : "text-muted-foreground",
                     )}
                   >
                     {sAnswered && isRight ? <Check className={cn("size-3.5", !rev && isChosen && "animate-tick-pop")} strokeWidth={3} /> : sAnswered && isChosen ? <X className="size-3.5" strokeWidth={3} /> : LETTERS[i]}
+                    {!rev && sAnswered && isRight && isChosen && (
+                      <>
+                        <span aria-hidden className="pointer-events-none absolute inset-0 animate-ring rounded-full border-2 border-success" />
+                        <span aria-hidden className="pointer-events-none absolute inset-0 animate-ring rounded-full border border-success [animation-delay:120ms]" />
+                      </>
+                    )}
                   </span>
                   <span className="pt-0.5">{sentences ? endSentence(tidyOption(o)) : tidyOption(o)}</span>
                 </button>
@@ -533,13 +550,13 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           )}
           {sAnswered && (
             <div ref={feedbackRef} className="mt-4 animate-fade-up scroll-mb-24 lg:scroll-mb-6">
-              <p className={cn("text-[15px] font-semibold", sCorrect ? "text-success" : "text-destructive")}>
+              <p className={cn("text-[15px] font-semibold", sCorrect ? "text-success" : "text-destructive", !rev && sCorrect && "origin-left animate-praise")}>
                 {rev ? (sCorrect ? "You got this right" : `You got this wrong. The answer is ${LETTERS[sView!.correct]}.`) : sCorrect ? praise : `Not quite. The answer is ${LETTERS[sView!.correct]}.`}
                 {!rev && sCorrect && streak >= 3 && (
                   <span className="ml-2 inline-flex animate-tick-pop items-center rounded-full bg-success-soft px-2 py-0.5 align-middle text-[12px] font-semibold text-success">{streak} in a row{streak >= 10 ? " 🔥🔥" : streak >= 5 ? " 🔥" : ""}</span>
                 )}
               </p>
-              <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>
+              {data.settings.showExplanations !== false && <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>}
               {!rev && !sCorrect && !retrying && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
               <div className="mt-4 flex items-center justify-between gap-3">
                 {page ? (
