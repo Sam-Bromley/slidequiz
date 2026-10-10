@@ -10,7 +10,7 @@ import { usePlan, usePlanQuiet } from "@/services/plus";
 import { useBackgroundPhotoUrl } from "@/services/background-photo";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
-import { Link, useLocation } from "@/lib/router";
+import { Link, navigate, useLocation } from "@/lib/router";
 import { effectiveTheme, isDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
@@ -118,6 +118,7 @@ function Sidebar() {
               <li key={n.to}>
                 <Link
                   to={navTo(n)}
+                  onClick={viaList(n.to, navTo(n))}
                   aria-current={active ? "page" : undefined}
                   title={compact ? n.label : undefined}
                   className={cn("flex h-9 items-center gap-2.5 overflow-hidden rounded-lg pr-2.5 text-[14px] transition-colors focus-ring", active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
@@ -198,6 +199,23 @@ function MobileTopBar(_: { onMenu: () => void }) {
 const MOBILE_TABS = NAV.filter((n) => n.to !== "/stats");
 
 /** Tab links that open the last deck, lecture or essay used (see navTarget). */
+/**
+ * Opening the last-used item straight from the menu still puts its list underneath in the history,
+ * so Back goes to the list (to pick different notes) rather than all the way back home.
+ */
+function viaList(list: string, target: string) {
+  return (e: React.MouseEvent) => {
+    if (target === list || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    try {
+      history.pushState(null, "", "#" + list);
+    } catch {
+      /* sandboxed frames may refuse */
+    }
+    navigate(target);
+  };
+}
+
 function useNavTo() {
   const data = useData();
   const { path } = useLocation();
@@ -217,6 +235,7 @@ function BottomNav() {
             <li key={n.to} className="flex">
               <Link
                 to={navTo(n)}
+                onClick={viaList(n.to, navTo(n))}
                 aria-current={active ? "page" : undefined}
                 className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium transition-colors focus-ring rounded-lg", active ? "text-primary" : "text-muted-foreground")}
               >
@@ -264,7 +283,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
           <ul className="space-y-1">
             {NAV.map((n) => (
               <li key={n.to}>
-                <Link to={navTo(n)} aria-current={n.match(path) ? "page" : undefined} className={cn("flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] font-medium focus-ring", n.match(path) ? "bg-accent text-foreground" : "text-muted-foreground")}>
+                <Link to={navTo(n)} onClick={viaList(n.to, navTo(n))} aria-current={n.match(path) ? "page" : undefined} className={cn("flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] font-medium focus-ring", n.match(path) ? "bg-accent text-foreground" : "text-muted-foreground")}>
                   <n.icon className="size-5" />
                   {n.label}
                 </Link>
