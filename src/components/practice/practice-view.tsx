@@ -276,16 +276,9 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     });
   };
 
-  // After answering, scroll right to the bottom so the explanation and Next button have room, with nothing left to scroll.
+  // The page stays still after answering (moving it then feels off balance).
   const card = useRef<HTMLElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!sAnswered) return;
-    let id = requestAnimationFrame(() => {
-      id = requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }));
-    });
-    return () => cancelAnimationFrame(id);
-  }, [sAnswered, viewIdx, qid]);
   // Each question (including the first when the page opens) is scrolled to the top of the screen, so the question
   // and all its answers are in view without touching anything. The first one jumps straight there.
   const firstShow = useRef(true);
