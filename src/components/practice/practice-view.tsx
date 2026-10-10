@@ -395,8 +395,9 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
         >
           <Shuffle className="size-3.5" /> Shuffle
         </button>
-        {prog.covered + prog.review > 0 && (
-          <button type="button" onClick={resetProgress} title="Start this practice again from scratch" className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring">
+        {/* Always takes its space (just hidden until there's progress), so nothing jumps after the first answer. */}
+        {(
+          <button type="button" onClick={resetProgress} title="Start this practice again from scratch" aria-hidden={prog.covered + prog.review === 0} tabIndex={prog.covered + prog.review === 0 ? -1 : undefined} className={cn("ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring", prog.covered + prog.review === 0 && "invisible")}>
             <RotateCcw className="size-3.5" /> Reset progress
           </button>
         )}
@@ -569,6 +570,8 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           )}
         </article>
       )}
+      {/* Room below the question, so it can always sit right at the top of the screen with space for the explanation (phones). */}
+      {q && <div aria-hidden className="h-[55dvh] lg:hidden" />}
     </div>
   );
 }
