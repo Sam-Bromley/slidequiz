@@ -203,9 +203,8 @@ const MOBILE_TABS = NAV.filter((n) => n.to !== "/stats");
 function useNavTo() {
   const data = useData();
   const { path } = useLocation();
-  const exists = (key: "flashcards" | "notes" | "essays", id: string) =>
-    key === "flashcards" ? (data.decks ?? []).some((d) => d.id === id) : key === "notes" ? data.materials.some((m) => m.id === id) : (data.essayDrafts ?? []).some((e) => e.id === id);
-  return (n: (typeof NAV)[number]) => navTarget(n, path, data.settings.lastOpen, exists);
+  const items = (key: "flashcards" | "notes" | "essays") => (key === "flashcards" ? data.decks ?? [] : key === "notes" ? data.materials : data.essayDrafts ?? []);
+  return (n: (typeof NAV)[number]) => navTarget(n, path, data.settings.lastOpen, items);
 }
 
 function BottomNav() {
@@ -298,7 +297,7 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
     const item = openedItem(here);
     if (!item) return;
     const last = data.settings.lastOpen ?? {};
-    if (last[item.key] !== item.id) actions.updateSettings({ lastOpen: { ...last, [item.key]: item.id } });
+    actions.updateSettings({ lastOpen: { ...last, [item.key]: item.id, at: { ...(last.at ?? {}), [item.key]: new Date().toISOString() } } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [here]);
   // Pro members' own photo (only while they have Pro, and only on the device it was added on).
