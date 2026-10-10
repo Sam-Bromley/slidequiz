@@ -233,8 +233,10 @@ export interface Folder {
   color?: string;
   /** Width in My Materials, in pixels (drag the right edge to change). */
   width?: number;
-  /** Position among its sibling folders (drag to reorder). */
+  /** Position among its sibling folders (drag to reorder); within its column when it has one. */
   order?: number;
+  /** Which column it sits in on the Notes page (dragged there); none = wherever there's room. */
+  col?: number;
   /** Exam date for everything in this folder, "YYYY-MM-DD" (shows a countdown). */
   examDate?: string;
 }

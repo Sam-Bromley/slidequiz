@@ -155,6 +155,11 @@ export const actions = {
       return { ...s, folders: s.folders.map((f) => (pos.has(f.id) ? { ...f, order: pos.get(f.id) } : f)) };
     });
   },
+  /** Where each folder sits after one was dragged: its column and its place in that column. */
+  placeFolders(placement: { id: ID; col: number; order: number }[]) {
+    const by = new Map(placement.map((p) => [p.id, p]));
+    setState((s) => ({ ...s, folders: s.folders.map((f) => (by.has(f.id) ? { ...f, col: by.get(f.id)!.col, order: by.get(f.id)!.order } : f)) }));
+  },
   setFolderWidth(id: ID, width: number) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, width } : f)) }));
   },

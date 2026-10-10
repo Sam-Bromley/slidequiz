@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn, plural } from "@/lib/utils";
 import { actions, folderOrder } from "@/store/actions";
+import { FolderColumns, type FolderDragProps } from "@/components/materials/folder-columns";
 import { useDragReorder } from "@/components/ui/drag-reorder";
 import { usePlanQuiet } from "@/services/plus";
 import { highlightParts, searchNotes } from "@/services/search";
@@ -146,7 +147,7 @@ function MaterialTile({ m, colW, onLive, onSave, drag, selectable, selected, onS
   );
 }
 
-function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, dropOver }: { f: Folder; count: number; onDropMaterial: (id: string) => void; colW: number; onLive: (w: number | null) => void; onSave: (w: number) => void; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]>; dropOver?: boolean }) {
+function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, dropOver }: { f: Folder; count: number; onDropMaterial: (id: string) => void; colW: number; onLive: (w: number | null) => void; onSave: (w: number) => void; drag: FolderDragProps; dropOver?: boolean }) {
   const [nativeOver, setOver] = useState(false);
   const over = nativeOver || !!dropOver;
   // Drag any folder's right edge to change the column width for all folders.
@@ -297,8 +298,6 @@ export function MaterialsPage() {
     return out.sort((a, b) => (sort === "name" ? a.title.localeCompare(b.title) : (b.lastOpenedAt ?? b.lastStudiedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.lastStudiedAt ?? a.createdAt)));
   }, [data.materials, q, sort, folderId]);
 
-  // Drag folders up and down to reorder them.
-  const folderIds = folders.map((f) => f.id);
   // Column widths (shared by all folders, and by all lectures); live while an edge is being dragged.
   // Folders and lectures share one column width, so they always line up in the same columns.
   const savedFolderCol = data.folders.find((f) => f.width)?.width ?? data.materials.find((m) => m.width)?.width ?? DEFAULT_MATERIAL_W;
@@ -311,11 +310,6 @@ export function MaterialsPage() {
     data.folders.forEach((o) => actions.setFolderWidth(o.id, w));
     data.materials.forEach((o) => actions.setMaterialWidth(o.id, w));
   };
-  const reorder = useDragReorder(folderIds, (id, to) => {
-    const rest = folderIds.filter((x) => x !== id);
-    if (to >= rest.length) actions.reorderFolder(id, rest[rest.length - 1], true);
-    else actions.reorderFolder(id, rest[to], false);
-  });
   const countIn = (id: string) => data.materials.filter((m) => m.folderId === id).length + data.folders.filter((f) => f.parentId === id).length;
   const moveInto = (materialId: string, target: string | null) => {
     const m = data.materials.find((x) => x.id === materialId);
@@ -417,12 +411,13 @@ export function MaterialsPage() {
 
       {folders.length > 0 && (
         <section aria-label="Folders" className="mb-6">
-          {/* Columns that fill downwards first, then across. */}
-          <div className="-mb-3" style={{ columnWidth: `${folderCol}px`, columnGap: 12 }}>
-            {folders.map((f) => (
-              <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={reorder.itemProps(f.id)} onDropMaterial={(id) => moveInto(id, f.id)} colW={savedFolderCol} onLive={setLiveFolderCol} onSave={saveCol} />
-            ))}
-          </div>
+          {/* Columns the same width as the lectures below; drag a folder into any column, at any spot. */}
+          <FolderColumns
+            folders={folders}
+            colWidth={folderCol}
+            onMove={actions.placeFolders}
+            render={(f, drag) => <FolderTile key={f.id} f={f} count={countIn(f.id)} dropOver={moveMaterial.over === f.id} drag={drag} onDropMaterial={(id) => moveInto(id, f.id)} colW={savedFolderCol} onLive={setLiveFolderCol} onSave={saveCol} />}
+          />
         </section>
       )}
 
