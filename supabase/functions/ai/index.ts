@@ -40,11 +40,13 @@ Write revision notes grouped into 2–10 topics in lecture order, laid out like 
 - Each topic has short parts, each with a clear heading (a few words). A part may open with an "intro": one or two sentences that explain the idea in flowing prose so the points make sense (skip it when the points speak for themselves).
 - Then bullet points for the facts. Keep every fact, figure and definition; drop filler words. A definition becomes {"term": "…", "text": "…"}. Sub-points use "sub": true.
 - When the slides compare things (types, stages, theories, pros and cons, causes and effects) put the comparison in a "table": a list of rows, the first row being the column headings, 2–5 columns, short cells. Don't repeat the table's facts as bullets.
-- Mark the one or two most important ideas in each topic with "kind": "key". Mark a worked example or case from the slides with "kind": "example". Use "kind": "tip" sparingly for a memory aid or a common mix-up to avoid, and never invent facts for it. Everything else has no kind.
+- When a part describes a process, a sequence of stages or a timeline, give it "style": "steps" and write one point per step, in order.
+- Mark the one or two most important ideas in each topic with "kind": "key". Mark a worked example or case from the slides with "kind": "example". Put an equation or formula from the slides on its own as "kind": "formula" (e.g. "Rate = change in concentration ÷ time"). Use "kind": "tip" sparingly for a memory aid or a common mix-up to avoid, and never invent facts for it. Everything else has no kind.
+- Vary the layout to suit the content (prose intro, definitions, steps, tables, callouts) so the notes are easy to scan, but never repeat a fact in two places.
 List the ids of the slides each part comes from, in order, and every slide id must be used at least once.
 Also give the subject in one or two words (e.g. "Biology", "Psychology", "Modern History").
 Reply with JSON only:
-{"subject":"…","sections":[{"title":"…","summary":"…","parts":[{"heading":"…","pageIds":["…"],"intro":"optional","points":[{"term":"optional","text":"…","sub":false,"kind":"optional"}],"table":[["optional heading","…"],["…","…"]]}]}]}`,
+{"subject":"…","sections":[{"title":"…","summary":"…","parts":[{"heading":"…","pageIds":["…"],"intro":"optional","style":"optional","points":[{"term":"optional","text":"…","sub":false,"kind":"optional"}],"table":[["optional heading","…"],["…","…"]]}]}]}`,
   },
   questions: {
     maxTokens: 16000,
@@ -234,7 +236,7 @@ Reply with JSON only:
 {"questions":[{"question":"…","marks":3,"points":[{"text":"…","pageId":"…"}],"model":"…"}]}`,
   },
   markWritten: {
-    maxTokens: 700,
+    maxTokens: 500,
     system: `${STYLE}
 You are a supportive, experienced examiner marking a student's short written answer. You want students to keep practising, so you are generous about wording and strict only about facts. Speak to the student as "you".
 How to mark:
@@ -258,9 +260,9 @@ Student's answer:
 ${String(b.answer ?? "").slice(0, 3000)}
 >>>
 
-Mark it. List which mark scheme points (by number) the answer earns; "awarded" is how many marks that gives, up to the total.
+Mark it. List which mark scheme points (by number) the answer earns; "awarded" is how many marks that gives, up to the total. For each point earned, copy the few words (at most 10, exactly as the student typed them) that earned it.
 Reply with JSON only:
-{"awarded":2,"hit":[0,2],"feedback":"…","improve":"…"}`,
+{"hit":[0,2],"awarded":2,"quotes":{"0":"words from the answer","2":"…"},"feedback":"…","improve":"…"}`,
   },
 });
 
@@ -377,17 +379,12 @@ Deno.serve(async (req) => {
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   // 1. Only SlideQuiz users: a logged-in student or a guest pass from the website.
-  const who = await fetch(`${base}/auth/v1/user`, { headers: { apikey: anon, Authorization: auth } });
+  // Check who it is and read the request at the same time.
+  const [who, body] = await Promise.all([fetch(`${base}/auth/v1/user`, { headers: { apikey: anon, Authorization: auth } }), req.json().catch(() => undefined)]);
   if (!who.ok) return json({ error: "Not allowed." }, 401, origin);
   const userId = String((await who.json().catch(() => null))?.id ?? "");
   if (!userId) return json({ error: "Not allowed." }, 401, origin);
-
-  let body: any;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "Bad request" }, 400, origin);
-  }
+  if (body === undefined) return json({ error: "Bad request" }, 400, origin);
   // References: read a web page's title, authors and date. No AI, so it doesn't use any allowance.
   if (body?.task === "cite") {
     const info = await readPage(String(body.url ?? "")).catch(() => ({ error: "Couldn't read that page." }));
@@ -433,6 +430,13 @@ Deno.serve(async (req) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
   let left: number | null = null;
+  const ask = () =>
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: task.maxTokens, temperature: body.task === "markWritten" ? 0 : undefined, system: task.system, messages: [{ role: "user", content: task.prompt(body, pages) }] }),
+    });
+  let early: Promise<Response> | null = null;
   const sha = async (t: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((x) => x.toString(16).padStart(2, "0")).join("");
   // What uses credits, and how much (1 credit = 30,000 characters). The same request is only
   // charged once a month, so "Try again" after an error is free.
@@ -445,6 +449,12 @@ Deno.serve(async (req) => {
     const use = await fetch(`${base}/rest/v1/rpc/use_lecture_text`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_hash: charge.key, p_chars: Math.max(1, charge.chars) }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've run out of credits.", limit: true, credits: true }, 429, origin);
+  } else if (body.task === "markWritten") {
+    // Marking is small and fair use: ask Claude straight away and count it at the same time, so it comes back sooner.
+    early = ask();
+    const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, String(body.answer ?? "").slice(0, 3000).length + 1500) }) });
+    left = use.ok ? await use.json() : null;
+    if (left === -1) return json({ error: "You've reached today's limit. It resets tomorrow.", limit: true }, 429, origin);
   } else {
     const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : 0);
     const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, pages.length + extra) }) });
@@ -455,11 +465,7 @@ Deno.serve(async (req) => {
   if (left === -2) return json({ error: "SlideQuiz is very busy today. Try again tomorrow.", limit: true, busy: true }, 429, origin);
 
   // 3. Ask Claude.
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: task.maxTokens, system: task.system, messages: [{ role: "user", content: task.prompt(body, pages) }] }),
-  });
+  const r = await (early ?? ask());
   if (!r.ok) {
     const detail = String((await r.json().catch(() => null))?.error?.message ?? r.status);
     console.error("Anthropic error:", detail);

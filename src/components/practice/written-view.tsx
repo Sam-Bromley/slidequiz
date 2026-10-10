@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Eye, PenLine, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, PenLine, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
@@ -22,6 +22,22 @@ function aiMessage(e: unknown) {
   const err = e as AIError;
   if (err?.message === "busy") return "SlideQuiz is very busy right now. Try again in a little while.";
   return (err?.message ?? "Something went wrong.").replace(/\s*\(\d{3}\)$/, "");
+}
+
+/** The student's answer with the bits that earned marks highlighted in green. */
+function highlight(text: string, quotes: string[]) {
+  const qs = quotes.filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!qs.length) return text;
+  const re = new RegExp(`(${qs.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  return text.split(re).map((part, i) =>
+    i % 2 ? (
+      <mark key={i} className="rounded bg-success-soft px-0.5 font-medium text-foreground underline decoration-success decoration-2 underline-offset-[3px]">
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
 }
 
 /** Unsent answers, kept while moving between questions (until the page is refreshed). */
@@ -299,7 +315,7 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
           <div className="mt-4 space-y-4">
             <div className="rounded-xl border bg-subtle/60 px-4 py-3">
               <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Your answer</p>
-              <p className="mt-1 whitespace-pre-wrap text-[14.5px] leading-relaxed">{last.answer}</p>
+              <p className="mt-1 whitespace-pre-wrap text-[14.5px] leading-relaxed">{highlight(last.answer, Object.values(last.quotes ?? {}))}</p>
             </div>
 
             <div className="flex items-center gap-4">
@@ -313,19 +329,49 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
               </div>
             </div>
 
-            <ul className="space-y-1.5" aria-label="Mark scheme">
-              {q.points.map((p, k) => {
-                const got = last.hit.includes(k);
-                return (
-                  <li key={k} className={cn("flex items-start gap-2.5 rounded-lg px-3 py-2 text-[14px]", got ? "bg-success-soft" : "bg-muted/60", fresh && "animate-fade-up")} style={fresh ? { animationDelay: `${250 + k * 120}ms` } : undefined}>
-                    {got ? <Check className={cn("mt-0.5 size-4 shrink-0 text-success", fresh && "animate-tick-pop")} style={fresh ? { animationDelay: `${330 + k * 120}ms` } : undefined} /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-                    <span className={cn(!got && "text-foreground/75")}>
-                      {endSentence(p.text)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+            {last.hit.length > 0 && (
+              <section aria-label="What you got">
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-success">What you got · {last.awarded} {last.awarded === 1 ? "mark" : "marks"}</p>
+                <ul className="space-y-2">
+                  {q.points.map((_, k) => (last.hit.includes(k) ? k : -1)).filter((k) => k >= 0).map((k, n) => (
+                    <li
+                      key={k}
+                      className={cn("flex items-start gap-3 rounded-xl border border-success/40 bg-success-soft px-3.5 py-2.5", fresh && "animate-fade-up")}
+                      style={fresh ? { animationDelay: `${250 + n * 140}ms` } : undefined}
+                    >
+                      <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-success text-success-foreground", fresh && "animate-tick-pop")} style={fresh ? { animationDelay: `${330 + n * 140}ms` } : undefined}>
+                        <Check className="size-3.5" strokeWidth={3} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-medium">{endSentence(q.points[k].text)}</span>
+                        {last.quotes?.[k] && <span className="mt-0.5 block text-[12.5px] text-foreground/70">You wrote “{last.quotes[k]}”</span>}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-success px-2 py-0.5 text-[11.5px] font-bold text-success-foreground">+1</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {last.awarded < q.marks && q.points.some((_, k) => !last.hit.includes(k)) && (
+              <section aria-label="What you missed">
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {last.hit.length ? "To get the rest" : "What would get marks"} · any {q.marks - last.awarded} of these
+                </p>
+                <ul className="space-y-2">
+                  {q.points.map((_, k) => (last.hit.includes(k) ? -1 : k)).filter((k) => k >= 0).map((k, n) => (
+                    <li
+                      key={k}
+                      className={cn("flex items-start gap-3 rounded-xl border border-dashed border-foreground/20 px-3.5 py-2.5", fresh && "animate-fade-up")}
+                      style={fresh ? { animationDelay: `${300 + (last.hit.length + n) * 140}ms` } : undefined}
+                    >
+                      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 border-dashed border-foreground/25 text-[11px] font-bold text-muted-foreground">+1</span>
+                      <span className="min-w-0 flex-1 text-[14px] text-foreground/85">{endSentence(q.points[k].text)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {last.improve && (
               <p className="rounded-xl bg-warning-soft/70 px-4 py-3 text-[13.5px]">

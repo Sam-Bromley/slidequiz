@@ -16,8 +16,8 @@ export interface NoteLine {
   /** What joins the term to the text: ": " for "Term: …", " " for "Term is …". */
   sep?: string;
   depth: 0 | 1;
-  /** Shown as a callout: the big idea, an example, or a tip. */
-  tone?: "key" | "example" | "tip";
+  /** Shown as a callout: the big idea, an example, a tip, or a formula. */
+  tone?: "key" | "example" | "tip" | "formula";
 }
 
 /** A stable id for one line of the notes (highlights attach to it). */
@@ -33,6 +33,8 @@ export interface NoteSlide {
   title: string | null;
   lines: NoteLine[];
   table: string[][] | null;
+  /** How the points are laid out: numbered steps, or definition cards. Plain bullets otherwise. */
+  layout?: "steps" | "terms";
   images: PageImage[];
   photo?: string;
 }
@@ -186,6 +188,12 @@ export function noteSlide(page: Page, sectionTitle: string): NoteSlide {
   };
 }
 
+/** A run of definitions (three or more, nothing nested) reads best as cards. */
+function mostlyTerms(points: { term?: string; sub?: boolean; kind?: string }[]) {
+  const plain = points.filter((p) => !p.kind);
+  return plain.length >= 3 && plain.every((p) => p.term && !p.sub);
+}
+
 /** A comparison table from the AI, if it's a proper grid (2+ rows, 2–6 columns, all rows the same width). */
 function goodTable(t: unknown): string[][] | null {
   if (!Array.isArray(t) || t.length < 2) return null;
@@ -213,9 +221,10 @@ function aiNotes(m: Material): NoteSection[] {
         title: part.heading ?? null,
         lines: [
           ...(part.intro?.trim() ? [{ kind: "para" as const, text: part.intro.trim(), depth: 0 as const }] : []),
-          ...part.points.map((pt) => ({ kind: "bullet" as const, text: pt.text, term: pt.term || undefined, sep: pt.term ? " – " : undefined, depth: (pt.sub ? 1 : 0) as 0 | 1, tone: pt.kind && ["key", "example", "tip"].includes(pt.kind) ? pt.kind : undefined })),
+          ...part.points.map((pt) => ({ kind: "bullet" as const, text: pt.text, term: pt.term || undefined, sep: pt.term ? " – " : undefined, depth: (pt.sub ? 1 : 0) as 0 | 1, tone: pt.kind && ["key", "example", "tip", "formula"].includes(pt.kind) ? pt.kind : undefined })),
         ],
         table: goodTable(part.table),
+        layout: part.style === "steps" ? ("steps" as const) : mostlyTerms(part.points) ? ("terms" as const) : undefined,
         images: pages.flatMap((p) => (p.images ?? []).filter((x) => x.included)),
         photo: pages.find((p) => p.imageDataUrl)?.imageDataUrl,
       };

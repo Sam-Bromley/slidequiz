@@ -347,7 +347,7 @@ function mergeSections(raw: AINoteSection[], pages: CloudPage[]): AINoteSection[
   const out: AINoteSection[] = [];
   for (const s of raw) {
     const parts = (s.parts ?? [])
-      .map((p) => ({ heading: p.heading?.trim() || undefined, pageIds: (p.pageIds ?? []).filter((x) => ids.has(x)), intro: typeof p.intro === "string" && p.intro.trim() ? p.intro.trim() : undefined, points: (p.points ?? []).filter((x) => x && x.text?.trim()), table: Array.isArray(p.table) ? p.table : undefined }))
+      .map((p) => ({ heading: p.heading?.trim() || undefined, pageIds: (p.pageIds ?? []).filter((x) => ids.has(x)), intro: typeof p.intro === "string" && p.intro.trim() ? p.intro.trim() : undefined, points: (p.points ?? []).filter((x) => x && x.text?.trim()), table: Array.isArray(p.table) ? p.table : undefined, style: p.style === "steps" ? ("steps" as const) : undefined }))
       .filter((p) => p.points.length || p.intro || p.table);
     if (!parts.length) continue;
     const last = out[out.length - 1];
@@ -638,7 +638,7 @@ export async function cloudWrittenQuestions(m: Material, count = 6): Promise<Wri
 
 /** Marks a written answer against its mark scheme. Throws an AIError if it can't. */
 export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Promise<WrittenMark> {
-  const r = await call<{ awarded: number; hit: number[]; feedback: string; improve?: string }>("markWritten", {
+  const r = await call<{ awarded: number; hit: number[]; quotes?: Record<string, string>; feedback: string; improve?: string }>("markWritten", {
     pages: [],
     question: q.question,
     marks: q.marks,
@@ -648,5 +648,12 @@ export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Prom
   });
   const hit = [...new Set((Array.isArray(r.hit) ? r.hit : []).map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < q.points.length))];
   const awarded = Math.max(0, Math.min(q.marks, Math.round(Number(r.awarded ?? hit.length) || 0)));
-  return { answer, awarded, hit, feedback: String(r.feedback ?? "").trim(), improve: String(r.improve ?? "").trim() || undefined, at: nowISO() };
+  // Only keep quotes that really are in the answer (so they can be highlighted there).
+  const quotes: Record<number, string> = {};
+  for (const [k, v] of Object.entries(r.quotes && typeof r.quotes === "object" ? r.quotes : {})) {
+    const i = Number(k);
+    const t = String(v ?? "").trim().replace(/^["“']|["”']$/g, "");
+    if (hit.includes(i) && t.length >= 2 && answer.toLowerCase().includes(t.toLowerCase())) quotes[i] = t;
+  }
+  return { answer, awarded, hit, quotes, feedback: String(r.feedback ?? "").trim(), improve: String(r.improve ?? "").trim() || undefined, at: nowISO() };
 }

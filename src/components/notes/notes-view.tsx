@@ -95,7 +95,7 @@ function marked(term: string, sep: string, text: string, marks: NoteMark[], onMa
   return out;
 }
 
-function Line({ l, k, marks, onMark }: { l: NoteLine; k: string; marks: NoteMark[]; onMark: (m: NoteMark, el: HTMLElement) => void }) {
+function Line({ l, k, marks, onMark, step, card }: { l: NoteLine; k: string; marks: NoteMark[]; onMark: (m: NoteMark, el: HTMLElement) => void; step?: number; card?: boolean }) {
   const text = tidyLine(l.text);
   const term = l.kind === "sub" ? "" : l.term ? tidyTerm(l.term) : "";
   if (!text && !term) return null;
@@ -119,7 +119,37 @@ function Line({ l, k, marks, onMark }: { l: NoteLine; k: string; marks: NoteMark
     </span>
   );
   let p: ReactNode;
-  if (l.tone) {
+  if (card && term) {
+    // A definition card: the term on top, what it means underneath.
+    p = (
+      <div data-line-key={k} data-full={full} className="h-full rounded-xl border bg-card px-3.5 py-3">
+        {marks.length ? <span className="block text-foreground/90">{body}</span> : (
+          <>
+            <span className="block font-semibold text-foreground">{linkify(term)}</span>
+            <span className="mt-0.5 block text-[0.94em] leading-snug text-foreground/80">{linkify(text)}</span>
+          </>
+        )}
+      </div>
+    );
+  } else if (step !== undefined) {
+    // One stage of a process: a numbered dot on a line joining the steps.
+    p = (
+      <div data-line-key={k} data-full={full} className="relative pb-3 pl-10 group-last/step:pb-0">
+        <span className="absolute left-[13px] top-7 bottom-0 w-px bg-border group-last/step:hidden" aria-hidden />
+        <span className="absolute left-0 top-0 grid size-7 place-items-center rounded-full bg-primary text-[12.5px] font-bold text-primary-foreground" aria-hidden>
+          {step}
+        </span>
+        <span className="block pt-[3px] text-foreground/90">{body}</span>
+      </div>
+    );
+  } else if (l.tone === "formula") {
+    p = (
+      <div data-line-key={k} data-full={full} className={cn("my-2 rounded-r-xl border-l-[3px] px-4 py-3 text-center", TONES.formula.box)}>
+        <span className={cn("mb-1 block text-left text-[11px] font-semibold uppercase tracking-wider", TONES.formula.label)}>Formula</span>
+        <span className="block font-mono text-[1.02em] font-medium text-foreground">{body}</span>
+      </div>
+    );
+  } else if (l.tone) {
     const t = TONES[l.tone];
     p = (
       <div data-line-key={k} data-full={full} className={cn("my-2 rounded-r-xl border-l-[3px] px-3.5 py-2.5", t.box, l.depth === 1 && "ml-5")}>
@@ -151,6 +181,7 @@ const TONES: Record<NonNullable<NoteLine["tone"]>, { name: string; box: string; 
   key: { name: "Key idea", box: "border-primary bg-primary/[0.07]", label: "text-primary" },
   example: { name: "Example", box: "border-foreground/25 bg-muted/70", label: "text-muted-foreground" },
   tip: { name: "Tip", box: "border-amber-400 bg-amber-50 dark:bg-amber-400/10", label: "text-amber-700 dark:text-amber-300" },
+  formula: { name: "Formula", box: "border-sky-400 bg-sky-50 dark:bg-sky-400/10", label: "text-sky-700 dark:text-sky-300" },
 };
 
 const NOTE_BOX: Record<NoteMark["color"], string> = {
@@ -168,6 +199,54 @@ function Figure({ img, label, open, className }: { img: PageImage; label: string
   );
 }
 
+/**
+ * A slide's lines, laid out to suit them: runs of definitions as cards, processes as numbered steps,
+ * everything else as paragraphs, bullets and callouts.
+ */
+function Lines({ s, marks, onMark }: { s: NoteSlide; marks: Map<string, NoteMark[]>; onMark: (m: NoteMark, el: HTMLElement) => void }) {
+  const items = s.lines.map((l, i) => ({ l, k: lineKey(s.page.id, i, l.text), i }));
+  const plain = (l: NoteLine) => l.kind === "bullet" && !l.tone && l.depth === 0;
+  const groups: { type: "one" | "cards" | "steps"; items: typeof items }[] = [];
+  for (const it of items) {
+    const type = s.layout === "terms" && plain(it.l) && it.l.term ? "cards" : s.layout === "steps" && plain(it.l) ? "steps" : "one";
+    const prev = groups[groups.length - 1];
+    if (type !== "one" && prev?.type === type) prev.items.push(it);
+    // A sub-point stays with the step above it.
+    else if (s.layout === "steps" && it.l.kind === "bullet" && it.l.depth === 1 && !it.l.tone && prev?.type === "steps") prev.items.push(it);
+    else groups.push({ type, items: [it] });
+  }
+  let n = 0;
+  return (
+    <div className="space-y-1.5 text-[15px] leading-relaxed">
+      {groups.map((g, gi) =>
+        g.type === "cards" ? (
+          <div key={gi} className="grid gap-2 py-1 sm:grid-cols-2">
+            {g.items.map(({ l, k, i }) => (
+              <Line key={i} l={l} k={k} marks={marks.get(k) ?? []} onMark={onMark} card />
+            ))}
+          </div>
+        ) : g.type === "steps" ? (
+          <div key={gi} className="py-1">
+            {g.items.map(({ l, k, i }) =>
+              l.depth === 1 ? (
+                <div key={i} className="-mt-2 pb-3 pl-10">
+                  <Line l={l} k={k} marks={marks.get(k) ?? []} onMark={onMark} />
+                </div>
+              ) : (
+                <div key={i} className="group/step">
+                  <Line l={l} k={k} marks={marks.get(k) ?? []} onMark={onMark} step={++n} />
+                </div>
+              ),
+            )}
+          </div>
+        ) : (
+          <Line key={gi} l={g.items[0].l} k={g.items[0].k} marks={marks.get(g.items[0].k) ?? []} onMark={onMark} />
+        ),
+      )}
+    </div>
+  );
+}
+
 function SlideBlock({ s, first, showImages, onDevice, openImage, marks, onMark }: { s: NoteSlide; first: boolean; showImages: boolean; onDevice: Set<string> | null; openImage: (img: PageImage, label: string) => void; marks: Map<string, NoteMark[]>; onMark: (m: NoteMark, el: HTMLElement) => void }) {
   const hasText = s.lines.length > 0 || !!s.table;
   // Pictures are saved on the device the slides were uploaded on; skip any that aren't here.
@@ -176,14 +255,7 @@ function SlideBlock({ s, first, showImages, onDevice, openImage, marks, onMark }
   const beside = hasText && imgs.length === 1 && imgs[0].width / imgs[0].height < 1.9;
   const text = (
     <div className="min-w-0">
-      {s.lines.length > 0 && (
-        <div className="space-y-1.5 text-[15px] leading-relaxed">
-          {s.lines.map((l, i) => {
-            const k = lineKey(s.page.id, i, l.text);
-            return <Line key={i} l={l} k={k} marks={marks.get(k) ?? []} onMark={onMark} />;
-          })}
-        </div>
-      )}
+      {s.lines.length > 0 && <Lines s={s} marks={marks} onMark={onMark} />}
       {s.table && (
         <div className="mt-3 overflow-x-auto rounded-xl border">
           <table className="w-full text-left text-[14px]">

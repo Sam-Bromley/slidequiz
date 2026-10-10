@@ -207,7 +207,7 @@ export interface AINotePoint {
   text: string;
   sub?: boolean;
   /** A point that stands out: the big idea, an example, or a tip for remembering it. */
-  kind?: "key" | "example" | "tip";
+  kind?: "key" | "example" | "tip" | "formula";
 }
 
 export interface AINoteSection {
@@ -222,6 +222,8 @@ export interface AINoteSection {
     points: AINotePoint[];
     /** A comparison laid out as a table (first row is the headings). */
     table?: string[][];
+    /** "steps": the points are stages of a process or a timeline, in order. */
+    style?: "steps";
   }[];
 }
 
@@ -597,6 +599,8 @@ export interface WrittenMark {
   answer: string;
   awarded: number;
   hit: number[];
+  /** For each mark-scheme point earned, the words in the answer that earned it. */
+  quotes?: Record<number, string>;
   feedback: string;
   improve?: string;
   at: ISODate;
