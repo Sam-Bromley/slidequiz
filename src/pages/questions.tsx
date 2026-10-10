@@ -33,13 +33,35 @@ const savePick = (p: Pick) => {
   }
 };
 
+/** The lecture chosen for written answers, kept while switching between pages. */
+let keptWritten: ID | null = null;
+
+function lastMode(): Mode {
+  try {
+    return localStorage.getItem("slidequiz:qmode") === "written" ? "written" : "mcq";
+  } catch {
+    return "mcq";
+  }
+}
+
 /** Practice questions from the sidebar: multiple choice or written answers, on any lectures or a whole module. */
 export function QuestionsPage() {
   const data = useData();
   const { query } = useLocation();
-  const [mode, setModeState] = useState<Mode>(query.get("mode") === "written" ? "written" : "mcq");
+  // Opens on whichever was used last (multiple choice or written), unless a link asks for one.
+  const [mode, setModeState] = useState<Mode>(() => {
+    const asked = query.get("mode");
+    if (asked === "written" || asked === "mcq") return asked;
+    if (query.get("m")) return "mcq";
+    return lastMode();
+  });
   const setMode = (m: Mode) => {
     setModeState(m);
+    try {
+      localStorage.setItem("slidequiz:qmode", m);
+    } catch {
+      /* storage blocked */
+    }
     history.replaceState(null, "", `#/questions${m === "written" ? "?mode=written" : ""}`);
   };
   const [picking, setPicking] = useState(false);
@@ -77,7 +99,11 @@ export function QuestionsPage() {
     if (firstKey.current !== key) setTopics([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  const [writtenFor, setWrittenFor] = useState<ID | null>(null);
+  const [writtenFor, setWrittenForState] = useState<ID | null>(() => keptWritten);
+  const setWrittenFor = (id: ID | null) => {
+    keptWritten = id;
+    setWrittenForState(id);
+  };
   const writtenMat = shown.find((m) => m.id === writtenFor) ?? shown[0];
 
   if (!data.materials.length)

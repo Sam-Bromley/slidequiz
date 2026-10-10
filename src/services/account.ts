@@ -340,7 +340,7 @@ export async function logOut() {
 /** Back to the standard look once signed out: no theme, accent, background or night light from the account. */
 function forgetAppearance() {
   try {
-    for (const k of ["slidequiz:accent", "slidequiz:appearance", "slidequiz:nightauto", "slidequiz:nightoff", "slidequiz:nighttimes"]) localStorage.removeItem(k);
+    for (const k of ["slidequiz:accent", "slidequiz:appearance", "slidequiz:nightauto", "slidequiz:nightoff", "slidequiz:nighttimes", "slidequiz:qmode"]) localStorage.removeItem(k);
   } catch {
     /* storage blocked */
   }
