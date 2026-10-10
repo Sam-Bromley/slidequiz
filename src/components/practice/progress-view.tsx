@@ -55,15 +55,6 @@ function status(r: TopicProgress) {
   return { label: "In progress", cls: "bg-primary/10 text-foreground" };
 }
 
-const Key = ({ dot, n, label }: { dot: string; n: number; label: string }) => (
-  <div className="flex items-center gap-2">
-    <span className={cn("size-2.5 shrink-0 rounded-full", dot)} aria-hidden />
-    <span className="text-[14px] text-muted-foreground">
-      <span className="font-semibold tabular-nums text-foreground">{n}</span> {label}
-    </span>
-  </div>
-);
-
 /** How much of each topic is covered: the share of its questions whose latest answer was right. */
 export function ProgressView({ material, onPractise }: { material: Material; onPractise: (topicId: ID | null) => void }) {
   const data = useData();
@@ -78,36 +69,13 @@ export function ProgressView({ material, onPractise }: { material: Material; onP
       </div>
     );
 
-  const untried = all.total - all.covered - all.review;
-  const done = rows.filter((r) => r.pct === 100).length;
-  // The best place to carry on: a topic with mistakes to fix, else the first one not finished.
-  const next = rows.find((r) => r.review > 0) ?? rows.find((r) => r.pct < 100);
-
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-2xl border bg-card p-5 sm:p-6">
-        <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
-          <Ring pct={all.pct} />
-          <div className="flex w-full min-w-0 flex-1 flex-wrap justify-center gap-x-5 gap-y-2 sm:block sm:space-y-2">
-            <Key dot="bg-success" n={all.covered} label="right" />
-            <Key dot="bg-warning" n={all.review} label="to fix" />
-            <Key dot="bg-muted-foreground/30" n={untried} label="not tried yet" />
-            <p className="w-full pt-1 text-center text-[13px] text-muted-foreground sm:text-left">
-              {done} of {rows.length} {rows.length === 1 ? "topic" : "topics"} finished
-            </p>
-          </div>
-        </div>
-        {next && (
-          <Button className="mt-5 w-full" onClick={() => onPractise(next.review > 0 || rows.length > 1 ? next.topicId : null)}>
-            {next.review > 0 ? "Fix mistakes" : all.covered + all.review ? "Carry on" : "Start practising"}
-            <span className="truncate font-normal opacity-75">· {next.name}</span>
-          </Button>
-        )}
-        {!next && (
-          <Button variant="outline" className="mt-5 w-full" onClick={() => onPractise(null)}>
-            Practise again
-          </Button>
-        )}
+      <div className="flex flex-col items-center">
+        <Ring pct={all.pct} />
+        <Button className="mt-5 min-w-[200px] bg-success text-white hover:bg-success/90" onClick={() => onPractise(null)}>
+          Practise
+        </Button>
       </div>
 
       <h3 className="mb-2 mt-8 px-1 text-[13px] font-medium uppercase tracking-wider text-muted-foreground">Topics</h3>
