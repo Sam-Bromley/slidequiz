@@ -1,3 +1,4 @@
+import { useRewards } from "@/lib/rewards";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { initAds } from "@/services/ads";
 import { EssayPage, EssaysPage } from "@/pages/essays";
@@ -119,6 +120,7 @@ export function App() {
     document.title = title ? `${title} – SlideQuiz` : "SlideQuiz – notes, practice questions and flashcards from your slides";
   }, [title]);
   useThemeSync(data.settings);
+  useRewards(data);
   useEffect(() => initAds(), []);
   useGlobalShortcuts();
   useClickBounce();

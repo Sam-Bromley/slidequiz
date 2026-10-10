@@ -83,3 +83,61 @@ export function buzz(ms = 12) {
     /* not supported */
   }
 }
+
+/** A little "+10" that floats up from an element and fades, like points in a game. */
+export function floatText(el: Element | null, text: string, colour = "hsl(var(--success))") {
+  if (!el || reduced()) return;
+  const r = el.getBoundingClientRect();
+  const s = document.createElement("span");
+  s.setAttribute("aria-hidden", "true");
+  s.textContent = text;
+  Object.assign(s.style, {
+    position: "absolute",
+    left: `${r.left + r.width / 2 + window.scrollX}px`,
+    top: `${r.top + window.scrollY - 4}px`,
+    transform: "translate(-50%, 0) scale(0.8)",
+    font: "700 15px/1 inherit",
+    fontFamily: "inherit",
+    color: colour,
+    textShadow: "0 1px 0 hsl(var(--background))",
+    pointerEvents: "none",
+    zIndex: "61",
+    opacity: "0",
+    transition: "transform 900ms cubic-bezier(.15,.8,.25,1), opacity 900ms ease-out",
+  });
+  document.body.appendChild(s);
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      s.style.opacity = "1";
+      s.style.transform = "translate(-50%, -34px) scale(1)";
+      setTimeout(() => (s.style.opacity = "0"), 520);
+    }),
+  );
+  setTimeout(() => s.remove(), 1000);
+}
+
+/** A brighter three-note fanfare for bigger moments (a goal reached, a topic finished). */
+export function fanfare() {
+  try {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return;
+    audio ??= new AC();
+    if (audio.state === "suspended") void audio.resume();
+    const now = audio.currentTime;
+    for (const [k, f] of [784, 988, 1318.5].entries()) {
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.type = "triangle";
+      o.frequency.value = f;
+      const t = now + k * 0.09;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.06, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (k === 2 ? 0.6 : 0.3));
+      o.connect(g).connect(audio.destination);
+      o.start(t);
+      o.stop(t + 0.65);
+    }
+  } catch {
+    /* no sound available */
+  }
+}

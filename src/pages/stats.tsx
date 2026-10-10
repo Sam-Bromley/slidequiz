@@ -7,6 +7,7 @@ import { Link, navigate } from "@/lib/router";
 import { effectiveTheme, isDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
+import { useCountUp } from "@/lib/count-up";
 import { ActivityChart, METRICS } from "@/components/stats/activity-chart";
 import type { AppData } from "@/services/db/types";
 import type { ID } from "@/types/models";
@@ -58,6 +59,20 @@ function revision(d: AppData): Row[] {
   return [...byTitle.values()];
 }
 
+/** One number at the top, counting up when the page opens. */
+function Tile({ icon: Icon, label, value, pct, colour }: { icon: typeof Target; label: string; value: number | null; pct?: boolean; colour: string }) {
+  const n = Math.round(useCountUp(value ?? 0));
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <span className="grid size-8 place-items-center rounded-xl" style={{ background: `${colour}22`, color: colour }}>
+        <Icon className="size-4" />
+      </span>
+      <p className="mt-3 text-[24px] font-bold leading-none tabular-nums tracking-tight">{value === null ? "–" : pct ? `${n}%` : n.toLocaleString()}</p>
+      <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
 const fmtPct = (x: number) => (x > 0 && x < 0.01 ? "<1%" : `${Math.round(x * 100)}%`);
 
 export function StatsPage() {
@@ -107,22 +122,13 @@ export function StatsPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { icon: ListChecks, metric: "questions", label: "Questions answered", value: answered.toLocaleString() },
-          { icon: Target, metric: "accuracy", label: "Answered right", value: answered ? `${Math.round((right / answered) * 100)}%` : "–" },
-          { icon: Layers, metric: "cards", label: "Flashcard reviews", value: cards.toLocaleString() },
-          { icon: PenLine, metric: "written", label: "Written answers", value: written.toLocaleString() },
+          { icon: ListChecks, metric: "questions", label: "Questions answered", value: answered },
+          { icon: Target, metric: "accuracy", label: "Answered right", value: answered ? Math.round((right / answered) * 100) : null, pct: true },
+          { icon: Layers, metric: "cards", label: "Flashcard reviews", value: cards },
+          { icon: PenLine, metric: "written", label: "Written answers", value: written },
         ].map((t) => {
           const m = METRICS.find((x) => x.id === t.metric)!;
-          const c = dark ? m.dark : m.light;
-          return (
-            <div key={t.label} className="rounded-2xl border bg-card p-4">
-              <span className="grid size-8 place-items-center rounded-xl" style={{ background: `${c}22`, color: c }}>
-                <t.icon className="size-4" />
-              </span>
-              <p className="mt-3 text-[24px] font-bold leading-none tabular-nums tracking-tight">{t.value}</p>
-              <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">{t.label}</p>
-            </div>
-          );
+          return <Tile key={t.label} icon={t.icon} label={t.label} value={t.value} pct={t.pct} colour={dark ? m.dark : m.light} />;
         })}
       </div>
 

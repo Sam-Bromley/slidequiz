@@ -4,7 +4,6 @@ import { openEarnCredits } from "@/services/invites";
 import { Personalise } from "./personalise";
 import { AppBackground } from "./app-background";
 import { StreakFlame } from "./streak";
-import { StudyTimerButton, StudyTimerPill } from "./study-timer";
 import { actions } from "@/store/actions";
 import { applyFont, TEXT_ZOOM } from "@/lib/reading";
 import { usePlan, usePlanQuiet } from "@/services/plus";
@@ -189,7 +188,6 @@ function MobileTopBar(_: { onMenu: () => void }) {
       </Link>
       <FreeCreditsButton />
       <StreakFlame />
-          <StudyTimerButton />
           <Personalise />
       <SettingsButton />
     </header>
@@ -335,7 +333,6 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
         Skip to content
       </a>
       <Sidebar />
-      <StudyTimerPill />
       <MobileTopBar onMenu={() => setDrawer(true)} />
       <MobileDrawer open={drawer} onClose={() => setDrawer(false)} />
       <div className="sb-anim lg:pl-[var(--sb,248px)]">
@@ -343,7 +340,6 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
           <div className="topbar-tools flex items-center gap-1">
             <FreeCreditsButton />
             <StreakFlame />
-            <StudyTimerButton />
             <Personalise />
             <SettingsButton />
           </div>

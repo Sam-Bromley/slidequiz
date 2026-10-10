@@ -16,7 +16,9 @@ import { tidyCard } from "@/lib/tidy";
 import { cardsFor } from "@/services/flashcards";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 import { actions } from "@/store/actions";
-import { useData } from "@/store/store";
+import { getState, useData } from "@/store/store";
+import { confetti } from "@/lib/confetti";
+import { fanfare } from "@/lib/celebrate";
 import type { Deck, Flashcard, ID } from "@/types/models";
 
 
@@ -402,6 +404,24 @@ export function DeckPage({ id }: { id: string }) {
   const pos = Math.min(i, Math.max(0, studyOrder.length - 1));
   const card = cards.find((c) => c.id === studyOrder[pos]);
 
+  // Each card turned over counts as revised (once per visit), with a little reward for getting through them all.
+  const [seen, setSeen] = useState<Set<ID>>(() => new Set());
+  useEffect(() => {
+    if (!flipped || !card || seen.has(card.id)) return;
+    const next = new Set(seen).add(card.id);
+    setSeen(next);
+    actions.rateCard(card.id, "good");
+    const total = studyOrder.length;
+    if (total >= 3 && next.size === total) {
+      setTimeout(() => {
+        confetti();
+        if (getState().settings.soundEffects !== false) fanfare();
+        toast("Deck complete 🎉", { description: `You went through all ${total} cards.` });
+      }, 450);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flipped, card?.id]);
+
   const go = (d: number) => {
     setFlipped(false);
     setI((x) => (studyOrder.length ? (x + d + studyOrder.length) % studyOrder.length : 0));
@@ -455,6 +475,13 @@ export function DeckPage({ id }: { id: string }) {
 
       {card ? (
         <section aria-label="Study">
+          {/* How many cards have been turned over this time. */}
+          <div className="mx-auto mb-4 flex max-w-xl items-center gap-3" aria-label={`${seen.size} of ${studyOrder.length} cards revised`}>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className={cn("h-full rounded-full transition-[width] duration-500 ease-out", seen.size >= studyOrder.length ? "bg-success" : "bg-primary")} style={{ width: `${studyOrder.length ? (seen.size / studyOrder.length) * 100 : 0}%` }} />
+            </div>
+            <span className="text-[12px] font-medium tabular-nums text-muted-foreground">{seen.size >= studyOrder.length && studyOrder.length ? "All done ✓" : `${seen.size}/${studyOrder.length}`}</span>
+          </div>
           <FlipCard card={card} flipped={flipped} onFlip={() => setFlipped((f) => !f)} onSwipe={go} />
           <div className="mt-5 flex items-center justify-center gap-3">
             <Button variant="outline" size="icon" className="rounded-full" onClick={() => go(-1)} aria-label="Previous card">

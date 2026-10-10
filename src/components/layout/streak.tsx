@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { WeeklyRecap } from "@/components/home/weekly-recap";
 import { dayKey } from "@/lib/utils";
 import { useData } from "@/store/store";
+import { DAILY_GOAL, todayCount } from "@/lib/rewards";
 import { cn } from "@/lib/utils";
 
 /** Days in a row with some practice or flashcard revision (today, or up to yesterday if not yet today). */
@@ -27,6 +28,14 @@ export function StreakFlame() {
   const { count, today } = streakDays(days);
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+  // Bounces when the streak goes up or the daily goal is reached.
+  const [pop, setPop] = useState(0);
+  useEffect(() => {
+    const on = () => setPop((n) => n + 1);
+    window.addEventListener("slidequiz:flame", on);
+    return () => window.removeEventListener("slidequiz:flame", on);
+  }, []);
+  const goal = Math.min(1, todayCount(data) / DAILY_GOAL);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
@@ -48,14 +57,21 @@ export function StreakFlame() {
       type="button"
       onClick={() => setOpen((o) => !o)}
       aria-expanded={open}
-      className={cn("inline-flex h-9 items-center gap-1 rounded-full px-2 text-[15px] font-bold tabular-nums transition-colors hover:bg-accent focus-ring", today ? "text-foreground" : "text-muted-foreground")}
-      title={`${title} Tap to see your week.`}
+      data-streak-flame=""
+      className={cn("inline-flex h-9 items-center gap-1 rounded-full px-1.5 text-[15px] font-bold tabular-nums transition-colors hover:bg-accent focus-ring", today ? "text-foreground" : "text-muted-foreground")}
+      title={`${title} ${goal >= 1 ? "Daily goal done." : `Daily goal: ${Math.round(goal * DAILY_GOAL)} of ${DAILY_GOAL}.`} Tap to see your week.`}
       aria-label={title}
     >
+      <span key={pop} className={cn("relative grid size-[30px] shrink-0 place-items-center", pop > 0 && "animate-boop")}>
+      {/* Today's progress towards the daily goal, as a ring around the flame. */}
+      <svg viewBox="0 0 30 30" className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx="15" cy="15" r="13.5" fill="none" strokeWidth="2" className="stroke-foreground/10" />
+        {goal > 0 && <circle cx="15" cy="15" r="13.5" fill="none" strokeWidth="2" strokeLinecap="round" stroke={goal >= 1 ? "#f97316" : "#fb923c"} strokeDasharray={`${goal * 84.8} 84.8`} className="transition-[stroke-dasharray] duration-500 ease-out" />}
+      </svg>
       <svg
         viewBox="0 0 24 24"
-        width={size}
-        height={size}
+        width={size - 2}
+        height={size - 2}
         className={cn("shrink-0", today && tier >= 2 && "animate-flicker", !today && "opacity-50 grayscale")}
         style={today && tier >= 1 ? { filter: `drop-shadow(0 0 ${tier * 3}px rgba(249, 115, 22, ${0.25 + tier * 0.12}))` } : undefined}
         aria-hidden
@@ -70,6 +86,7 @@ export function StreakFlame() {
         <path fill={`url(#${gid})`} d="M12 2.5c.6 2.6-.4 4.4-1.8 5.9C8.6 10.1 7 11.9 7 14.6 7 18 9.3 21 12.2 21c3.3 0 5.8-2.6 5.8-6 0-2.5-1.2-4.4-2.4-5.8-.3 1.5-1 2.5-2 3 .3-3.7-.4-6.8-1.6-9.7Z" />
         <path fill="#fde68a" d="M12.3 13.2c.2 1.2-.3 2-.9 2.7-.5.6-1 1.2-1 2.1 0 1.2.8 2.2 1.9 2.2 1.3 0 2.2-1 2.2-2.3 0-1.1-.6-2-1.3-2.7-.1.6-.4 1-.8 1.2 0-1.2-.1-2.2-.1-3.2Z" />
       </svg>
+      </span>
       {count}
     </button>
       {open && (

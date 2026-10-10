@@ -2,21 +2,24 @@ import { Check, ChevronRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { useCountUp } from "@/lib/count-up";
 import { overallProgress, topicProgress, type TopicProgress } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { ID, Material } from "@/types/models";
 
 /** A smooth ring showing how much of the lecture is covered. */
-function Ring({ pct }: { pct: number }) {
+function Ring({ pct: real }: { pct: number }) {
+  // Fills up from empty when the page opens.
+  const pct = useCountUp(real, 900);
   const R = 44;
   const C = 2 * Math.PI * R;
-  const done = pct === 100;
+  const done = real === 100 && pct > 99.5;
   return (
     <div className="relative size-[120px] shrink-0">
       <svg viewBox="0 0 100 100" className="size-full -rotate-90" shapeRendering="geometricPrecision" aria-hidden>
         <circle cx="50" cy="50" r={R} fill="none" strokeWidth="8" className="stroke-muted" />
-        {pct > 0 && (
+        {pct > 0.2 && (
           <circle
             cx="50"
             cy="50"
@@ -25,12 +28,12 @@ function Ring({ pct }: { pct: number }) {
             strokeWidth="8"
             strokeLinecap="round"
             strokeDasharray={`${(pct / 100) * C} ${C}`}
-            className={cn("transition-[stroke-dasharray] duration-700 ease-out", done ? "stroke-success" : "stroke-primary")}
+            className={done ? "stroke-success" : "stroke-primary"}
           />
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {done ? <Check className="size-8 text-success" strokeWidth={2.5} /> : <span className="text-[28px] font-semibold leading-none tabular-nums">{pct}%</span>}
+        {done ? <Check className="size-8 text-success" strokeWidth={2.5} /> : <span className="text-[28px] font-semibold leading-none tabular-nums">{Math.round(pct)}%</span>}
         <span className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{done ? "All done" : "covered"}</span>
       </div>
     </div>

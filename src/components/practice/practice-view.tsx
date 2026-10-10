@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { endSentence, optionsAreSentences, tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { confetti } from "@/lib/confetti";
-import { burst, buzz, chime } from "@/lib/celebrate";
+import { burst, buzz, chime, fanfare, floatText } from "@/lib/celebrate";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
@@ -182,8 +182,22 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     const ok = i === view.correct;
     if (ok) {
       burst(document.querySelector(`[data-answer="${i}"] [data-tick]`));
-      if (getState().settings.soundEffects !== false) chime(streak);
+      floatText(document.querySelector(`[data-answer="${i}"] [data-tick]`), streak >= 2 ? `+10 ×${Math.min(streak + 1, 9)}` : "+10");
+      const sound = getState().settings.soundEffects !== false;
+      if (sound) chime(streak);
       buzz();
+      // The last question of a topic (but not of the whole lecture: that gets confetti).
+      if (!isCovered(q) && !mixed && q.topicId) {
+        const inTopic = all.filter((x) => x.topicId === q.topicId);
+        const rest = all.filter((x) => x.id !== q.id && !isCovered(x));
+        if (inTopic.length >= 2 && inTopic.every((x) => x.id === q.id || isCovered(x)) && rest.length > 0) {
+          const name = material.topics.find((t) => t.id === q.topicId)?.name;
+          setTimeout(() => {
+            if (sound) fanfare();
+            toast("Topic complete 🏅", { description: name ? `You've got every question in “${name}” right.` : "Every question in this topic answered right." });
+          }, 350);
+        }
+      }
       setStreak((n) => n + 1);
       setPraise(PRAISE[Math.floor(Math.random() * PRAISE.length)]);
     } else setStreak(0);
