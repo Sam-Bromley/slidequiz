@@ -48,6 +48,25 @@ Also give the subject in one or two words (e.g. "Biology", "Psychology", "Modern
 Reply with JSON only:
 {"subject":"…","sections":[{"title":"…","summary":"…","parts":[{"heading":"…","pageIds":["…"],"intro":"optional","style":"optional","points":[{"term":"optional","text":"…","sub":false,"kind":"optional"}],"table":[["optional heading","…"],["…","…"]]}]}]}`,
   },
+  // Older notes laid out again in the newer style (summaries, explanations, steps, tables, callouts), keeping every fact.
+  restyleNotes: {
+    maxTokens: 12000,
+    system: `${STYLE}
+You re-lay-out existing revision notes so they are easier to read, without adding or losing facts.`,
+    prompt: (b) => `These are revision notes for "${String(b.title ?? "").slice(0, 200)}" as JSON:
+${JSON.stringify(Array.isArray(b.sections) ? b.sections : []).slice(0, 60000)}
+
+Lay them out again, laid out like a good textbook summary rather than a wall of bullets:
+- Keep the same topics in the same order with exactly the same "title", and keep each part's "pageIds".
+- Give each topic a "summary": one or two plain sentences on what it's about.
+- A part may open with an "intro": one or two sentences of flowing explanation, when it helps.
+- Keep every fact, figure and definition, and add none. Definitions stay as {"term","text"}.
+- A process, sequence of stages or timeline gets "style": "steps" with one point per step, in order.
+- A comparison of several things becomes a "table" (first row is the headings, 2–5 columns, short cells) instead of bullets.
+- Mark the one or two most important ideas per topic "kind": "key", examples "kind": "example", equations "kind": "formula", and at most one memory aid or common mix-up "kind": "tip" (never invent facts).
+Reply with JSON only, in the same shape:
+{"sections":[{"title":"…","summary":"…","parts":[{"heading":"…","pageIds":["…"],"intro":"optional","style":"optional","points":[{"term":"optional","text":"…","sub":false,"kind":"optional"}],"table":[["…","…"]]}]}]}`,
+  },
   questions: {
     maxTokens: 16000,
     system: `${STYLE}
@@ -225,7 +244,7 @@ Questions:
 - Write each question as a full sentence: questions starting with a question word end with a question mark; command-word questions ("Explain why…") end with a full stop.
 - Cover different topics across the lecture and don't repeat anything below.${Array.isArray(b.avoid) && b.avoid.length ? `\nAlready asked:\n${b.avoid.slice(0, 30).map((q: string) => "- " + String(q).slice(0, 200)).join("\n")}` : ""}
 Mark scheme:
-- One creditworthy point per mark: each point is a single, specific, checkable idea (not a vague theme), written as a full sentence ending with a full stop. Put acceptable alternatives and wordings in brackets, e.g. "(accept …)".
+- One creditworthy point per mark: each point is a single, specific, checkable idea (not a vague theme), written as a short full sentence of at most 15 words, ending with a full stop. Put acceptable alternatives and wordings in brackets after it, e.g. "(accept …)" (students don't see the brackets).
 - The mark scheme follows the command word. "State"/"Name"/"Give" points are just the fact itself; never require an explanation for them. "Explain" points include the reason. For "Evaluate", label points "Strength: …" or "Weakness: …" and include one mark for each side asked for, with other valid strengths or weaknesses accepted in brackets. For two-part questions, start each point with its part, e.g. "State: …", "Strength: …", "Weakness: …".
 - Give exactly as many points as marks, one per mark, unless a mark can be earned several ways; then list the alternatives inside that point's brackets rather than as extra points.
 - Every point must be factually precise (e.g. for enzyme inhibitors: competitive raises Km with Vmax unchanged; non-competitive lowers Vmax). Never write a vague or half-true point.
@@ -456,7 +475,7 @@ Deno.serve(async (req) => {
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've reached today's limit. It resets tomorrow.", limit: true }, 429, origin);
   } else {
-    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : 0);
+    const extra = String(body.message ?? "").length + String(body.rubric ?? "").slice(0, 8000).length + String(body.answer ?? "").slice(0, 3000).length + String(body.essay ?? "").slice(0, 20000).length + (body.task === "markWritten" ? 1500 : 0) + (body.task === "restyleNotes" ? Math.min(60000, JSON.stringify(body.sections ?? []).length) : 0);
     const use = await fetch(`${base}/rest/v1/rpc/use_ai`, { method: "POST", headers, body: JSON.stringify({ p_user: userId, p_chars: Math.max(1, pages.length + extra) }) });
     left = use.ok ? await use.json() : null;
     if (left === -1) return json({ error: "You've reached today's limit. It resets tomorrow.", limit: true }, 429, origin);

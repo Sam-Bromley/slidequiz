@@ -1,17 +1,17 @@
-import { ArrowLeft, ArrowRight, Check, Eye, PenLine, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, PenLine, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
 import { endSentence, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { cn } from "@/lib/utils";
-import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, ensureCredits, refreshAllowance, textSize } from "@/services/ai/cloud";
+import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, currentAllowance, ensureCredits, fits, refreshAllowance, textSize } from "@/services/ai/cloud";
+import { hasText } from "@/components/ai/ai-waiting";
 import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material, WrittenQuestion } from "@/types/models";
 import { Spinner } from "@/components/ui/spinner";
 import { burst, chime, fanfare } from "@/lib/celebrate";
-import { confetti } from "@/lib/confetti";
 import { useCountUp } from "@/lib/count-up";
 
 const list = (id: string) => getState().materials.find((m) => m.id === id)?.written ?? [];
@@ -38,6 +38,29 @@ function highlight(text: string, quotes: string[]) {
       part
     ),
   );
+}
+
+/** A mark-scheme point as students see it: without the "(accept …)" notes, which are for the marker. */
+function shown(point: string) {
+  const t = point.replace(/\s*\((?:also\s+)?accept\b[^()]*(?:\([^()]*\)[^()]*)*\)/gi, "").replace(/\s*\[(?:also\s+)?accept\b[^\]]*\]/gi, "").trim();
+  return endSentence(t || point);
+}
+
+/** Which written question each lecture was last on (kept on this device). */
+function positions(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem("slidequiz:written-pos") || "{}");
+  } catch {
+    return {};
+  }
+}
+const lastQuestion = (mid: string) => positions()[mid];
+function rememberQuestion(mid: string, qid: string) {
+  try {
+    localStorage.setItem("slidequiz:written-pos", JSON.stringify({ ...positions(), [mid]: qid }));
+  } catch {
+    /* storage blocked */
+  }
 }
 
 /** Unsent answers, kept while moving between questions (until the page is refreshed). */
@@ -69,28 +92,50 @@ function ScoreRing({ got, of }: { got: number; of: number }) {
 export function WrittenView({ material: m }: { material: Material }) {
   const qs = m.written ?? [];
   const [busy, setBusy] = useState(false);
-  const [i, setI] = useState(0);
+  // Opens on the question you were last on for this lecture.
+  const [i, setIState] = useState(() => Math.max(0, qs.findIndex((x) => x.id === lastQuestion(m.id))));
+  const setI = (n: number) => {
+    setIState(n);
+    const id = (getState().materials.find((x) => x.id === m.id)?.written ?? [])[n]?.id;
+    if (id) rememberQuestion(m.id, id);
+  };
   const [resets, setResets] = useState(0);
   const idx = Math.min(i, Math.max(0, qs.length - 1));
 
   // A set of written questions uses about half the lecture's credits.
   const cost = Math.ceil(textSize(m) / 2);
-  const generate = async () => {
-    if (!ensureCredits(cost)) return;
+  // New questions are written automatically: when there are none, and when you're nearly out of ones to try.
+  const [noCredits, setNoCredits] = useState(false);
+  const asked = useRef(new Set<number>());
+  const generate = async (auto = false) => {
+    if (auto ? !fits(cost, currentAllowance()) : !ensureCredits(cost)) {
+      if (auto) setNoCredits(true);
+      return;
+    }
+    setNoCredits(false);
     setBusy(true);
     try {
       const fresh = await cloudWrittenQuestions(getState().materials.find((x) => x.id === m.id)!, 6);
       if (!fresh.length) throw new Error("No questions came back. Try again.");
       const before = list(m.id);
       save(m.id, [...before, ...fresh]);
-      setI(before.length);
     } catch (e) {
-      if (!(e as AIError).credits) toast.error(aiMessage(e));
+      if (!(e as AIError).credits && !auto) toast.error(aiMessage(e));
     } finally {
       setBusy(false);
       refreshAllowance();
     }
   };
+  const untried = qs.filter((x) => !x.last).length;
+  useEffect(() => {
+    if (busy || !hasText(m)) return;
+    const need = qs.length === 0 || untried <= 1;
+    // Once per size of the set, so a failed attempt doesn't keep retrying.
+    if (!need || asked.current.has(qs.length)) return;
+    asked.current.add(qs.length);
+    void generate(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qs.length, untried, busy]);
 
   if (!qs.length)
     return (
@@ -110,10 +155,10 @@ export function WrittenView({ material: m }: { material: Material }) {
           </div>
         ) : (
           <div className="mt-2 flex flex-col items-center gap-1.5">
-            <Button onClick={generate}>
+            {noCredits && <span className="text-[12.5px] text-muted-foreground">You need {costText(cost)} to write questions for this lecture.</span>}
+            <Button onClick={() => generate()}>
               <PenLine /> Write questions
             </Button>
-            <span className="text-[12px] text-muted-foreground">Uses {costText(cost)}</span>
           </div>
         )}
       </div>
@@ -159,9 +204,11 @@ export function WrittenView({ material: m }: { material: Material }) {
             <RotateCcw className="size-3.5" /> Reset progress
           </button>
         )}
-        <Button variant="outline" size="sm" className={cn(!tried && "ml-auto")} onClick={generate} loading={busy} title={`Uses ${costText(cost)}`}>
-          <Plus /> More questions
-        </Button>
+        {busy && (
+          <span className={cn("inline-flex items-center gap-1.5 text-[12.5px]", !tried && "ml-auto")}>
+            <Spinner className="size-3" /> Writing more questions…
+          </span>
+        )}
       </div>
       <QuestionCard key={`${q.id}-${resets}`} material={m} q={q} onNext={idx < qs.length - 1 ? () => setI(idx + 1) : undefined} />
       <div className="flex items-center justify-between">
@@ -233,8 +280,7 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
       setTimeout(() => {
         const el = document.querySelector("[data-score]");
         if (r.awarded === q.marks) {
-          if (q.marks >= 3) confetti();
-          else burst(el);
+          burst(el);
           if (sound) fanfare();
         } else if (r.awarded > 0) {
           burst(el, ["#f59e0b", "#fbbf24", "#fde68a"]);
@@ -329,30 +375,6 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
               </div>
             </div>
 
-            {last.hit.length > 0 && (
-              <section aria-label="What you got">
-                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-success">What you got · {last.awarded} {last.awarded === 1 ? "mark" : "marks"}</p>
-                <ul className="space-y-2">
-                  {q.points.map((_, k) => (last.hit.includes(k) ? k : -1)).filter((k) => k >= 0).map((k, n) => (
-                    <li
-                      key={k}
-                      className={cn("flex items-start gap-3 rounded-xl border border-success/40 bg-success-soft px-3.5 py-2.5", fresh && "animate-fade-up")}
-                      style={fresh ? { animationDelay: `${250 + n * 140}ms` } : undefined}
-                    >
-                      <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-success text-success-foreground", fresh && "animate-tick-pop")} style={fresh ? { animationDelay: `${330 + n * 140}ms` } : undefined}>
-                        <Check className="size-3.5" strokeWidth={3} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[14px] font-medium">{endSentence(q.points[k].text)}</span>
-                        {last.quotes?.[k] && <span className="mt-0.5 block text-[12.5px] text-foreground/70">You wrote “{last.quotes[k]}”</span>}
-                      </span>
-                      <span className="shrink-0 rounded-full bg-success px-2 py-0.5 text-[11.5px] font-bold text-success-foreground">+1</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
             {last.awarded < q.marks && q.points.some((_, k) => !last.hit.includes(k)) && (
               <section aria-label="What you missed">
                 <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -366,7 +388,7 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
                       style={fresh ? { animationDelay: `${300 + (last.hit.length + n) * 140}ms` } : undefined}
                     >
                       <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 border-dashed border-foreground/25 text-[11px] font-bold text-muted-foreground">+1</span>
-                      <span className="min-w-0 flex-1 text-[14px] text-foreground/85">{endSentence(q.points[k].text)}</span>
+                      <span className="min-w-0 flex-1 text-[14px] text-foreground/85">{shown(q.points[k].text)}</span>
                     </li>
                   ))}
                 </ul>

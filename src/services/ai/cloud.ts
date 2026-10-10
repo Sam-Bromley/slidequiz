@@ -99,6 +99,8 @@ export interface Allowance {
 /** Matches the leeway in use_lecture_text, so a lecture that only just fits isn't refused. */
 const LEEWAY = 5000;
 let allowance: Allowance | null = null;
+/** The last known allowance (null until it has been loaded). */
+export const currentAllowance = () => allowance;
 const allowanceListeners = new Set<() => void>();
 
 let refreshing: Promise<Allowance | null> | null = null;
@@ -257,7 +259,7 @@ export function enhanceMaterial(id: ID): Promise<void> {
         actions.retopicPractice(id);
         const subject = res.map((p) => String(p.subject ?? "").trim()).find((s) => s && s.length <= 40);
         if (subject) actions.updateMaterial(id, { subject });
-        setAi({ notes: sections });
+        setAi({ notes: sections, style: 2 });
         return sections;
       })();
       let first = true;
@@ -442,6 +444,43 @@ const balancing = new Set<ID>();
  * Questions made before the length check: rewrites the options of any whose right answer could be spotted
  * by its length, 20 at a time, in the background. Each question is only ever checked once.
  */
+const restyling = new Set<ID>();
+/**
+ * Notes written before the newer layout are laid out again (summaries, steps, tables, callouts), a few topics at a time.
+ * Not for notes with highlights on them, so the highlights stay where they were put.
+ */
+export async function restyleOldNotes(materialId: ID) {
+  const m = getState().materials.find((x) => x.id === materialId);
+  const notes = m?.ai?.notes;
+  if (!m || !notes?.length || m.ai?.style === 2 || m.ai?.status === "working" || (m.marks?.length ?? 0) > 0 || restyling.has(materialId) || !isLoggedIn()) return;
+  restyling.add(materialId);
+  try {
+    const chunks: AINoteSection[][] = [];
+    for (let i = 0; i < notes.length; i += 3) chunks.push(notes.slice(i, i + 3));
+    const back = await runLimited(chunks, 4, (c) => call<{ sections: AINoteSection[] }>("restyleNotes", { pages: [], title: m.title, sections: c }).catch(() => ({ sections: [] as AINoteSection[] })));
+    const pages = m.pages.map((p) => ({ id: p.id })) as unknown as CloudPage[];
+    let changed = 0;
+    const next = chunks.flatMap((orig, ci) => {
+      const got = mergeSections(back[ci]?.sections ?? [], pages);
+      // Same topics in the same order, or keep the old ones (so topics and progress still line up).
+      if (got.length !== orig.length) return orig;
+      changed++;
+      return orig.map((o, k) => {
+        const own = new Set(o.parts.flatMap((p) => p.pageIds));
+        const parts = got[k].parts.map((p) => ({ ...p, pageIds: p.pageIds.filter((x) => own.has(x)).length ? p.pageIds.filter((x) => own.has(x)) : [o.parts[0]?.pageIds[0]].filter(Boolean) as ID[] }));
+        return { ...got[k], title: o.title, parts };
+      });
+    });
+    const cur = getState().materials.find((x) => x.id === materialId);
+    if (!cur?.ai || cur.ai.notes !== notes || !changed) return;
+    actions.updateMaterial(materialId, { ai: { ...cur.ai, notes: next, style: changed === chunks.length ? 2 : cur.ai.style } });
+  } catch {
+    /* try again next time */
+  } finally {
+    restyling.delete(materialId);
+  }
+}
+
 export async function balanceOldQuestions(materialId: ID) {
   if (balancing.has(materialId) || !isLoggedIn()) return;
   balancing.add(materialId);

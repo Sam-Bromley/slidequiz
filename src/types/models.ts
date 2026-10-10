@@ -235,6 +235,8 @@ export interface MaterialAI {
   notes?: AINoteSection[];
   /** True once the questions are the AI's. */
   questions?: boolean;
+  /** 2: notes in the newer layout (summaries, steps, tables, callouts). Older notes are laid out again when opened. */
+  style?: number;
   /** Why it last failed, shown small on the "Couldn't write" panel. */
   error?: string;
   at: string;

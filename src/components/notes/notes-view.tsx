@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ImageZoom } from "@/components/ui/image-zoom";
 import { cn } from "@/lib/utils";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
+import { restyleOldNotes } from "@/services/ai/cloud";
 import { buildNotes, lineKey, notesExportDoc, type NoteLine, type NoteSlide } from "@/services/notes";
 import { Highlighter } from "@/components/notes/highlighter";
 import { ExportDialog } from "@/components/export/export-dialog";
@@ -351,6 +352,10 @@ export function NotesView({ material }: { material: Material }) {
   const data = useData();
   const sections = useMemo(() => buildNotes(material), [material]);
   useKeepScroll(material.id, sections.length > 0);
+  // Older notes get the newer layout the first time they're opened.
+  useEffect(() => {
+    void restyleOldNotes(material.id);
+  }, [material.id]);
   const showImages = !!data.settings.notesImages;
   const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
   const imageIds = useMemo(() => sections.flatMap((sec) => sec.slides.flatMap((x) => x.images.map((i) => i.id))), [sections]);
