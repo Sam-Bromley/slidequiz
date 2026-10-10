@@ -16,7 +16,7 @@ import { effectiveTheme, isDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
 import { Logo, LogoMark } from "./logo";
-import { NAV } from "./nav";
+import { NAV, navTarget, openedItem } from "./nav";
 
 const SB_DEFAULT = 248;
 const SB_MIN = 68;
@@ -27,6 +27,7 @@ const SB_COMPACT = 150;
 
 function Sidebar() {
   const { path } = useLocation();
+  const navTo = useNavTo();
   const data = useData();
   const pro = usePlanQuiet().plus;
   const saved = Math.min(SB_MAX, data.settings.sidebarWidth ?? SB_DEFAULT);
@@ -117,7 +118,7 @@ function Sidebar() {
             return (
               <li key={n.to}>
                 <Link
-                  to={n.to}
+                  to={navTo(n)}
                   aria-current={active ? "page" : undefined}
                   title={compact ? n.label : undefined}
                   className={cn("flex h-9 items-center gap-2.5 overflow-hidden rounded-lg pr-2.5 text-[14px] transition-colors focus-ring", active ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
@@ -198,8 +199,18 @@ function MobileTopBar(_: { onMenu: () => void }) {
 // Stats lives in the side bar and the menu; the bottom bar keeps the five main tabs.
 const MOBILE_TABS = NAV.filter((n) => n.to !== "/stats");
 
+/** Tab links that open the last deck, lecture or essay used (see navTarget). */
+function useNavTo() {
+  const data = useData();
+  const { path } = useLocation();
+  const exists = (key: "flashcards" | "notes" | "essays", id: string) =>
+    key === "flashcards" ? (data.decks ?? []).some((d) => d.id === id) : key === "notes" ? data.materials.some((m) => m.id === id) : (data.essayDrafts ?? []).some((e) => e.id === id);
+  return (n: (typeof NAV)[number]) => navTarget(n, path, data.settings.lastOpen, exists);
+}
+
 function BottomNav() {
   const { path } = useLocation();
+  const navTo = useNavTo();
   return (
     <nav data-no-bounce className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/70 backdrop-blur-xl lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }} aria-label="Primary">
       <ul className="mx-auto grid h-16 max-w-lg grid-cols-5">
@@ -208,7 +219,7 @@ function BottomNav() {
           return (
             <li key={n.to} className="flex">
               <Link
-                to={n.to}
+                to={navTo(n)}
                 aria-current={active ? "page" : undefined}
                 className={cn("flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium transition-colors focus-ring rounded-lg", active ? "text-primary" : "text-muted-foreground")}
               >
@@ -227,6 +238,7 @@ function BottomNav() {
 
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { path } = useLocation();
+  const navTo = useNavTo();
   useEffect(() => {
     onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,7 +267,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
           <ul className="space-y-1">
             {NAV.map((n) => (
               <li key={n.to}>
-                <Link to={n.to} aria-current={n.match(path) ? "page" : undefined} className={cn("flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] font-medium focus-ring", n.match(path) ? "bg-accent text-foreground" : "text-muted-foreground")}>
+                <Link to={navTo(n)} aria-current={n.match(path) ? "page" : undefined} className={cn("flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] font-medium focus-ring", n.match(path) ? "bg-accent text-foreground" : "text-muted-foreground")}>
                   <n.icon className="size-5" />
                   {n.label}
                 </Link>
@@ -280,6 +292,15 @@ function lastAccent() {
 export function AppShell({ children, bare }: { children: ReactNode; bare?: boolean }) {
   const [drawer, setDrawer] = useState(false);
   const data = useData();
+  // Remember the deck, lecture or essay being looked at, so its tab opens straight back to it.
+  const { path: here } = useLocation();
+  useEffect(() => {
+    const item = openedItem(here);
+    if (!item) return;
+    const last = data.settings.lastOpen ?? {};
+    if (last[item.key] !== item.id) actions.updateSettings({ lastOpen: { ...last, [item.key]: item.id } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [here]);
   // Pro members' own photo (only while they have Pro, and only on the device it was added on).
   const plan = usePlan();
   const photoUrl = useBackgroundPhotoUrl(plan.plus && data.settings.bgPhotoOn ? data.settings.bgPhoto : undefined);

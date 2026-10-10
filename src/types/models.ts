@@ -96,6 +96,8 @@ export interface Settings {
   notesImages?: boolean;
   /** Show a quote above the box on Home (on by default). */
   showQuote?: boolean;
+  /** The flashcard deck, lecture and essay last opened: the Flashcards, Notes and Essays tabs open straight to them. */
+  lastOpen?: { flashcards?: string; notes?: string; essays?: string };
   /** A soft chime for a right answer (on unless turned off). */
   soundEffects?: boolean;
 }
