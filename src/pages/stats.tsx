@@ -7,13 +7,14 @@ import { Link, navigate } from "@/lib/router";
 import { effectiveTheme, isDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
+import { ActivityChart, METRICS } from "@/components/stats/activity-chart";
 import type { AppData } from "@/services/db/types";
 import type { ID } from "@/types/models";
 
 /** Categorical colours in a fixed order (checked for colour-blind separation), light and dark versions. */
-const LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7"];
-const DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9"];
-const OTHER = { light: "#a8a8a2", dark: "#6b6b66" };
+const LIGHT = ["#6C63FF", "#FF6B8B", "#16B394", "#F59E0B", "#3BA4FF", "#FF8A4C", "#A66CFF"];
+const DARK = ["#8B84FF", "#FF8AA3", "#3AD6B8", "#FFC145", "#62B6FF", "#FFA06B", "#B98AFF"];
+const OTHER = { light: "#C9C9D6", dark: "#55556A" };
 const MAX_SLICES = 6;
 
 type Row = { id: ID | "other"; title: string; questions: number; cards: number; written: number; total: number; copies?: number };
@@ -106,19 +107,26 @@ export function StatsPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { icon: ListChecks, label: "Questions answered", value: answered.toLocaleString() },
-          { icon: Target, label: "Answered right", value: answered ? `${Math.round((right / answered) * 100)}%` : "–" },
-          { icon: Layers, label: "Flashcard reviews", value: cards.toLocaleString() },
-          { icon: PenLine, label: "Written answers", value: written.toLocaleString() },
-        ].map((t) => (
-          <div key={t.label} className="rounded-2xl border bg-card p-4">
-            <p className="flex items-start gap-1.5 text-[12.5px] leading-snug text-muted-foreground">
-              <t.icon className="mt-0.5 size-3.5 shrink-0" /> {t.label}
-            </p>
-            <p className="mt-1 text-[24px] font-bold tabular-nums tracking-tight">{t.value}</p>
-          </div>
-        ))}
+          { icon: ListChecks, metric: "questions", label: "Questions answered", value: answered.toLocaleString() },
+          { icon: Target, metric: "accuracy", label: "Answered right", value: answered ? `${Math.round((right / answered) * 100)}%` : "–" },
+          { icon: Layers, metric: "cards", label: "Flashcard reviews", value: cards.toLocaleString() },
+          { icon: PenLine, metric: "written", label: "Written answers", value: written.toLocaleString() },
+        ].map((t) => {
+          const m = METRICS.find((x) => x.id === t.metric)!;
+          const c = dark ? m.dark : m.light;
+          return (
+            <div key={t.label} className="rounded-2xl border bg-card p-4">
+              <span className="grid size-8 place-items-center rounded-xl" style={{ background: `${c}22`, color: c }}>
+                <t.icon className="size-4" />
+              </span>
+              <p className="mt-3 text-[24px] font-bold leading-none tabular-nums tracking-tight">{t.value}</p>
+              <p className="mt-1.5 text-[12.5px] leading-snug text-muted-foreground">{t.label}</p>
+            </div>
+          );
+        })}
       </div>
+
+      <ActivityChart data={data} dark={dark} />
 
       <section aria-labelledby="split-h" className="rounded-2xl border bg-card p-5 sm:p-6">
         <SectionTitle id="split-h">What you've revised most</SectionTitle>

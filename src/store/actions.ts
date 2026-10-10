@@ -54,9 +54,9 @@ function logStudy(s: AppData, answers: { questionId: ID; right: boolean }[], car
   }
   day.cards += cards;
   log[today] = day;
-  // Keep about 10 weeks.
+  // Keep about a year (for the charts on the Stats page).
   const keys = Object.keys(log).sort();
-  for (const k of keys.slice(0, Math.max(0, keys.length - 70))) delete log[k];
+  for (const k of keys.slice(0, Math.max(0, keys.length - 400))) delete log[k];
   return { ...s, user: { ...s.user, studyLog: log } };
 }
 
