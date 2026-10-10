@@ -96,6 +96,8 @@ export interface Settings {
   notesImages?: boolean;
   /** Show a quote above the box on Home (on by default). */
   showQuote?: boolean;
+  /** A soft chime for a right answer (on unless turned off). */
+  soundEffects?: boolean;
 }
 
 export type SourceFileType = "pptx" | "pdf" | "docx" | "txt" | "image" | "text" | "audio" | "video" | "youtube";

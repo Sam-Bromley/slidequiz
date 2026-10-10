@@ -216,6 +216,9 @@ export function SettingsPage() {
         <Row label="Review reminder emails" hint="A short email when a lecture is due a review (1, 3, 6, 14 and 30 days after you make it), the points where you'd otherwise start forgetting it" htmlFor="set-review-emails" inline>
           <Switch id="set-review-emails" checked={s.reviewEmails !== false} onChange={(v) => set({ reviewEmails: v })} label="Review reminder emails" />
         </Row>
+        <Row label="Sound effects" hint="A soft chime when you get a question right" htmlFor="set-sound" inline>
+          <Switch id="set-sound" checked={s.soundEffects !== false} onChange={(v) => set({ soundEffects: v })} label="Sound effects" />
+        </Row>
         <Row label="Quote of the day" htmlFor="set-quote" inline>
           <Switch id="set-quote" checked={s.showQuote !== false} onChange={(v) => set({ showQuote: v })} label="Quote of the day" />
         </Row>

@@ -7,11 +7,13 @@ import { cn } from "@/lib/utils";
 import { endSentence, optionsAreSentences, tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { confetti } from "@/lib/confetti";
+import { burst, buzz, chime } from "@/lib/celebrate";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
 import type { ID, Material, Question } from "@/types/models";
 
+const PRAISE = ["Correct!", "Nice one!", "Spot on!", "Nailed it!", "Exactly right!", "Yes!"];
 const LETTERS = "ABCDEF";
 const COUNTS = [3, 4, 5, 6];
 
@@ -81,6 +83,9 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const [retrying, setRetrying] = useState(false);
   const [round, setRound] = useState(0);
   const [session, setSession] = useState({ right: 0, wrong: 0 });
+  /** Right answers in a row (for the "3 in a row" chip and a chime that climbs a little each time). */
+  const [streak, setStreak] = useState(0);
+  const [praise, setPraise] = useState("Correct");
   const nextBtn = useRef<HTMLButtonElement>(null);
   /** Every question answered (kept while the site is open, across rounds and tab switches), so you can go back to any of them. */
   const historyKey = mixed ? mixed.map((m) => m.id).join(",") : material.id;
@@ -184,6 +189,13 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
       return;
     }
     const ok = i === view.correct;
+    if (ok) {
+      burst(document.querySelector(`[data-answer="${i}"] [data-tick]`));
+      if (getState().settings.soundEffects !== false) chime(streak);
+      buzz();
+      setStreak((n) => n + 1);
+      setPraise(PRAISE[Math.floor(Math.random() * PRAISE.length)]);
+    } else setStreak(0);
     actions.answerPractice(q.id, ok);
     setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
     if (!ok) {
@@ -490,6 +502,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                   key={i}
                   type="button"
                   role="radio"
+                  data-answer={i}
                   aria-checked={isChosen}
                   disabled={sAnswered}
                   onClick={() => (rev ? answerPast(i) : answer(i))}
@@ -497,13 +510,14 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                     "flex w-full items-start gap-3 rounded-xl border px-3.5 py-2.5 text-left text-[15px] leading-snug transition-colors focus-ring disabled:cursor-default",
                     !sAnswered && "hover:border-foreground/40 hover:bg-accent",
                     sAnswered && isRight && "border-success bg-success-soft",
-                    !rev && sAnswered && isRight && isChosen && "animate-correct-glow",
+                    !rev && sAnswered && isRight && isChosen && "animate-correct",
                     sAnswered && isChosen && !isRight && "border-destructive bg-destructive-soft",
                     !rev && sAnswered && isChosen && !isRight && "animate-shake",
                     sAnswered && !isRight && !isChosen && "opacity-60",
                   )}
                 >
                   <span
+                    data-tick
                     className={cn(
                       "grid size-6 shrink-0 place-items-center rounded-full border text-[12px] font-semibold",
                       sAnswered && isRight ? "border-success bg-success text-success-foreground" : sAnswered && isChosen ? "border-destructive bg-destructive text-destructive-foreground" : "text-muted-foreground",
@@ -539,7 +553,10 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
           {sAnswered && (
             <div ref={feedbackRef} className="mt-4 animate-fade-up scroll-mb-24 lg:scroll-mb-6">
               <p className={cn("text-[15px] font-semibold", sCorrect ? "text-success" : "text-destructive")}>
-                {rev ? (sCorrect ? "You got this right" : `You got this wrong. The answer is ${LETTERS[sView!.correct]}.`) : sCorrect ? "Correct" : `Not quite. The answer is ${LETTERS[sView!.correct]}.`}
+                {rev ? (sCorrect ? "You got this right" : `You got this wrong. The answer is ${LETTERS[sView!.correct]}.`) : sCorrect ? praise : `Not quite. The answer is ${LETTERS[sView!.correct]}.`}
+                {!rev && sCorrect && streak >= 3 && (
+                  <span className="ml-2 inline-flex animate-tick-pop items-center rounded-full bg-success-soft px-2 py-0.5 align-middle text-[12px] font-semibold text-success">{streak} in a row{streak >= 10 ? " 🔥🔥" : streak >= 5 ? " 🔥" : ""}</span>
+                )}
               </p>
               <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>
               {!rev && !sCorrect && !retrying && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
