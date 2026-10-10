@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
-import { endSentence, tidyQuestion, tidySentence } from "@/lib/tidy";import { confetti } from "@/lib/confetti";
+import { endSentence, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { cn } from "@/lib/utils";
 import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, ensureCredits, refreshAllowance, textSize } from "@/services/ai/cloud";
 import { actions } from "@/store/actions";
@@ -160,7 +160,6 @@ function QuestionCard({ material: m, q }: { material: Material; q: WrittenQuesti
       const r = await cloudMarkWritten(q, text.trim());
       patch(m.id, q.id, { last: r, best: Math.max(q.best ?? 0, r.awarded) });
       setEditing(false);
-      if (r.awarded === q.marks && q.marks >= 2) confetti({ count: 70 });
     } catch (e) {
       toast.error(aiMessage(e));
     } finally {

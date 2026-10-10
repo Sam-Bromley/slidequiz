@@ -82,7 +82,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const [tries, setTries] = useState(0);
   const [retrying, setRetrying] = useState(false);
   const [round, setRound] = useState(0);
-  const [session, setSession] = useState({ right: 0, wrong: 0 });
   /** Right answers in a row (for the "3 in a row" chip and a chime that climbs a little each time). */
   const [streak, setStreak] = useState(0);
   const [praise, setPraise] = useState("Correct");
@@ -164,21 +163,13 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const coveredN = all.filter(isCovered).length;
   const prog = { total: all.length, covered: coveredN, review: all.filter(needsReview).length, pct: all.length ? Math.round((coveredN / all.length) * 100) : 0 };
 
-  // Confetti: reaching 100% of this lecture, or finishing a round with a great score.
+  // Confetti only for covering every topic (100% of the lecture).
   const lastPct = useRef(prog.pct);
   useEffect(() => {
     if (prog.pct === 100 && lastPct.current < 100 && prog.total >= 3) confetti();
     lastPct.current = prog.pct;
   }, [prog.pct, prog.total]);
   const roundOver = all.length > 0 && !rev && !q;
-  const celebrated = useRef(-1);
-  useEffect(() => {
-    const done = session.right + session.wrong;
-    if (roundOver && celebrated.current !== round && done >= 5 && session.right / done >= 0.8 && prog.pct < 100) {
-      celebrated.current = round;
-      confetti({ count: 110 });
-    }
-  }, [roundOver, round, session.right, session.wrong, prog.pct]);
 
   const answer = (i: number) => {
     if (!q || !view || answered) return;
@@ -197,7 +188,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
       setPraise(PRAISE[Math.floor(Math.random() * PRAISE.length)]);
     } else setStreak(0);
     actions.answerPractice(q.id, ok);
-    setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
     if (!ok) {
       // Ask it again a few questions later.
       setQueue((qu) => {
@@ -232,7 +222,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     const ok = i === rev.view.correct;
     setPast((ps) => ps.map((p, k) => (k === viewIdx ? { ...p, chosen: i } : p)));
     actions.answerPractice(sq.id, ok);
-    setSession((s) => (ok ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 }));
     // Got it right: no need for it to come back at the end of the round.
     if (ok)
       setQueue((qu) => {
@@ -297,15 +286,14 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     });
     return () => cancelAnimationFrame(id);
   }, [sAnswered, viewIdx, qid]);
-  // (Not when the page first opens: the controls at the top should stay in view then.)
+  // Each question (including the first when the page opens) is scrolled to the top of the screen, so the question
+  // and all its answers are in view without touching anything. The first one jumps straight there.
   const firstShow = useRef(true);
   useEffect(() => {
     if (sAnswered) return;
-    if (firstShow.current) {
-      firstShow.current = false;
-      return;
-    }
-    const id = requestAnimationFrame(() => card.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+    const instant = firstShow.current;
+    firstShow.current = false;
+    const id = requestAnimationFrame(() => card.current?.scrollIntoView({ block: "start", behavior: instant ? "auto" : "smooth" }));
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qid, pos, viewIdx]);
@@ -324,7 +312,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     setChosen(null);
     setRetrying(false);
     setRound((r) => r + 1);
-    setSession({ right: 0, wrong: 0 });
     setViewIdx(null);
   };
 
