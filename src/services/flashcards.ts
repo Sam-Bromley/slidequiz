@@ -7,6 +7,7 @@ import { getAI } from "@/services/ai";
 import { groundingFor } from "@/services/grounding";
 import { AIError, cloudFlashcards } from "@/services/ai/cloud";
 import type { ID, Material } from "@/types/models";
+import { isJunkCard } from "@/lib/junk-card";
 
 export interface CardDraft {
   front: string;
@@ -67,5 +68,5 @@ export async function cardsFor(m: Material, topicIds: ID[] = []): Promise<CardDr
     if (!figure && count(a) < 2) continue;
     add({ materialId: m.id, topicId: q.topicId, source: q.sources[0], front: gap[1], back: a });
   }
-  return out;
+  return out.filter((c) => !isJunkCard(c.front, c.back));
 }

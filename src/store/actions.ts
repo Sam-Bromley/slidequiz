@@ -1,3 +1,4 @@
+import { isJunkCard } from "@/lib/junk-card";
 import { emptyData } from "./defaults";
 import { nowISO, uid, dayKey } from "@/lib/utils";
 import type { FlashcardDraft, QuestionDraft } from "@/services/ai/types";
@@ -102,6 +103,7 @@ export const actions = {
     const saved = s0.saved.filter((x) => qids.has(x.questionId));
     const summary = s0.summaries[id];
     const chat = s0.chats[id];
+    const decks0 = s0.decks ?? [];
     setState((s) => {
       const summaries = { ...s.summaries };
       const chats = { ...s.chats };
@@ -112,6 +114,13 @@ export const actions = {
         materials: s.materials.filter((m) => m.id !== id),
         questions: s.questions.filter((q) => q.materialId !== id),
         flashcards: s.flashcards.filter((c) => c.materialId !== id),
+        // Flashcards made from this lecture go with it (a deck mixing lectures keeps its other cards).
+        decks: (s.decks ?? []).flatMap((d) => {
+          const fromIt = d.materialIds.includes(id) || s.flashcards.some((c) => c.deckId === d.id && c.materialId === id);
+          if (!fromIt) return [d];
+          const left = s.flashcards.some((c) => c.deckId === d.id && c.materialId !== id);
+          return left ? [{ ...d, materialIds: d.materialIds.filter((x) => x !== id) }] : [];
+        }),
         saved: s.saved.filter((x) => !qids.has(x.questionId)),
         summaries,
         chats,
@@ -126,11 +135,28 @@ export const actions = {
           materials,
           questions: [...s.questions, ...questions],
           flashcards: [...s.flashcards, ...flashcards],
+          decks: decks0,
           saved: [...s.saved, ...saved],
           summaries: summary ? { ...s.summaries, [id]: summary } : s.summaries,
           chats: chat ? { ...s.chats, [id]: chat } : s.chats,
         };
       });
+  },
+
+  /** Removes flashcards about the slides rather than the subject ("Any other questions?") from older decks. */
+  dropJunkCards() {
+    const s0 = getState();
+    if (!s0.flashcards.some((c) => isJunkCard(c.front, c.back))) return;
+    setState((s) => ({ ...s, flashcards: s.flashcards.filter((c) => !isJunkCard(c.front, c.back)) }));
+  },
+  /** Removes flashcard decks left empty by lectures deleted before decks were tidied up with them. */
+  dropOrphanDecks() {
+    const s0 = getState();
+    const have = new Set(s0.materials.map((m) => m.id));
+    const orphan = (s0.decks ?? []).filter((d) => d.materialIds.length > 0 && d.materialIds.every((x) => !have.has(x)) && !s0.flashcards.some((c) => c.deckId === d.id));
+    if (!orphan.length) return;
+    const ids = new Set(orphan.map((d) => d.id));
+    setState((s) => ({ ...s, decks: (s.decks ?? []).filter((d) => !ids.has(d.id)) }));
   },
 
   /* ------------------------------------------------------------ folders */

@@ -18,6 +18,7 @@ import { nowISO, uid } from "@/lib/utils";
 import { referencesText, type PageInfo } from "@/services/references";
 import { buildNotes, lineKey } from "@/services/notes";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
+import { isJunkCard } from "@/lib/junk-card";
 import type { NoteMark, WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
@@ -573,7 +574,7 @@ export async function cloudFlashcards(m: Material, topicIds: ID[], auto = false)
   const pages = cloudPages(m, topicIds);
   if (!pages.length) return [];
   const res = await runLimited(chunks(pages), 4, (c) => call<{ cards: { front: string; back: string; pageId: ID }[] }>(auto ? "autoFlashcards" : "flashcards", { title: m.title, pages: c }));
-  return res.flatMap((r) => r.cards ?? []).filter((c) => c.front?.trim() && c.back?.trim());
+  return res.flatMap((r) => r.cards ?? []).filter((c) => c.front?.trim() && c.back?.trim() && !isJunkCard(c.front, c.back));
 }
 
 /** An answer about the lecture. Throws an AIError if it can't. */

@@ -1,4 +1,5 @@
 import { useRewards } from "@/lib/rewards";
+import { actions } from "@/store/actions";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { initAds } from "@/services/ads";
 import { EssayPage, EssaysPage } from "@/pages/essays";
@@ -122,6 +123,9 @@ export function App() {
   }, [title]);
   useThemeSync(data.settings);
   useRewards(data);
+  // Tidy away flashcard decks whose lecture was deleted (and that have no cards left).
+  useEffect(() => actions.dropOrphanDecks(), [data.materials.length, data.decks?.length]);
+  useEffect(() => actions.dropJunkCards(), [data.flashcards.length]);
   useEffect(() => initAds(), []);
   useGlobalShortcuts();
   useClickBounce();

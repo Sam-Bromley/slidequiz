@@ -93,6 +93,7 @@ Slides (each starts with [id]):
 ${pages}
 
 Write flashcards for the facts most worth memorising. Front: a clear question or description. Back: the answer in 1–6 words. No duplicates.
+Only the subject itself: skip title slides, "Any questions?", "Thank you", learning objectives, contents, summaries of what's coming, references and reading lists, activities, and anything about the module, lecturer, deadlines or the lecture itself. If a slide has nothing worth memorising, make no card from it.
 Reply with JSON only:
 {"cards":[{"pageId":"…","front":"…","back":"…"}]}`,
   },
