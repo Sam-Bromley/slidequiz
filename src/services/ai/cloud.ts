@@ -16,7 +16,9 @@ import { actions } from "@/store/actions";
 import { getState, subscribeState } from "@/store/store";
 import { nowISO, uid } from "@/lib/utils";
 import { referencesText, type PageInfo } from "@/services/references";
-import type { WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
+import { buildNotes, lineKey } from "@/services/notes";
+import { tidyLine, tidyTerm } from "@/lib/tidy";
+import type { NoteMark, WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
@@ -444,20 +446,49 @@ const balancing = new Set<ID>();
  * Questions made before the length check: rewrites the options of any whose right answer could be spotted
  * by its length, 20 at a time, in the background. Each question is only ever checked once.
  */
+/** Every line of the notes as shown (the text highlights are measured against), by its key. */
+function shownLines(m: Material) {
+  const out: { key: string; page: ID; full: string }[] = [];
+  for (const sec of buildNotes(m))
+    for (const sl of sec.slides)
+      sl.lines.forEach((l, i) => {
+        const text = tidyLine(l.text);
+        const term = l.kind === "sub" ? "" : l.term ? tidyTerm(l.term) : "";
+        out.push({ key: lineKey(sl.page.id, i, l.text), page: sl.page.id, full: term ? term + (text ? l.sep ?? ": " : "") + text : text });
+      });
+  return out;
+}
+
+/** Highlights follow their words into the re-laid-out notes (same slide first, then anywhere). */
+function moveMarks(before: Material, after: Material): NoteMark[] {
+  const old = new Map(shownLines(before).map((l) => [l.key, l]));
+  const now = shownLines(after);
+  return (before.marks ?? []).map((mk) => {
+    const was = old.get(mk.key);
+    const word = mk.text || was?.full.slice(mk.start, mk.end) || "";
+    if (!word) return mk;
+    const hit = now.find((l) => l.page === was?.page && l.full.includes(word)) ?? now.find((l) => l.full.includes(word));
+    if (!hit) return mk;
+    const start = hit.full.indexOf(word);
+    return { ...mk, key: hit.key, start, end: start + word.length };
+  });
+}
+
 const restyling = new Set<ID>();
 /**
  * Notes written before the newer layout are laid out again (summaries, steps, tables, callouts), a few topics at a time.
- * Not for notes with highlights on them, so the highlights stay where they were put.
+ * Highlights move to the same words in the new layout.
  */
-export async function restyleOldNotes(materialId: ID) {
+export async function restyleOldNotes(materialId: ID, onStart?: () => void) {
   const m = getState().materials.find((x) => x.id === materialId);
   const notes = m?.ai?.notes;
-  if (!m || !notes?.length || m.ai?.style === 2 || m.ai?.status === "working" || (m.marks?.length ?? 0) > 0 || restyling.has(materialId) || !isLoggedIn()) return;
+  if (!m || !notes?.length || m.ai?.style === 2 || m.ai?.status === "working" || restyling.has(materialId) || !isLoggedIn()) return;
   restyling.add(materialId);
+  onStart?.();
   try {
     const chunks: AINoteSection[][] = [];
-    for (let i = 0; i < notes.length; i += 3) chunks.push(notes.slice(i, i + 3));
-    const back = await runLimited(chunks, 4, (c) => call<{ sections: AINoteSection[] }>("restyleNotes", { pages: [], title: m.title, sections: c }).catch(() => ({ sections: [] as AINoteSection[] })));
+    for (let i = 0; i < notes.length; i += 2) chunks.push(notes.slice(i, i + 2));
+    const back = await runLimited(chunks, 5, (c) => call<{ sections: AINoteSection[] }>("restyleNotes", { pages: [], title: m.title, sections: c }).catch(() => ({ sections: [] as AINoteSection[] })));
     const pages = m.pages.map((p) => ({ id: p.id })) as unknown as CloudPage[];
     let changed = 0;
     const next = chunks.flatMap((orig, ci) => {
@@ -473,7 +504,8 @@ export async function restyleOldNotes(materialId: ID) {
     });
     const cur = getState().materials.find((x) => x.id === materialId);
     if (!cur?.ai || cur.ai.notes !== notes || !changed) return;
-    actions.updateMaterial(materialId, { ai: { ...cur.ai, notes: next, style: changed === chunks.length ? 2 : cur.ai.style } });
+    const ai = { ...cur.ai, notes: next, style: changed === chunks.length ? 2 : cur.ai.style };
+    actions.updateMaterial(materialId, { ai, ...(cur.marks?.length ? { marks: moveMarks(cur, { ...cur, ai }) } : {}) });
   } catch {
     /* try again next time */
   } finally {

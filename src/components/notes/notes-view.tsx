@@ -6,6 +6,7 @@ import { imageStore } from "@/services/storage/images";
 import { ChatPanel } from "@/components/tutor/chat-panel";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { ImageZoom } from "@/components/ui/image-zoom";
 import { cn } from "@/lib/utils";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
@@ -353,8 +354,13 @@ export function NotesView({ material }: { material: Material }) {
   const sections = useMemo(() => buildNotes(material), [material]);
   useKeepScroll(material.id, sections.length > 0);
   // Older notes get the newer layout the first time they're opened.
+  const [restyling, setRestyling] = useState(false);
   useEffect(() => {
-    void restyleOldNotes(material.id);
+    let live = true;
+    void restyleOldNotes(material.id, () => live && setRestyling(true)).finally(() => live && setRestyling(false));
+    return () => {
+      live = false;
+    };
   }, [material.id]);
   const showImages = !!data.settings.notesImages;
   const hasImages = sections.some((sec) => sec.slides.some((x) => x.images.length));
@@ -462,6 +468,11 @@ export function NotesView({ material }: { material: Material }) {
           )}
         </div>
 
+        {restyling && (
+          <p className="mb-4 flex items-center gap-2 rounded-xl bg-primary/[0.06] px-3.5 py-2.5 text-[13px] text-muted-foreground" aria-live="polite">
+            <Spinner className="size-3.5" /> Giving these notes a fresh layout. They'll update here in a moment.
+          </p>
+        )}
         {showImages && onDevice && onDevice.size === 0 && (
           <p className="mb-4 rounded-xl bg-muted/60 px-3.5 py-2.5 text-[13px] text-muted-foreground">Pictures from your slides are saved on the device you uploaded them on, so they only show there.</p>
         )}
