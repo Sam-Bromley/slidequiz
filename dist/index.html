@@ -86,6 +86,8 @@
       @keyframes sq-breathe{50%{transform:scale(1.05)}}
       @keyframes sq-rise{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
       @media (prefers-reduced-motion:reduce){#sq-splash img,#sq-splash span{animation:none}}
+      /* Phones and tablets only: computers go straight to the page. */
+      @media (min-width:1024px) and (hover:hover) and (pointer:fine){#sq-splash{display:none}}
     </style>
     <div id="root">
       <!-- Shown for a moment while the app loads, and read by search engines. The app replaces it. -->
