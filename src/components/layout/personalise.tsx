@@ -88,11 +88,10 @@ export function Personalise() {
           </div>
           <p className="flex items-center gap-1.5 px-1 pb-2 pt-4 text-[12px] font-medium text-muted-foreground">
             Accent colour
-            {!plan.plus && <span className="rounded-full bg-foreground px-1.5 py-px text-[10px] font-semibold text-background">Pro</span>}
           </p>
           <div className="flex flex-wrap gap-2 px-1" role="radiogroup" aria-label="Accent colour">
             {ACCENTS.map((a) => {
-              const on = plan.plus ? (data.settings.accent ?? "default") === a.key : a.key === "default";
+              const on = (data.settings.accent ?? "default") === a.key;
               return (
                 <button
                   key={a.key}
@@ -100,14 +99,7 @@ export function Personalise() {
                   aria-checked={on}
                   aria-label={a.label}
                   title={a.label}
-                  onClick={() => {
-                    if (plan.plus) actions.updateSettings({ accent: a.key });
-                    else if (a.key !== "default") {
-                      setOpen(false);
-                      toast("Accent colours are part of SlideQuiz Pro");
-                      navigate("/pro");
-                    }
-                  }}
+                  onClick={() => actions.updateSettings({ accent: a.key })}
                   className={cn("grid size-7 place-items-center rounded-full border-2 transition-transform hover:scale-110 focus-ring", on ? "border-foreground" : "border-transparent")}
                   style={{ background: a.swatch }}
                 >
@@ -123,7 +115,7 @@ export function Personalise() {
               return (
                 <button key={s} role="radio" aria-checked={on} onClick={() => actions.updateSettings({ scene: s, bgPhotoOn: false })} className="group text-left focus-ring rounded-xl">
                   <span className={cn("relative block h-14 overflow-hidden rounded-xl border-2 transition-colors", on ? "border-foreground" : "border-transparent group-hover:border-border")}>
-                    <ScenePreview scene={s} dark={dark} accent={plan.plus && data.settings.accent !== "default" ? data.settings.accent : null} />
+                    <ScenePreview scene={s} dark={dark} accent={data.settings.accent && data.settings.accent !== "default" ? data.settings.accent : null} />
                     {on && (
                       <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-foreground text-background">
                         <Check className="size-3" strokeWidth={3} />

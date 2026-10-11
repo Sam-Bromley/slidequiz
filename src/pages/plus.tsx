@@ -172,7 +172,7 @@ export function PlusPage() {
             "Download your notes as a designed PDF or Word document",
             "Highlight your notes and add your own notes to them",
             "A weekly recap of how your revision is going",
-            "Your own photo as the background, accent colours and coloured folders",
+            "Your own photo as the background",
             "Never held up when SlideQuiz is busy",
             "Cancel any time",
           ]}

@@ -14,7 +14,6 @@ import { cn, plural } from "@/lib/utils";
 import { actions, folderOrder } from "@/store/actions";
 import { FolderColumns, type FolderDragProps } from "@/components/materials/folder-columns";
 import { useDragReorder } from "@/components/ui/drag-reorder";
-import { usePlanQuiet } from "@/services/plus";
 import { highlightParts, searchNotes } from "@/services/search";
 import { daysUntil, examLabel, folderCoverage, materialsIn } from "@/services/folders";
 import { useData } from "@/store/store";
@@ -154,9 +153,7 @@ function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, drop
   const { width, start: onResizeStart } = useResizableWidth(colW, [], onSave);
   useEffect(() => onLive(width !== colW ? width : null), [width, colW]); // eslint-disable-line react-hooks/exhaustive-deps
   const [colouring, setColouring] = useState(false);
-  // Folder colours are a Pro feature.
-  const pro = usePlanQuiet().plus;
-  const hex = pro ? colourOf(f.color) : undefined;
+  const hex = colourOf(f.color);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [dating, setDating] = useState(false);
@@ -179,10 +176,10 @@ function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, drop
         const mid = e.dataTransfer.getData(MATERIAL_MIME);
         if (mid) onDropMaterial(mid);
       }}
-      style={drag.style}
+      style={{ ...drag.style, ...(hex && !over ? { backgroundColor: hex + "12", borderColor: hex + "55" } : {}) }}
       className={cn("group relative mb-3 flex min-h-[76px] w-full break-inside-avoid cursor-grab select-none items-center gap-3.5 rounded-2xl border bg-card px-4 py-4 transition-[background-color,border-color,transform] hover:border-foreground/20 active:cursor-grabbing", over && "scale-[1.03] border-foreground/50 bg-accent", drag["data-dragging"] !== undefined && "border-foreground/25")}
     >
-      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary" style={hex ? { backgroundColor: hex + "1f" } : undefined}>
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary" style={hex ? { backgroundColor: hex + "2e" } : undefined}>
         <FolderIcon className={cn("size-[22px]", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
       </span>
       <Link to={`/materials?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
@@ -197,17 +194,7 @@ function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, drop
           label={`${f.name} actions`}
           items={[
             { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
-            {
-              label: pro ? "Colour" : "Colour (Pro)",
-              icon: Palette,
-              onSelect: () => {
-                if (pro) setColouring(true);
-                else {
-                  toast("Folder colours are part of SlideQuiz Pro");
-                  navigate("/pro");
-                }
-              },
-            },
+            { label: "Colour", icon: Palette, onSelect: () => setColouring(true) },
             { label: f.examDate ? "Change exam date" : "Add exam date", icon: CalendarDays, onSelect: () => setDating(true) },
             { label: "Delete folder", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
           ]}

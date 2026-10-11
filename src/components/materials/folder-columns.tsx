@@ -64,6 +64,27 @@ export function FolderColumns({
   const suppressClick = useRef(false);
   const colsRef = useRef(cols);
   colsRef.current = cols;
+  // The other folders slide smoothly out of the way (remember where each was, then animate from there).
+  // Positions are kept in page coordinates so scrolling during a drag doesn't throw them off.
+  const resting = useRef(new Map<string, { left: number; top: number; height: number }>());
+  useLayoutEffect(() => {
+    const next = new Map<string, { left: number; top: number; height: number }>();
+    tileEls.current.forEach((el, id) => {
+      el.style.transition = "none";
+      el.style.transform = "";
+      const r = el.getBoundingClientRect();
+      const now = { left: r.left + window.scrollX, top: r.top + window.scrollY, height: r.height };
+      next.set(id, now);
+      const was = resting.current.get(id);
+      if (drag && was && (Math.abs(was.left - now.left) > 1 || Math.abs(was.top - now.top) > 1)) {
+        el.style.transform = `translate(${was.left - now.left}px, ${was.top - now.top}px)`;
+        void el.offsetWidth;
+        el.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
+        el.style.transform = "";
+      }
+    });
+    resting.current = next;
+  }, [drag?.id, drag?.col, drag?.index, width]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Which column the pointer is over, and the spot in it (by the middles of the folders already there). */
   const target = (x: number, y: number, id: string) => {
@@ -81,10 +102,10 @@ export function FolderColumns({
     const items = colsRef.current[col]?.filter((f) => f.id !== id) ?? [];
     let index = 0;
     for (const f of items) {
-      const el = tileEls.current.get(f.id);
-      if (!el) continue;
-      const r = el.getBoundingClientRect();
-      if (y > r.top + r.height / 2) index++;
+      // Where each folder is settling (not mid-slide), so the spot doesn't flicker while they move.
+      const r = resting.current.get(f.id);
+      if (!r) continue;
+      if (y + window.scrollY > r.top + r.height / 2) index++;
     }
     return { col, index };
   };
@@ -173,7 +194,8 @@ export function FolderColumns({
   });
 
   const dragged = drag ? folders.find((f) => f.id === drag.id) : undefined;
-  const placeholder = drag && <div aria-hidden className="mb-3 rounded-2xl border-2 border-dashed border-foreground/25 bg-accent/40" style={{ height: drag.h }} />;
+  // Just room for it: the folder being carried shows where it'll land.
+  const placeholder = drag && <div aria-hidden className="mb-3" style={{ height: drag.h }} />;
 
   return (
     <div ref={wrap} className="-mb-3 flex items-start" style={{ gap: GAP }}>
