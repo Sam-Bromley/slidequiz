@@ -16,9 +16,8 @@ import { SCENE_ORDER, SCENES, ScenePreview } from "./app-background";
 export const sceneLabel = (s: BackgroundScene) => (s === "none" ? "Plain" : SCENES[s].label);
 
 const ACCENTS = [
-  { key: "default", label: "Default", swatch: "hsl(var(--foreground))" },
+  { key: "default", label: "SlideQuiz green", swatch: "#22c55e" },
   { key: "blue", label: "Blue", swatch: "#2563eb" },
-  { key: "green", label: "Green", swatch: "#16a34a" },
   { key: "purple", label: "Purple", swatch: "#8b5cf6" },
   { key: "pink", label: "Pink", swatch: "#ec4899" },
   { key: "orange", label: "Orange", swatch: "#f97316" },
@@ -103,7 +102,7 @@ export function Personalise() {
                   className={cn("grid size-7 place-items-center rounded-full border-2 transition-transform hover:scale-110 focus-ring", on ? "border-foreground" : "border-transparent")}
                   style={{ background: a.swatch }}
                 >
-                  {on && <Check className={cn("size-3.5", a.key === "default" ? "text-background" : "text-white")} strokeWidth={3} />}
+                  {on && <Check className={cn("size-3.5", a.key === "default" ? "text-black" : "text-white")} strokeWidth={3} />}
                 </button>
               );
             })}
