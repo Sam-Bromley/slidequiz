@@ -239,11 +239,11 @@ export function UploadPage() {
         onDrop={onDrop}
         className={cn("rounded-2xl border-2 border-dashed bg-card transition-colors", drag ? "border-foreground/50 bg-accent" : "border-border hover:border-foreground/30")}
       >
-        <button type="button" onClick={() => input.current?.click()} className={cn("flex w-full items-center justify-center gap-3 rounded-2xl px-6 text-center focus-ring", items.length ? "py-5" : "flex-col py-12")}>
+        <label htmlFor="upload-files" role="button" tabIndex={0} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), input.current?.click())} className={cn("flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl px-6 text-center focus-ring", items.length ? "py-5" : "flex-col py-12")}>
           <UploadCloud className={cn("text-muted-foreground", items.length ? "size-5" : "size-7")} />
           <span className="text-[15px] font-medium">{drag ? "Drop to add" : items.length ? "Add another file" : "Drop your slides here, or click to choose"}</span>
-        </button>
-        <input ref={input} type="file" multiple accept={ACCEPT_ATTR} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+        </label>
+        <input ref={input} id="upload-files" type="file" multiple accept={ACCEPT_ATTR} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
       </div>
 
 

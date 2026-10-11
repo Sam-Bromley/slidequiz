@@ -1,7 +1,7 @@
 // SlideQuiz offline support.
 // Always tries the internet first, so updates show straight away; if there's no connection,
 // it uses the copy saved last time. Only SlideQuiz's own files are saved (not accounts or stats).
-const CACHE = "slidequiz-v2";
+const CACHE = "slidequiz-v3";
 const CORE = ["./", "index.html", "app.css", "assets/app.js", "favicon.svg", "manifest.webmanifest", "icon-192.png"];
 
 self.addEventListener("install", (e) => {

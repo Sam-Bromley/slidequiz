@@ -1,6 +1,6 @@
 import { ArrowUp, Check, FileText, Layers, ListChecks, Paperclip, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { handOffUpload } from "@/lib/handoff";
 import { navigate } from "@/lib/router";
 import { quoteOfTheDay } from "@/lib/quotes";
@@ -94,15 +94,17 @@ export function HomePage() {
             className="block max-h-60 min-h-[56px] w-full resize-none bg-transparent px-3 py-2 text-[15.5px] outline-none placeholder:text-muted-foreground"
           />
           <div className="flex items-center justify-between gap-2 pt-1">
-            <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={() => input.current?.click()}>
+            {/* A label for the file input (not a scripted click), which phones, home-screen apps included, always honour. */}
+            <label htmlFor="home-files" role="button" tabIndex={0} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), input.current?.click())} className={buttonClass("ghost", "sm", "cursor-pointer rounded-full text-muted-foreground")}>
               <Paperclip /> Add files
-            </Button>
+            </label>
             <Button size="icon" className="size-9 rounded-full" onClick={go} aria-label={ready ? "Continue" : "Choose files"}>
               <ArrowUp />
             </Button>
           </div>
           <input
             ref={input}
+            id="home-files"
             type="file"
             multiple
             accept={ACCEPT_ATTR}
