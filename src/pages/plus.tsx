@@ -170,8 +170,6 @@ export function PlusPage() {
             "Notes and questions from your lecture recordings (audio and video) and YouTube videos",
             `${PLUS.plusLectures} credits a month (20 times the free amount)`,
             "Download your notes as a designed PDF or Word document",
-            "Highlight your notes and add your own notes to them",
-            "A weekly recap of how your revision is going",
             "Your own photo as the background",
             "Never held up when SlideQuiz is busy",
             "Cancel any time",
@@ -186,6 +184,7 @@ export function PlusPage() {
             `${PLUS.freeLectures} credits a month with a free account`,
             "1 credit makes notes, practice questions and flashcards for a normal lecture",
             "Everything you've made stays yours to revise from",
+            "Highlights, your own notes and a weekly recap",
             "Practice, flashcards, essays and everything else",
           ]}
         />

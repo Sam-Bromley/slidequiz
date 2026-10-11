@@ -1,7 +1,6 @@
 import { CalendarDays, Crown, Trophy } from "lucide-react";
 import { navigate } from "@/lib/router";
 import { cn, dayKey } from "@/lib/utils";
-import { hasPlus, PLUS_ON, usePlanQuiet } from "@/services/plus";
 import { topicName } from "@/store/selectors";
 import { useData } from "@/store/store";
 import type { AppData } from "@/services/db/types";
@@ -49,14 +48,12 @@ export function weekRecap(data: AppData) {
   return { days, q, c, pct: q ? Math.round((c / q) * 100) : 0, cards, active, best, prev };
 }
 
-/** "This week: 142 questions, 83% correct, best topic: Enzymes". A Pro perk. */
+/** "This week: 142 questions, 83% correct, best topic: Enzymes". For everyone. */
 export function WeeklyRecap({ popover }: { popover?: boolean } = {}) {
   const data = useData();
-  usePlanQuiet();
   const r = weekRecap(data);
   if (!r.q && !r.cards && !popover) return null;
-  const plus = hasPlus();
-  if (!plus && !PLUS_ON) return null;
+  const plus = true;
   const max = Math.max(1, ...r.days.map((x) => (x.log?.q ?? 0) + (x.log?.cards ?? 0)));
   const diff = r.q - r.prev;
   const stats = [

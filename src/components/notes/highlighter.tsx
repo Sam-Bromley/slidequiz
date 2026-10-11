@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { navigate } from "@/lib/router";
 import { cn, uid } from "@/lib/utils";
-import { hasPlus, usePlanQuiet } from "@/services/plus";
 import { actions } from "@/store/actions";
 import type { Material, NoteMark } from "@/types/models";
 
@@ -70,8 +69,8 @@ const goPro = (what: string) =>
 
 /** Pick words in the notes to highlight them, and click a highlight to add a note. */
 export function Highlighter({ material, active, onClose, onAsk }: { material: Material; active: { mark: NoteMark; el: HTMLElement } | null; onClose: () => void; onAsk?: (text: string) => void }) {
-  usePlanQuiet();
-  const plus = hasPlus();
+  // Highlights and your own notes are free for everyone.
+  const plus = true;
   const [picked, setPicked] = useState<Picked | null>(null);
 
   useEffect(() => {
