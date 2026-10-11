@@ -10,6 +10,5 @@ startAccount();
 startInstallSupport();
 createRoot(document.getElementById("root")!).render(<App />);
 
-// The opening screen stays up for at least a moment (so it doesn't flicker), then goes.
-const splash = document.getElementById("sq-splash");
-if (splash) requestAnimationFrame(() => setTimeout(() => splash.remove(), Math.max(0, 450 - performance.now())));
+// The app is ready: no need for the opening screen (it only shows if loading took a while).
+document.getElementById("sq-splash")?.remove();
