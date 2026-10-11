@@ -12,10 +12,9 @@
     --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
-    /* The SlideQuiz signature green (#22c55e), with near-black text on it. */
-    --primary: 142 71% 42%;
-    --primary-foreground: 145 80% 5%;
-    --primary-soft: 142 60% 93%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 0 0% 94%;
     --secondary: 0 0% 95%;
     --secondary-foreground: 0 0% 12%;
     --muted: 0 0% 95.5%;
@@ -33,7 +32,7 @@
     --destructive-soft: 0 85% 96%;
     --border: 0 0% 89%;
     --input: 0 0% 84%;
-    --ring: 142 71% 42%;
+    --ring: 0 0% 30%;
     --radius: 0.8rem;
     --star: 0 0% 100%;
     color-scheme: light;
@@ -47,18 +46,18 @@
     --card-foreground: 0 0% 93%;
     --popover: 0 0% 9%;
     --popover-foreground: 0 0% 93%;
-    --primary: 142 71% 45%;
-    --primary-foreground: 145 80% 5%;
-    --primary-soft: 142 40% 12%;
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 4%;
+    --primary-soft: 0 0% 14%;
     --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 92%;
     --muted: 0 0% 11%;
     --muted-foreground: 0 0% 62%;
     --accent: 0 0% 13%;
     --accent-foreground: 0 0% 95%;
-    --success: 142 71% 45%;
-    --success-foreground: 145 80% 5%;
-    --success-soft: 142 40% 11%;
+    --success: 150 50% 56%;
+    --success-foreground: 150 60% 8%;
+    --success-soft: 150 30% 12%;
     --warning: 38 90% 60%;
     --warning-foreground: 30 60% 8%;
     --warning-soft: 36 30% 13%;
@@ -67,7 +66,7 @@
     --destructive-soft: 0 30% 14%;
     --border: 0 0% 16%;
     --input: 0 0% 22%;
-    --ring: 142 71% 45%;
+    --ring: 0 0% 70%;
     color-scheme: dark;
   }
   /* Night light: a warm, dim palette with almost no blue, for late-night study. */
@@ -137,8 +136,8 @@
   }
   .warmlight img { filter: sepia(0.25) saturate(0.9); }
 
-  /* "Brand" colour for progress rings and highlights: the signature green, unless another accent is picked. */
-  :root { --brand: var(--primary); }
+  /* "Brand" colour for progress rings and highlights: the text colour, unless a Pro accent is picked. */
+  :root { --brand: var(--foreground); }
 
   /* Loading placeholder: a soft light sweeping across. */
   .shimmer {
