@@ -10,13 +10,6 @@ startAccount();
 startInstallSupport();
 createRoot(document.getElementById("root")!).render(<App />);
 
-// The opening screen stays up for at least a moment (so it doesn't flicker), then fades out.
+// The opening screen stays up for at least a moment (so it doesn't flicker), then goes.
 const splash = document.getElementById("sq-splash");
-if (splash) {
-  const shownFor = performance.now();
-  const hide = () => {
-    splash.classList.add("gone");
-    setTimeout(() => splash.remove(), 400);
-  };
-  requestAnimationFrame(() => setTimeout(hide, Math.max(0, 450 - shownFor)));
-}
+if (splash) requestAnimationFrame(() => setTimeout(() => splash.remove(), Math.max(0, 450 - performance.now())));
