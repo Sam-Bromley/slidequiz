@@ -430,9 +430,11 @@ export function FlashcardsPage() {
       ) : (
         <>
           {folders.length > 0 && (
-            <section aria-label="Folders" className="mb-6 grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]">
+            <section aria-label="Folders" className="mb-6 flex flex-col gap-2">
               {folders.map((f) => (
-                <DeckFolderTile key={f.id} f={f} count={countIn(f.id)} over={reorder.over === f.id} />
+                <div key={f.id} style={{ width: `min(100%, ${Math.max(DEFAULT_W, ...decks.map((d) => d.width ?? DEFAULT_W))}px)` }}>
+                  <DeckFolderTile f={f} count={countIn(f.id)} over={reorder.over === f.id} />
+                </div>
               ))}
             </section>
           )}
