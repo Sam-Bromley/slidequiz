@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, ChevronDown, Layers, List, MoreHorizontal, Pencil, Plus, Shuffle, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder as FolderIcon, FolderInput, FolderPlus, Layers, List, MoreHorizontal, Palette, Pencil, Plus, Shuffle, Trash2 } from "lucide-react";
+import { ColourDialog, colourHex } from "@/components/ui/colour-dialog";
 import { AIError, costText, ensureCredits, refreshAllowance, textSizeFor } from "@/services/ai/cloud";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,12 +20,12 @@ import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
 import { confetti } from "@/lib/confetti";
 import { fanfare } from "@/lib/celebrate";
-import type { Deck, Flashcard, ID } from "@/types/models";
+import type { Deck, DeckFolder, Flashcard, ID } from "@/types/models";
 
 
 /* ---------------------------------------------------------------- create from materials */
 
-function CreateDialog({ onClose, initial = [] }: { onClose: () => void; initial?: ID[] }) {
+function CreateDialog({ onClose, initial = [], folderId = null }: { onClose: () => void; initial?: ID[]; folderId?: ID | null }) {
   const data = useData();
   const mats = data.materials;
   const [picked, setPicked] = useState<Record<ID, ID[] | "all">>(() => Object.fromEntries(initial.filter((id) => mats.some((m) => m.id === id)).map((id) => [id, "all" as const])));
@@ -75,6 +76,7 @@ function CreateDialog({ onClose, initial = [] }: { onClose: () => void; initial?
         return;
       }
       const id = actions.createDeck(name || suggested, chosen, cards);
+      if (folderId) actions.moveDeckTo(id, folderId);
       toast(`${plural(cards.length, "flashcard")} made`);
       onClose();
       navigate(`/flashcards/${id}`);
@@ -205,13 +207,55 @@ function NameDialog({ title, initial = "", confirm, onSave, onClose }: { title: 
 
 /* ---------------------------------------------------------------- decks list */
 
-/** One deck in the list. Drag its right edge to make it wider (it snaps to other decks' widths). */
-function DeckTile({ d, count, otherWidths, drag }: { d: Deck; count: number; otherWidths: number[]; drag: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]> }) {
-  const { width, start } = useResizableWidth(d.width, otherWidths, (w) => actions.setDeckWidth(d.id, w));
+/** Flattened flashcards folder tree for the move picker. */
+function deckFolderTree(folders: DeckFolder[], parentId: ID | null = null, depth = 0): { folder: DeckFolder; depth: number }[] {
+  return folders
+    .filter((f) => (f.parentId ?? null) === parentId)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .flatMap((f) => [{ folder: f, depth }, ...deckFolderTree(folders, f.id, depth + 1)]);
+}
+
+function MoveDeckDialog({ d, onClose }: { d: Deck; onClose: () => void }) {
+  const data = useData();
+  const folders = data.deckFolders ?? [];
+  const pick = (id: ID | null) => {
+    actions.moveDeckTo(d.id, id);
+    toast(id ? `Moved to ${folders.find((f) => f.id === id)?.name}` : "Moved to Flashcards");
+    onClose();
+  };
   return (
-    <div {...drag} className={cn("group relative cursor-grab select-none rounded-xl border bg-card transition-colors hover:border-foreground/20 active:cursor-grabbing", drag["data-dragging"] !== undefined && "border-foreground/25")} style={{ ...drag.style, width: `min(100%, ${width}px)` }}>
-      <Link to={`/flashcards/${d.id}`} className="flex items-center gap-3 rounded-xl px-3.5 py-3 focus-ring">
-        <Layers className="size-5 shrink-0 text-muted-foreground" />
+    <Dialog open onClose={onClose} title={`Move “${d.name}”`} size="sm">
+      <ul className="space-y-0.5">
+        {[{ folder: null, depth: 0 }, ...deckFolderTree(folders)].map(({ folder, depth }) => {
+          const current = (d.folderId ?? null) === (folder?.id ?? null);
+          return (
+            <li key={folder?.id ?? "root"}>
+              <button disabled={current} onClick={() => pick(folder?.id ?? null)} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors hover:bg-accent disabled:opacity-50 focus-ring" style={{ paddingLeft: 10 + depth * 18 }}>
+                <FolderIcon className="size-4 text-muted-foreground" style={colourHex(folder?.color) ? { color: colourHex(folder?.color) } : undefined} />
+                <span className="flex-1 truncate">{folder ? folder.name : "Flashcards (no folder)"}</span>
+                {current && <span className="text-[12px] text-muted-foreground">Current</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {!folders.length && <p className="mt-3 text-[13px] text-muted-foreground">You don't have any folders yet. Make one with New folder.</p>}
+    </Dialog>
+  );
+}
+
+/** One deck in the list. Drag its right edge to make it wider (it snaps to other decks' widths). */
+function DeckTile({ d, count, otherWidths, drag }: { d: Deck; count: number; otherWidths: number[]; drag?: ReturnType<ReturnType<typeof useDragReorder>["itemProps"]> }) {
+  const { width, start } = useResizableWidth(d.width, otherWidths, (w) => actions.setDeckWidth(d.id, w));
+  const [moving, setMoving] = useState(false);
+  const [colouring, setColouring] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const hex = colourHex(d.color);
+  return (
+    <div {...drag} className={cn("group relative cursor-grab select-none rounded-xl border bg-card transition-colors hover:border-foreground/20 active:cursor-grabbing", drag?.["data-dragging"] !== undefined && "border-foreground/25")} style={{ ...drag?.style, width: `min(100%, ${width}px)`, ...(hex ? { backgroundColor: hex + "12", borderColor: hex + "55" } : {}) }}>
+      <Link to={`/flashcards/${d.id}`} className="flex items-center gap-3 rounded-xl py-3 pl-3.5 pr-12 focus-ring">
+        <Layers className={cn("size-5 shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex } : undefined} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[14px] font-medium" title={d.name}>
             {d.name}
@@ -221,7 +265,68 @@ function DeckTile({ d, count, otherWidths, drag }: { d: Deck; count: number; oth
           </span>
         </span>
       </Link>
+      <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
+        <Menu
+          label={`${d.name} actions`}
+          items={[
+            { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
+            { label: "Move to folder", icon: FolderInput, onSelect: () => setMoving(true) },
+            { label: "Colour", icon: Palette, onSelect: () => setColouring(true) },
+            { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
+          ]}
+          trigger={(p) => (
+            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${d.name}`} {...p}>
+              <MoreHorizontal />
+            </Button>
+          )}
+        />
+      </div>
       <ResizeEdge onPointerDown={start} label="Drag to resize" />
+      {moving && <MoveDeckDialog d={d} onClose={() => setMoving(false)} />}
+      {colouring && <ColourDialog name={d.name} value={d.color} onPick={(k) => actions.setDeckColor(d.id, k)} onClose={() => setColouring(false)} />}
+      {renaming && <NameDialog title="Rename flashcards" initial={d.name} confirm="Save" onSave={(n) => actions.renameDeck(d.id, n)} onClose={() => setRenaming(false)} />}
+      <ConfirmDialog open={deleting} onClose={() => setDeleting(false)} title={`Delete “${d.name}”?`} description="These flashcards will be deleted." confirmLabel="Delete" onConfirm={() => toast.undo("Flashcards deleted", actions.deleteDeck(d.id))} />
+    </div>
+  );
+}
+
+/** A folder on the Flashcards page. Drop flashcards on it to move them in. */
+function DeckFolderTile({ f, count, over }: { f: DeckFolder; count: number; over: boolean }) {
+  const [colouring, setColouring] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const hex = colourHex(f.color);
+  return (
+    <div
+      data-drop-target={f.id}
+      style={hex && !over ? { backgroundColor: hex + "12", borderColor: hex + "55" } : undefined}
+      className={cn("group relative flex min-h-[68px] items-center gap-3.5 rounded-2xl border bg-card px-4 py-3.5 transition-[background-color,border-color,transform] hover:border-foreground/20", over && "scale-[1.03] border-foreground/50 bg-accent")}
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary" style={hex ? { backgroundColor: hex + "2e" } : undefined}>
+        <FolderIcon className={cn("size-[20px]", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
+      </span>
+      <Link to={`/flashcards?f=${f.id}`} className="min-w-0 flex-1 rounded after:absolute after:inset-0 focus-ring">
+        <span className="block truncate text-[15px] font-semibold" title={f.name}>{f.name}</span>
+        <span className="mt-0.5 block text-[12.5px] text-muted-foreground">{count ? plural(count, "item") : "Empty"}</span>
+      </Link>
+      <div className="relative z-10">
+        <Menu
+          label={`${f.name} actions`}
+          items={[
+            { label: "Rename", icon: Pencil, onSelect: () => setRenaming(true) },
+            { label: "Colour", icon: Palette, onSelect: () => setColouring(true) },
+            { label: "Delete folder", icon: Trash2, danger: true, onSelect: () => setDeleting(true) },
+          ]}
+          trigger={(p) => (
+            <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${f.name}`} {...p}>
+              <MoreHorizontal />
+            </Button>
+          )}
+        />
+      </div>
+      {colouring && <ColourDialog name={f.name} value={f.color} onPick={(k) => actions.setDeckFolderColor(f.id, k)} onClose={() => setColouring(false)} />}
+      {renaming && <NameDialog title="Rename folder" initial={f.name} confirm="Save" onSave={(n) => actions.renameDeckFolder(f.id, n)} onClose={() => setRenaming(false)} />}
+      <ConfirmDialog open={deleting} onClose={() => setDeleting(false)} title={`Delete “${f.name}”?`} description="The folder is removed. Anything inside it moves up a level. Nothing is deleted." confirmLabel="Delete folder" onConfirm={() => toast.undo("Folder deleted", actions.deleteDeckFolder(f.id))} />
     </div>
   );
 }
@@ -229,36 +334,91 @@ function DeckTile({ d, count, otherWidths, drag }: { d: Deck; count: number; oth
 export function FlashcardsPage() {
   const data = useData();
   const decks = data.decks ?? [];
+  const allFolders = data.deckFolders ?? [];
   const { query } = useLocation();
+  const folderId = allFolders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
   const from = (query.get("from") ?? "").split(",").filter(Boolean);
   const [creating, setCreating] = useState(from.length > 0);
   const [own, setOwn] = useState(false);
-  // Drag decks up and down to reorder them, like folders.
-  const reorder = useDragReorder(decks.map((d) => d.id), (id, to) => actions.moveDeck(id, to));
+  const [newFolder, setNewFolder] = useState(false);
+
+  const trail = useMemo(() => {
+    const out: DeckFolder[] = [];
+    let cur = allFolders.find((f) => f.id === folderId);
+    while (cur) {
+      out.unshift(cur);
+      const parent: ID | null = cur.parentId;
+      cur = allFolders.find((f) => f.id === parent);
+    }
+    return out;
+  }, [allFolders, folderId]);
+  const current = trail[trail.length - 1];
+  const folders = allFolders.filter((f) => (f.parentId ?? null) === folderId).sort((a, b) => a.name.localeCompare(b.name));
+  const shown = decks.filter((d) => (d.folderId ?? null) === folderId);
+  const countIn = (id: ID) => decks.filter((d) => d.folderId === id).length + allFolders.filter((f) => f.parentId === id).length;
+
+  const moveInto = (id: ID, target: ID | null) => {
+    const d = decks.find((x) => x.id === id);
+    if (!d || (d.folderId ?? null) === target) return;
+    actions.moveDeckTo(id, target);
+    toast(target ? `Moved to ${allFolders.find((f) => f.id === target)?.name}` : "Moved to Flashcards");
+  };
+  // Drag decks up and down to reorder them, or onto a folder to move them in.
+  const shownIds = shown.map((d) => d.id);
+  const reorder = useDragReorder(
+    shownIds,
+    (id, to) => {
+      const rest = shownIds.filter((x) => x !== id);
+      rest.splice(to, 0, id);
+      actions.orderDecks(rest);
+    },
+    { onDropInto: (id, target) => moveInto(id, target === "root" ? null : target) },
+  );
 
   const makeOwn = (name: string) => {
     const id = actions.createDeck(name, [], []);
+    if (folderId) actions.moveDeckTo(id, folderId);
     navigate(`/flashcards/${id}?add=1`);
   };
 
+  const nothing = !decks.length && !allFolders.length;
+
   return (
     <div>
-      <PageHeader
-        title="Flashcards"
-        actions={
-          decks.length ? (
-            <>
-              <Button variant="outline" onClick={() => setOwn(true)}>
-                <Pencil /> Make your own
-              </Button>
-              <Button onClick={() => setCreating(true)}>
-                <Plus /> Create flashcards
-              </Button>
-            </>
-          ) : null
-        }
-      />
-      {!decks.length ? (
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <nav aria-label="Folder path" className="flex min-w-0 flex-wrap items-center gap-1 text-[24px] font-semibold tracking-tight">
+          <Link to="/flashcards" data-drop-target={trail.length ? "root" : undefined} className={cn("rounded-md px-1 transition-colors focus-ring", trail.length && "text-muted-foreground hover:text-foreground", reorder.over === "root" && "bg-accent text-foreground")}>
+            Flashcards
+          </Link>
+          {trail.map((f, i) => (
+            <span key={f.id} className="flex min-w-0 items-center gap-1">
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+              {i === trail.length - 1 ? (
+                <h1 className="truncate px-1 text-[24px] font-semibold">{f.name}</h1>
+              ) : (
+                <Link to={`/flashcards?f=${f.id}`} data-drop-target={f.id} className={cn("truncate rounded-md px-1 text-muted-foreground transition-colors hover:text-foreground focus-ring", reorder.over === f.id && "bg-accent text-foreground")}>
+                  {f.name}
+                </Link>
+              )}
+            </span>
+          ))}
+          {!trail.length && <h1 className="sr-only">Flashcards</h1>}
+        </nav>
+        {!nothing && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setNewFolder(true)}>
+              <FolderPlus /> New folder
+            </Button>
+            <Button variant="outline" onClick={() => setOwn(true)}>
+              <Pencil /> Make your own
+            </Button>
+            <Button onClick={() => setCreating(true)}>
+              <Plus /> Create flashcards
+            </Button>
+          </div>
+        )}
+      </div>
+      {nothing ? (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
           <Button size="lg" className="h-12 rounded-full px-7 text-[15px]" onClick={() => setCreating(true)}>
             <Plus /> Create flashcards
@@ -268,15 +428,29 @@ export function FlashcardsPage() {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-start gap-2">
-          {decks.map((d) => (
-            <DeckTile key={d.id} d={d} drag={reorder.itemProps(d.id)} count={data.flashcards.filter((c) => c.deckId === d.id).length} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
-          ))}
-        </div>
+        <>
+          {folders.length > 0 && (
+            <section aria-label="Folders" className="mb-6 grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]">
+              {folders.map((f) => (
+                <DeckFolderTile key={f.id} f={f} count={countIn(f.id)} over={reorder.over === f.id} />
+              ))}
+            </section>
+          )}
+          {shown.length > 0 ? (
+            <div className="flex flex-col items-start gap-2">
+              {shown.map((d) => (
+                <DeckTile key={d.id} d={d} drag={reorder.itemProps(d.id)} count={data.flashcards.filter((c) => c.deckId === d.id).length} otherWidths={decks.filter((o) => o.id !== d.id).map((o) => o.width ?? DEFAULT_W)} />
+              ))}
+            </div>
+          ) : (
+            !folders.length && <p className="py-12 text-center text-[14px] text-muted-foreground">{current ? "This folder is empty. Drag flashcards here, or use Move to folder." : "No flashcards here yet."}</p>
+          )}
+        </>
       )}
       {creating && (
         <CreateDialog
           initial={from}
+          folderId={folderId}
           onClose={() => {
             setCreating(false);
             if (from.length) navigate("/flashcards", { replace: true });
@@ -284,6 +458,7 @@ export function FlashcardsPage() {
         />
       )}
       {own && <NameDialog title="Make your own flashcards" confirm="Create" onSave={makeOwn} onClose={() => setOwn(false)} />}
+      {newFolder && <NameDialog title="New folder" initial="" confirm="Create" onSave={(n) => actions.createDeckFolder(n, folderId)} onClose={() => setNewFolder(false)} />}
     </div>
   );
 }
@@ -453,7 +628,7 @@ export function DeckPage({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        back={{ to: "/flashcards", label: "Flashcards" }}
+        back={{ to: deck.folderId && (data.deckFolders ?? []).some((f) => f.id === deck.folderId) ? `/flashcards?f=${deck.folderId}` : "/flashcards", label: (data.deckFolders ?? []).find((f) => f.id === deck.folderId)?.name ?? "Flashcards" }}
         title={deck.name}
         description={plural(cards.length, "card")}
         compactActions

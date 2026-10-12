@@ -56,6 +56,6 @@ export async function restoreBackup(file: File): Promise<{ materials: number }> 
     await imageStore.put(id, blob);
   }
   const base = emptyData();
-  replaceState({ ...base, ...d, schemaVersion: SCHEMA_VERSION, settings: { ...base.settings, ...d.settings }, folders: d.folders ?? [], decks: d.decks ?? [] });
+  replaceState({ ...base, ...d, schemaVersion: SCHEMA_VERSION, settings: { ...base.settings, ...d.settings }, folders: d.folders ?? [], decks: d.decks ?? [], deckFolders: d.deckFolders ?? [] });
   return { materials: d.materials.length };
 }

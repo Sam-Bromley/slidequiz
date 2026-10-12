@@ -417,6 +417,7 @@ function merge(local: AppData, remote: AppData): AppData {
     questions: byId(local.questions, remote.questions),
     flashcards: byId(local.flashcards, remote.flashcards),
     decks: byId(local.decks, remote.decks),
+    deckFolders: byId(local.deckFolders, remote.deckFolders),
     essays: byId(local.essays, remote.essays),
     essayDrafts: byId(local.essayDrafts, remote.essayDrafts),
     folders: byId(local.folders, remote.folders),

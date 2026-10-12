@@ -212,13 +212,22 @@ export function UploadPage() {
       // Pictures save in the background (they show from memory meanwhile), so the lecture opens straight away.
       void persistPendingImages(mats.flatMap((m) => m.pages.flatMap((p) => (p.images ?? []).map((i) => i.id))));
       actions.addMaterials(mats);
-      // Notes and questions are written one lecture at a time. The first lecture opens once its notes
-      // and first questions are ready, so there's something to read and practise straight away.
-      setStep("Writing your notes and questions…");
-      (async () => {
-        for (const m of mats) await enhanceMaterial(m.id);
-      })();
-      await waitUntilReady(mats[0].id);
+      // Every lecture's notes and questions are written (all at once) before anything opens, so there's
+      // no waiting when they're clicked. If it's taking unusually long, open once the first lecture
+      // has its notes and first questions, and let the rest finish in the background.
+      let done = 0;
+      const label = () => (mats.length > 1 ? `Writing your notes and questions… ${done} of ${mats.length} lectures done` : "Writing your notes and questions…");
+      setStep(label());
+      const all = Promise.all(
+        mats.map((m) =>
+          enhanceMaterial(m.id).then(() => {
+            done++;
+            setStep(label());
+          }),
+        ),
+      );
+      const slow = new Promise<void>((r) => setTimeout(r, 150_000)).then(() => waitUntilReady(mats[0].id));
+      await Promise.race([all, slow]);
       navigate(mats.length === 1 ? `/materials/${mats[0].id}` : "/materials");
     } finally {
       setSaving(false);

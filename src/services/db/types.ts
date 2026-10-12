@@ -2,7 +2,7 @@ import type {
   EssayDraft,
   EssaySet,
   ChatMessage,
-  Deck, Folder, Flashcard, GenerationRecord, ID, Material, Question, QuizAttempt, SavedQuestion, Settings, StudyPlan, StudySession, SummaryDoc, User,
+  Deck, DeckFolder, Folder, Flashcard, GenerationRecord, ID, Material, Question, QuizAttempt, SavedQuestion, Settings, StudyPlan, StudySession, SummaryDoc, User,
 } from "@/types/models";
 
 /** Everything SlideQuiz persists. A real backend would store each collection as a table. */
@@ -14,6 +14,8 @@ export interface AppData {
   questions: Question[];
   flashcards: Flashcard[];
   decks?: Deck[];
+  /** Folders on the Flashcards page. */
+  deckFolders?: DeckFolder[];
   /** Pro: essay questions and plans. */
   essays?: EssaySet[];
   /** Pro: essays being planned and written. */

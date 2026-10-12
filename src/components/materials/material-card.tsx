@@ -1,4 +1,4 @@
-import { Folder as FolderIcon, FolderInput, FileImage, FileText, FileType2, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2, AudioLines, Video, CirclePlay } from "lucide-react";
+import { Folder as FolderIcon, FolderInput, Palette, FileImage, FileText, FileType2, MoreHorizontal, Pencil, Presentation, StickyNote, Trash2, AudioLines, Video, CirclePlay } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,12 +18,21 @@ import { ResizeEdge } from "@/components/ui/resizable";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { subjectHue } from "@/lib/subject-colour";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
+import { ColourDialog, colourHex } from "@/components/ui/colour-dialog";
 
 const TYPE_ICON: Record<SourceFileType, typeof FileText> = { pptx: Presentation, pdf: FileText, docx: FileType2, txt: StickyNote, text: StickyNote, image: FileImage, audio: AudioLines, video: Video, youtube: CirclePlay };
 
 
 export function MaterialIcon({ m, className, hue }: { m: Material; className?: string; hue?: number | null }) {
   const Icon = TYPE_ICON[m.files[0]?.type ?? "text"];
+  // A colour the student picked wins over the subject colour.
+  const hex = colourHex(m.color);
+  if (hex)
+    return (
+      <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg", className)} style={{ backgroundColor: hex + "2e", color: hex }} aria-hidden>
+        <Icon className="size-[18px]" />
+      </span>
+    );
   return (
     <span
       className={cn("grid size-10 shrink-0 place-items-center rounded-lg", hue == null ? "bg-secondary text-muted-foreground" : "bg-[hsl(var(--sh)_75%_93%)] text-[hsl(var(--sh)_55%_38%)] dark:bg-[hsl(var(--sh)_35%_17%)] dark:text-[hsl(var(--sh)_75%_72%)]", className)}
@@ -123,15 +132,18 @@ export function useMaterialMenu(m: Material) {
   const [rename, setRename] = useState(false);
   const [del, setDel] = useState(false);
   const [move, setMove] = useState(false);
+  const [colour, setColour] = useState(false);
   const items = [
     { label: "Rename", icon: Pencil, onSelect: () => setRename(true) },
     { label: "Move to folder", icon: FolderInput, onSelect: () => setMove(true) },
+    { label: "Colour", icon: Palette, onSelect: () => setColour(true) },
     { label: "Delete", icon: Trash2, danger: true, onSelect: () => setDel(true) },
   ];
   const dialogs = (
     <>
       {rename && <RenameDialog m={m} open={rename} onClose={() => setRename(false)} />}
       {move && <MoveDialog m={m} onClose={() => setMove(false)} />}
+      {colour && <ColourDialog name={m.title} value={m.color} onPick={(k) => actions.setMaterialColor(m.id, k)} onClose={() => setColour(false)} />}
       <ConfirmDialog
         open={del}
         onClose={() => setDel(false)}
@@ -155,11 +167,12 @@ export function MaterialCard({ m, selectable, selected, onSelect, drag, width, o
   const prog = overallProgress(data, m);
   const { items, dialogs } = useMaterialMenu(m);
   // Optional: a soft colour per subject (Settings → Appearance).
-  const hue = data.settings.subjectColours && (aiReady(m) || usesBuiltIn(m)) ? subjectHue(m.subject) : null;
+  const hex = colourHex(m.color);
+  const hue = !hex && data.settings.subjectColours && (aiReady(m) || usesBuiltIn(m)) ? subjectHue(m.subject) : null;
   return (
     <article
       {...(selectable ? {} : drag)}
-      style={{ ...(selectable ? {} : drag?.style), ...(width ? { width: `min(100%, ${width}px)` } : {}) }}
+      style={{ ...(selectable ? {} : drag?.style), ...(width ? { width: `min(100%, ${width}px)` } : {}), ...(hex && !selected ? { backgroundColor: hex + "12", borderColor: hex + "55" } : {}) }}
       className={cn("group relative flex flex-col rounded-2xl border bg-card p-4 transition-colors max-sm:!w-full hover:border-foreground/20", drag && !selectable && "cursor-grab select-none active:cursor-grabbing", selected && "border-primary ring-1 ring-primary")}
     >
       <div className="flex items-start gap-3">
@@ -171,7 +184,7 @@ export function MaterialCard({ m, selectable, selected, onSelect, drag, width, o
           <MaterialIcon m={m} hue={hue} />
         )}
         <div className="min-w-0 flex-1">
-          <p className={cn("text-[12px] font-medium", hue == null ? "text-muted-foreground" : "text-[hsl(var(--sh)_55%_38%)] dark:text-[hsl(var(--sh)_75%_72%)]")} style={hue == null ? undefined : ({ "--sh": hue } as React.CSSProperties)}>
+          <p className={cn("text-[12px] font-medium", hex ? "" : hue == null ? "text-muted-foreground" : "text-[hsl(var(--sh)_55%_38%)] dark:text-[hsl(var(--sh)_75%_72%)]")} style={hex ? { color: hex } : hue == null ? undefined : ({ "--sh": hue } as React.CSSProperties)}>
             {aiReady(m) || usesBuiltIn(m) ? m.subject : "\u00a0"}
           </p>
           <h3 className="mt-0.5 font-sans text-[15px] font-semibold leading-snug">

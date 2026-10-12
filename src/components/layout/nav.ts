@@ -23,7 +23,13 @@ const SECTIONS = [
 ] as const;
 
 type Key = "flashcards" | "notes" | "essays";
-type LastOpen = { flashcards?: string; notes?: string; essays?: string; at?: Partial<Record<Key, string>> };
+type LastOpen = { flashcards?: string; notes?: string; essays?: string; at?: Partial<Record<Key, string>>; place?: Partial<Record<Key, string>> };
+
+/** Which section this page belongs to (its list, a folder, or one item), to come back to the same spot. */
+export function sectionOf(path: string): Key | null {
+  for (const s of SECTIONS) if (path === s.to || path.startsWith(s.to + "/")) return s.key;
+  return null;
+}
 
 /** The deck, lecture or essay this page is, if any (to remember it as the last one opened). */
 export function openedItem(path: string): { key: Key; id: string } | null {
@@ -45,6 +51,13 @@ export function navTarget(n: NavItem, path: string, last: LastOpen | undefined, 
   const list = items(s.key);
   if (!list.length) return n.to;
   const newest = list.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+  // Back to exactly where they were (the list, a folder or a lecture), unless something new was made since.
+  const place = last?.place?.[s.key];
+  const placeAt = last?.at?.[s.key] ?? "";
+  if (place && !(newest.createdAt > placeAt)) {
+    const item = openedItem(place.split("?")[0]);
+    if (!item || list.some((x) => x.id === item.id)) return place;
+  }
   const usedId = last?.[s.key];
   const used = usedId ? list.find((x) => x.id === usedId) : undefined;
   const usedAt = last?.at?.[s.key] ?? "";

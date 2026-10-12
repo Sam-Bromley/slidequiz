@@ -15,7 +15,7 @@ import { effectiveTheme, isDarkTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
 import { Logo, LogoMark } from "./logo";
-import { NAV, navTarget, openedItem } from "./nav";
+import { NAV, navTarget, openedItem, sectionOf } from "./nav";
 
 const SB_DEFAULT = 248;
 const SB_MIN = 68;
@@ -301,14 +301,18 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
   const [drawer, setDrawer] = useState(false);
   const data = useData();
   // Remember the deck, lecture or essay being looked at, so its tab opens straight back to it.
-  const { path: here } = useLocation();
+  const { path: here, query: hereQuery } = useLocation();
+  const hereFolder = hereQuery.get("f") ?? "";
   useEffect(() => {
+    const key = sectionOf(here);
+    if (!key) return;
     const item = openedItem(here);
-    if (!item) return;
     const last = data.settings.lastOpen ?? {};
-    actions.updateSettings({ lastOpen: { ...last, [item.key]: item.id, at: { ...(last.at ?? {}), [item.key]: new Date().toISOString() } } });
+    // The full spot (with its folder or tab), so going back to the list and then elsewhere returns to the list.
+    const place = !item && hereFolder ? `${here}?f=${encodeURIComponent(hereFolder)}` : here;
+    actions.updateSettings({ lastOpen: { ...last, ...(item ? { [key]: item.id } : {}), place: { ...(last.place ?? {}), [key]: place }, at: { ...(last.at ?? {}), [key]: new Date().toISOString() } } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [here]);
+  }, [here, hereFolder]);
   // Pro members' own photo (only while they have Pro, and only on the device it was added on).
   const plan = usePlan();
   const photoUrl = useBackgroundPhotoUrl(plan.plus && data.settings.bgPhotoOn ? data.settings.bgPhoto : undefined);

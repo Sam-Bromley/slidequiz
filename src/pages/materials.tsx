@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Play, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
+import { CalendarDays, ChevronRight, Folder as FolderIcon, FolderPlus, Palette, Layers, MoreHorizontal, Pencil, Play, Search, SquarePen, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { MaterialCard } from "@/components/materials/material-card";
 import { DEFAULT_W, ResizeEdge, useResizableWidth } from "@/components/ui/resizable";
@@ -18,43 +18,13 @@ import { highlightParts, searchNotes } from "@/services/search";
 import { daysUntil, examLabel, folderCoverage, materialsIn } from "@/services/folders";
 import { useData } from "@/store/store";
 import type { Folder, Material } from "@/types/models";
+import { ColourDialog, colourHex } from "@/components/ui/colour-dialog";
 
 const MATERIAL_MIME = "application/x-slidequiz-material";
 
-export const FOLDER_COLOURS: { key: string; label: string; hex: string }[] = [
-  { key: "red", label: "Red", hex: "#ef4444" },
-  { key: "orange", label: "Orange", hex: "#f97316" },
-  { key: "yellow", label: "Yellow", hex: "#eab308" },
-  { key: "green", label: "Green", hex: "#22c55e" },
-  { key: "teal", label: "Teal", hex: "#14b8a6" },
-  { key: "blue", label: "Blue", hex: "#3b82f6" },
-  { key: "purple", label: "Purple", hex: "#8b5cf6" },
-  { key: "pink", label: "Pink", hex: "#ec4899" },
-];
-const colourOf = (key?: string) => FOLDER_COLOURS.find((c) => c.key === key)?.hex;
+const colourOf = colourHex;
 
 export const DEFAULT_FOLDER_W = DEFAULT_W;
-
-function ColourDialog({ f, onClose }: { f: Folder; onClose: () => void }) {
-  const pick = (key?: string) => {
-    actions.setFolderColor(f.id, key);
-    onClose();
-  };
-  return (
-    <Dialog open onClose={onClose} title={`Colour for “${f.name}”`} size="sm">
-      <div className="grid grid-cols-5 gap-2.5" role="radiogroup" aria-label="Folder colour">
-        <button type="button" role="radio" aria-checked={!f.color} onClick={() => pick(undefined)} className={cn("grid aspect-square place-items-center rounded-full border-2 text-muted-foreground focus-ring", !f.color ? "border-foreground" : "border-border")} title="No colour">
-          {!f.color ? <Check className="size-4" /> : <span className="h-0.5 w-5 rotate-45 rounded bg-muted-foreground/60" />}
-        </button>
-        {FOLDER_COLOURS.map((c) => (
-          <button key={c.key} type="button" role="radio" aria-checked={f.color === c.key} aria-label={c.label} title={c.label} onClick={() => pick(c.key)} className={cn("grid aspect-square place-items-center rounded-full border-2 transition-transform hover:scale-105 focus-ring", f.color === c.key ? "border-foreground" : "border-transparent")} style={{ background: c.hex }}>
-            {f.color === c.key && <Check className="size-4 text-white" strokeWidth={3} />}
-          </button>
-        ))}
-      </div>
-    </Dialog>
-  );
-}
 
 function ExamDialog({ f, onClose }: { f: Folder; onClose: () => void }) {
   const [date, setDate] = useState(f.examDate ?? "");
@@ -207,7 +177,7 @@ function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, drop
       </div>
       {/* Drag the right edge to make folders wider. */}
       <ResizeEdge onPointerDown={onResizeStart} label="Drag to resize folders" />
-      {colouring && <ColourDialog f={f} onClose={() => setColouring(false)} />}
+      {colouring && <ColourDialog name={f.name} value={f.color} onPick={(k) => actions.setFolderColor(f.id, k)} onClose={() => setColouring(false)} />}
       {dating && <ExamDialog f={f} onClose={() => setDating(false)} />}
       {renaming && <NameDialog title="Rename folder" initial={f.name} confirm="Save" onSave={(n) => actions.renameFolder(f.id, n)} onClose={() => setRenaming(false)} />}
       <ConfirmDialog

@@ -8,6 +8,7 @@ import type {
   Answer,
   ChatMessage,
   Deck,
+  DeckFolder,
   Flashcard,
   FlashcardRating,
   GenerationRecord,
@@ -189,6 +190,9 @@ export const actions = {
   setFolderWidth(id: ID, width: number) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, width } : f)) }));
   },
+  setMaterialColor(id: ID, color: string | undefined) {
+    setState((s) => ({ ...s, materials: s.materials.map((m) => (m.id === id ? { ...m, color } : m)) }));
+  },
   setFolderColor(id: ID, color: string | undefined) {
     setState((s) => ({ ...s, folders: s.folders.map((f) => (f.id === id ? { ...f, color } : f)) }));
   },
@@ -368,6 +372,52 @@ export const actions = {
     const fcs: Flashcard[] = cards.map((c) => ({ id: uid("fc"), deckId: id, materialId: c.materialId ?? "", topicId: c.topicId ?? null, front: c.front, back: c.back, source: c.source, bookmarked: false, srs: newSrs(), createdAt: now }));
     setState((s) => ({ ...s, decks: [deck, ...(s.decks ?? [])], flashcards: [...fcs, ...s.flashcards] }));
     return id;
+  },
+  /** Saves the order of some decks (those shown together), keeping the rest where they are. */
+  orderDecks(ids: ID[]) {
+    setState((s) => {
+      const all = s.decks ?? [];
+      const set = new Set(ids);
+      const queue = ids.map((id) => all.find((d) => d.id === id)).filter(Boolean) as Deck[];
+      return { ...s, decks: all.map((d) => (set.has(d.id) ? queue.shift()! : d)) };
+    });
+  },
+  moveDeckTo(id: ID, folderId: ID | null) {
+    setState((s) => ({ ...s, decks: (s.decks ?? []).map((d) => (d.id === id ? { ...d, folderId } : d)) }));
+  },
+  setDeckColor(id: ID, color: string | undefined) {
+    setState((s) => ({ ...s, decks: (s.decks ?? []).map((d) => (d.id === id ? { ...d, color } : d)) }));
+  },
+  /* ------------------------------------------------------------ flashcard folders */
+  createDeckFolder(name: string, parentId: ID | null): ID {
+    const f: DeckFolder = { id: uid("dfol"), name: name.trim() || "New folder", parentId, createdAt: nowISO() };
+    setState((s) => ({ ...s, deckFolders: [...(s.deckFolders ?? []), f] }));
+    return f.id;
+  },
+  renameDeckFolder(id: ID, name: string) {
+    setState((s) => ({ ...s, deckFolders: (s.deckFolders ?? []).map((f) => (f.id === id ? { ...f, name: name.trim() || f.name } : f)) }));
+  },
+  setDeckFolderColor(id: ID, color: string | undefined) {
+    setState((s) => ({ ...s, deckFolders: (s.deckFolders ?? []).map((f) => (f.id === id ? { ...f, color } : f)) }));
+  },
+  /** Removes a flashcards folder; what was inside moves up a level. Nothing is deleted. */
+  deleteDeckFolder(id: ID): Undo {
+    const s0 = getState();
+    const f = (s0.deckFolders ?? []).find((x) => x.id === id);
+    if (!f) return () => {};
+    const deckIds = (s0.decks ?? []).filter((d) => d.folderId === id).map((d) => d.id);
+    const subIds = (s0.deckFolders ?? []).filter((x) => x.parentId === id).map((x) => x.id);
+    setState((s) => ({
+      ...s,
+      deckFolders: (s.deckFolders ?? []).filter((x) => x.id !== id).map((x) => (x.parentId === id ? { ...x, parentId: f.parentId } : x)),
+      decks: (s.decks ?? []).map((d) => (d.folderId === id ? { ...d, folderId: f.parentId } : d)),
+    }));
+    return () =>
+      setState((s) => ({
+        ...s,
+        deckFolders: [...(s.deckFolders ?? []).map((x) => (subIds.includes(x.id) ? { ...x, parentId: id } : x)), f],
+        decks: (s.decks ?? []).map((d) => (deckIds.includes(d.id) ? { ...d, folderId: id } : d)),
+      }));
   },
   /** Moves a deck to a new position in the Flashcards list. */
   moveDeck(id: ID, to: number) {

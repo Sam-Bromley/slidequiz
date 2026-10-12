@@ -97,7 +97,7 @@ export interface Settings {
   /** Show a quote above the box on Home (on by default). */
   showQuote?: boolean;
   /** The flashcard deck, lecture and essay last opened: the Flashcards, Notes and Essays tabs open straight to them. */
-  lastOpen?: { flashcards?: string; notes?: string; essays?: string; at?: { flashcards?: string; notes?: string; essays?: string } };
+  lastOpen?: { flashcards?: string; notes?: string; essays?: string; at?: { flashcards?: string; notes?: string; essays?: string }; /** The exact page last on in each section (a lecture, or the list or a folder). */ place?: { flashcards?: string; notes?: string; essays?: string } };
   /** A soft chime for a right answer (on unless turned off). */
   soundEffects?: boolean;
 }
@@ -193,6 +193,8 @@ export interface Material {
   isDemo?: boolean;
   /** Folder in My Materials (null/undefined = top level). */
   folderId?: ID | null;
+  /** Colour key (see ITEM_COLOURS) for its card in My Materials (none = plain). */
+  color?: string;
   /** Width in My Materials, in pixels (drag the right edge to change). */
   width?: number;
   /** Position in My Materials when sorted by "Your order" (drag to reorder). */
@@ -247,7 +249,7 @@ export interface Folder {
   name: string;
   parentId: ID | null;
   createdAt: ISODate;
-  /** Colour key from FOLDER_COLOURS (none = plain). */
+  /** Colour key from ITEM_COLOURS (none = plain). */
   color?: string;
   /** Width in My Materials, in pixels (drag the right edge to change). */
   width?: number;
@@ -333,6 +335,20 @@ export interface Deck {
   createdAt: ISODate;
   /** Width in the Flashcards list, in pixels (drag the right edge to change). */
   width?: number;
+  /** Folder on the Flashcards page (none = top level). */
+  folderId?: ID | null;
+  /** Colour key (see ITEM_COLOURS) for its tile (none = plain). */
+  color?: string;
+}
+
+/** A folder on the Flashcards page (separate from the Notes folders). */
+export interface DeckFolder {
+  id: ID;
+  name: string;
+  parentId: ID | null;
+  createdAt: ISODate;
+  /** Colour key from ITEM_COLOURS (none = plain). */
+  color?: string;
 }
 
 export interface Flashcard {
