@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Eye, PenLine, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, PenLine, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
@@ -393,9 +393,9 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
               >
                 <RotateCcw /> Improve my answer
               </Button>
-              {q.model && !showModel && (
-                <Button variant="ghost" size="sm" onClick={() => setShowModel(true)}>
-                  <Eye /> Show a full-mark answer
+              {q.model && (
+                <Button variant="ghost" size="sm" aria-pressed={showModel} onClick={() => setShowModel((v) => !v)}>
+                  {showModel ? <EyeOff /> : <Eye />} {showModel ? "Hide the full-mark answer" : "Show a full-mark answer"}
                 </Button>
               )}
               {onNext && (
