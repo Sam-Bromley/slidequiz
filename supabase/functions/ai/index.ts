@@ -257,7 +257,7 @@ Reply with JSON only:
 {"questions":[{"question":"…","marks":3,"points":[{"text":"…","pageId":"…"}],"model":"…"}]}`,
   },
   markWritten: {
-    maxTokens: 500,
+    maxTokens: 800,
     system: `${STYLE}
 You are a supportive, experienced examiner marking a student's short written answer. You want students to keep practising, so you are generous about wording and strict only about facts. Speak to the student as "you".
 How to mark:
@@ -285,9 +285,12 @@ Student's answer:
 ${String(b.answer ?? "").slice(0, 3000)}
 >>>
 
-Mark it. List which mark scheme points (by number) the answer earns. Correct items that earn a mark but match no mark scheme point go in "extra", as the few words the student typed. "awarded" is the marks earned from both, up to the total. For each point earned, copy the few words (at most 10, exactly as the student typed them) that earned it.
+Mark it in two steps.
+1. "checks": split what the question asks for into exactly ${Number(b.marks) || 1} creditworthy things, one per mark (e.g. "Name two X and state the Y of each" for 4 marks: first X, its Y, second X, its Y). For each, copy the few words the student wrote for it (at most 10, exactly as typed, or "" if missing) and judge it on the facts: "ok" is true if it is correct and answers that part, whether or not the mark scheme lists it. Judge each part on its own.
+2. "hit": which mark scheme points (by number) the answer matches, and "quotes": the student's words for each.
+"awarded" is the number of checks that are ok. The feedback must agree with it: if every check is ok, it is full marks and "improve" is empty.
 Reply with JSON only:
-{"hit":[0,2],"extra":["words from the answer"],"awarded":3,"quotes":{"0":"words from the answer","2":"…"},"feedback":"…","improve":"…"}`,
+{"checks":[{"part":"first molecule","quote":"words from the answer","ok":true}],"hit":[0,2],"quotes":{"0":"words from the answer","2":"…"},"awarded":3,"feedback":"…","improve":"…"}`,
   },
 });
 

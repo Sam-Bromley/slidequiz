@@ -710,7 +710,7 @@ export async function cloudWrittenQuestions(m: Material, count = 6): Promise<Wri
 
 /** Marks a written answer against its mark scheme. Throws an AIError if it can't. */
 export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Promise<WrittenMark> {
-  const r = await call<{ awarded: number; hit: number[]; extra?: string[]; quotes?: Record<string, string>; feedback: string; improve?: string }>("markWritten", {
+  const r = await call<{ awarded: number; hit: number[]; extra?: string[]; checks?: { quote?: string; ok?: boolean }[]; quotes?: Record<string, string>; feedback: string; improve?: string }>("markWritten", {
     pages: [],
     question: q.question,
     marks: q.marks,
@@ -719,7 +719,10 @@ export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Prom
     answer,
   });
   const hit = [...new Set((Array.isArray(r.hit) ? r.hit : []).map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < q.points.length))];
-  const awarded = Math.max(0, Math.min(q.marks, Math.round(Number(r.awarded ?? hit.length) || 0)));
+  // Each part is judged on its own, so the marks are the parts that were right (not a separate guess).
+  const checks = Array.isArray(r.checks) ? r.checks.filter((c) => c && typeof c === "object") : [];
+  const fromChecks = checks.filter((c) => c.ok === true).length;
+  const awarded = Math.max(0, Math.min(q.marks, checks.length ? fromChecks : Math.round(Number(r.awarded ?? hit.length) || 0)));
   // Only keep quotes that really are in the answer (so they can be highlighted there).
   const quotes: Record<number, string> = {};
   for (const [k, v] of Object.entries(r.quotes && typeof r.quotes === "object" ? r.quotes : {})) {
@@ -728,9 +731,9 @@ export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Prom
     if (hit.includes(i) && t.length >= 2 && answer.toLowerCase().includes(t.toLowerCase())) quotes[i] = t;
   }
   // Correct items the mark scheme didn't list (e.g. another valid example) still get highlighted.
-  (Array.isArray(r.extra) ? r.extra : []).forEach((v, n) => {
+  [...(Array.isArray(r.extra) ? r.extra : []), ...checks.filter((c) => c.ok === true).map((c) => c.quote)].forEach((v, n) => {
     const t = String(v ?? "").trim().replace(/^["“']|["”']$/g, "");
     if (t.length >= 2 && answer.toLowerCase().includes(t.toLowerCase())) quotes[100 + n] = t;
   });
-  return { answer, awarded, hit, quotes, feedback: String(r.feedback ?? "").trim(), improve: String(r.improve ?? "").trim() || undefined, at: nowISO() };
+  return { answer, awarded, hit, quotes, feedback: String(r.feedback ?? "").trim(), improve: (awarded < q.marks && String(r.improve ?? "").trim()) || undefined, at: nowISO() };
 }
