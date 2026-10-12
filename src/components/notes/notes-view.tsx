@@ -308,6 +308,20 @@ function SlideBlock({ s, first, showImages, onDevice, openImage, marks, onMark }
  * Kept only in memory: a refresh, or opening different notes, starts from the top again.
  */
 let kept: { id: string; y: number } | null = null;
+let notesOpen = false;
+
+// Closing the tab or app forgets the spot. Some browsers bring a closed tab back exactly as it was
+// (scroll and all), so reopening one also starts the notes from the top.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    kept = null;
+  });
+  window.addEventListener("pageshow", (e) => {
+    if (!e.persisted) return;
+    kept = null;
+    if (notesOpen) window.scrollTo({ top: 0 });
+  });
+}
 
 function useKeepScroll(id: string, ready: boolean) {
   useEffect(() => {
@@ -317,6 +331,7 @@ function useKeepScroll(id: string, ready: boolean) {
     let live = true;
     let tries = 0;
     let listening = false;
+    notesOpen = true;
     const save = () => {
       if (live) kept = { id, y: window.scrollY };
     };
@@ -342,6 +357,7 @@ function useKeepScroll(id: string, ready: boolean) {
     window.addEventListener("touchstart", stop, { passive: true });
     return () => {
       live = false;
+      notesOpen = false;
       window.removeEventListener("scroll", save);
       window.removeEventListener("wheel", stop);
       window.removeEventListener("touchstart", stop);
