@@ -1,4 +1,5 @@
 import { useRewards } from "@/lib/rewards";
+import { BigMoments } from "@/components/layout/big-moment";
 import { actions } from "@/store/actions";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { initAds } from "@/services/ads";
@@ -160,6 +161,7 @@ export function App() {
       <ShortcutsDialog />
       <StartQuizDialog />
       <Toaster />
+      <BigMoments />
       <CookieBanner />
     </>
   );

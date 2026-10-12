@@ -1,5 +1,7 @@
 import { isJunkCard } from "@/lib/junk-card";
 import { emptyData } from "./defaults";
+import { levelInfo } from "@/lib/levels";
+import { showMoment } from "@/lib/moments";
 import { nowISO, uid, dayKey } from "@/lib/utils";
 import type { FlashcardDraft, QuestionDraft } from "@/services/ai/types";
 import type { AppData } from "@/services/db/types";
@@ -35,7 +37,12 @@ function addXp(s: AppData, n: number): AppData {
   const today = dayKey(new Date());
   const days = s.user.studyDays ?? [];
   const studyDays = days[days.length - 1] === today ? days : [...days, today].slice(-400);
-  return { ...s, user: { ...s.user, xp: Math.max(0, s.user.xp + n), studyDays } };
+  const xp = Math.max(0, s.user.xp + n);
+  // A new level gets its moment in the middle of the screen.
+  const from = levelInfo(s.user.xp).level;
+  const to = levelInfo(xp).level;
+  if (to > from) showMoment({ kind: "level", from, to });
+  return { ...s, user: { ...s.user, xp, studyDays } };
 }
 
 /** Adds to today's entry in the study log (for the weekly recap). */
@@ -478,8 +485,9 @@ export const actions = {
 
   /* ------------------------------------------------------------ flashcards */
   /** A written answer was marked: counts towards the streak, with points for the marks. */
-  writtenMarked(awarded: number) {
-    setState((s) => addXp(s, 5 + awarded * 5));
+  /** 10 XP for each mark, counting only marks beyond the best so far on that question (so re-marking can't farm XP). */
+  writtenMarked(questionId: ID, awarded: number, bestBefore = 0, marks = 1) {
+    setState((s) => addXp(logStudy(s, [{ questionId, right: awarded >= marks }]), Math.max(0, awarded - bestBefore) * XP.correct));
   },
   rateCard(id: ID, rating: FlashcardRating) {
     setState((s) => addXp(logStudy({ ...s, flashcards: s.flashcards.map((c) => (c.id === id ? { ...c, srs: schedule(c.srs, rating) } : c)) }, [], 1), XP.card));

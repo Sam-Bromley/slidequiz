@@ -12,7 +12,7 @@ import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material, WrittenQuestion } from "@/types/models";
 import { Spinner } from "@/components/ui/spinner";
-import { burst, chime, fanfare } from "@/lib/celebrate";
+import { burst, chime, fanfare, floatText } from "@/lib/celebrate";
 import { useCountUp } from "@/lib/count-up";
 
 const list = (id: string) => getState().materials.find((m) => m.id === id)?.written ?? [];
@@ -284,13 +284,16 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
       const before = q.best;
       patch(m.id, q.id, { last: r, best: Math.max(q.best ?? 0, r.awarded) });
       drafts.delete(q.id);
-      actions.writtenMarked(r.awarded);
+      actions.writtenMarked(q.id, r.awarded, before ?? 0, q.marks);
+      const xp = Math.max(0, r.awarded - (before ?? 0)) * 10;
       setGain(before !== undefined && r.awarded > before ? r.awarded - before : null);
       setEditing(false);
       // A little celebration that grows with the marks.
       const sound = getState().settings.soundEffects !== false;
       setTimeout(() => {
         const el = document.querySelector("[data-score]");
+        // The same "+10" as multiple choice: 10 for each new mark.
+        if (xp > 0) floatText(el, `+${xp}`, r.awarded === q.marks ? "hsl(var(--success))" : "#f59e0b");
         if (r.awarded === q.marks) {
           burst(el);
           if (sound) fanfare();

@@ -1,3 +1,4 @@
+import { levelInfo } from "@/lib/levels";
 /** Derives progress, weak areas and recommendations from quiz answers and flashcard reviews. */
 import { addDays, clamp, dayKey } from "@/lib/utils";
 import type { AppData } from "@/services/db/types";
@@ -252,6 +253,6 @@ export function milestones(data: AppData): Milestone[] {
 }
 
 export function levelFromXp(xp: number) {
-  const level = Math.floor(xp / 500) + 1;
-  return { level, into: xp % 500, next: 500 };
+  const { level, into, next } = levelInfo(xp);
+  return { level, into, next };
 }

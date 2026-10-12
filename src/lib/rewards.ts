@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef } from "react";
 import { toast } from "@/components/ui/toast";
-import { burst, fanfare } from "@/lib/celebrate";
+import { showMoment } from "@/lib/moments";
 import { dayKey } from "@/lib/utils";
 import type { AppData } from "@/services/db/types";
 
@@ -30,8 +30,6 @@ function streakCount(d: AppData) {
   return n;
 }
 
-const flame = () => document.querySelector("[data-streak-flame]");
-const sound = (d: AppData) => d.settings.soundEffects !== false;
 
 /** Pops the flame in the corner (it listens for this). */
 export const popFlame = () => window.dispatchEvent(new Event("slidequiz:flame"));
@@ -52,9 +50,7 @@ export function useRewards(d: AppData) {
     }
     if (p.today < DAILY_GOAL && now.today >= DAILY_GOAL) {
       popFlame();
-      setTimeout(() => burst(flame(), ["#f97316", "#fbbf24", "#fde68a", "#fb7185"]), 60);
-      if (sound(d)) fanfare();
-      toast("Daily goal reached 🎯", { description: `${DAILY_GOAL} things revised today. Anything more is a bonus.` });
+      showMoment({ kind: "goal", goal: DAILY_GOAL });
     }
     const hit = MILESTONES.find((m) => p.answered < m && now.answered >= m);
     if (hit) toast(`${hit.toLocaleString()} questions answered 🎉`, { description: hit >= 100 ? "That's serious revision." : "Keep stacking them up." });
