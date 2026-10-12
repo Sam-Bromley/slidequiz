@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { WeeklyRecap } from "@/components/home/weekly-recap";
+import { LevelCard } from "@/components/stats/level-card";
+import { Link } from "@/lib/router";
 import { dayKey } from "@/lib/utils";
 import { useData } from "@/store/store";
 import { DAILY_GOAL, todayCount } from "@/lib/rewards";
@@ -90,7 +92,11 @@ export function StreakFlame() {
       {count}
     </button>
       {open && (
-        <div role="dialog" aria-label="Your week" className="absolute right-0 top-full z-50 mt-2 w-[min(400px,calc(100vw-24px))] animate-scale-in">
+        <div role="dialog" aria-label="Your week" className="absolute right-0 top-full z-50 mt-2 w-[min(400px,calc(100vw-24px))] animate-scale-in max-sm:fixed max-sm:inset-x-3 max-sm:top-[calc(env(safe-area-inset-top,0px)+3.5rem)] max-sm:mt-0 max-sm:w-auto">
+          {/* Your level, tapping through to all your stats (the only way to Stats on phones). */}
+          <Link to="/stats" onClick={() => setOpen(false)} className="mb-2 block rounded-2xl focus-ring" aria-label="See your stats">
+            <LevelCard xp={data.user.xp} compact />
+          </Link>
           <WeeklyRecap popover />
         </div>
       )}
