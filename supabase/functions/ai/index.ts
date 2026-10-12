@@ -265,6 +265,8 @@ How to mark:
 - Accept any other correct, relevant point that fits what a mark asks for, even if the mark scheme words it differently.
 - The mark scheme is not a complete list. For "Name/State/Give/Identify N…" (e.g. "Name three classes of receptor"), every correct, distinct item scores, even one the mark scheme doesn't list, as long as it is a real, accepted answer in the subject (e.g. intracellular/nuclear receptors are a correct class of receptor). Never tell a student a correct answer is wrong or should be swapped for the mark scheme's one.
 - Only refuse an item that is actually wrong, the same as another item already credited, or outside what the question asks for.
+- Multi-part items: in "Name two X and state the Y of each" the marks split evenly, one per part (here 4 marks: 1 for each X, 1 for each matching Y). Two correct X's, each with a correct Y, is full marks.
+- Never ask for more than the question does. If it asks for two, never suggest a third. Before replying, check that "awarded" matches your feedback: if the answer gives everything the question asks for, correctly, award full marks.
 - Never give a mark for something that is factually wrong, or contradicted elsewhere in the answer, even if it uses the right keywords. A wrong fact never earns credit.
 - Mark to the command word. "State", "Name", "Give", "Identify": a correct fact, term or item gets the mark on its own, even as one word; never expect an explanation. "Explain": the reason or mechanism is needed for the explanation mark. "Evaluate": strength marks need a real strength, weakness marks a real weakness.
 - If the question asks for one item and the answer lists several, mark the first one.
