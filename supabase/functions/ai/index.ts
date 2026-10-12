@@ -249,6 +249,7 @@ Mark scheme:
 - The mark scheme follows the command word. "State"/"Name"/"Give" points are just the fact itself; never require an explanation for them. "Explain" points include the reason. For "Evaluate", label points "Strength: …" or "Weakness: …" and include one mark for each side asked for, with other valid strengths or weaknesses accepted in brackets. For two-part questions, start each point with its part, e.g. "State: …", "Strength: …", "Weakness: …".
 - Give exactly as many points as marks, one per mark, unless a mark can be earned several ways; then list the alternatives inside that point's brackets rather than as extra points.
 - Every point must be factually precise (e.g. for enzyme inhibitors: competitive raises Km with Vmax unchanged; non-competitive lowers Vmax). Never write a vague or half-true point.
+- For "Name/State/Give N…" questions where other correct answers exist beyond the slides, add "(accept any other correct …)" in the brackets, so a correct item is never marked wrong.
 - Be generous about wording: in each point's brackets, list the common equivalent terms and phrasings a student might use, e.g. "(accept allosteric site / regulatory site / a site other than the active site)".
 - Give each point the id of the slide it comes from.
 - Model answer: a concise answer in full sentences, ending with full stops, that would get full marks and no more, the way a strong student would write it. For "State", "Name" or "Give", just the answer itself with no explanation.
@@ -262,6 +263,8 @@ You are a supportive, experienced examiner marking a student's short written ans
 How to mark:
 - Mark the meaning, not the wording. Give the mark whenever the answer gets the idea across correctly, in any words: synonyms, equivalent technical terms (e.g. "allosteric site" = "regulatory site" = "a site other than the active site"), informal phrasing, spelling mistakes and partial sentences all count. The mark scheme wording is a guide, not a required phrase. If the meaning is clear and correct, give the benefit of the doubt.
 - Accept any other correct, relevant point that fits what a mark asks for, even if the mark scheme words it differently.
+- The mark scheme is not a complete list. For "Name/State/Give/Identify N…" (e.g. "Name three classes of receptor"), every correct, distinct item scores, even one the mark scheme doesn't list, as long as it is a real, accepted answer in the subject (e.g. intracellular/nuclear receptors are a correct class of receptor). Never tell a student a correct answer is wrong or should be swapped for the mark scheme's one.
+- Only refuse an item that is actually wrong, the same as another item already credited, or outside what the question asks for.
 - Never give a mark for something that is factually wrong, or contradicted elsewhere in the answer, even if it uses the right keywords. A wrong fact never earns credit.
 - Mark to the command word. "State", "Name", "Give", "Identify": a correct fact, term or item gets the mark on its own, even as one word; never expect an explanation. "Explain": the reason or mechanism is needed for the explanation mark. "Evaluate": strength marks need a real strength, weakness marks a real weakness.
 - If the question asks for one item and the answer lists several, mark the first one.
@@ -280,9 +283,9 @@ Student's answer:
 ${String(b.answer ?? "").slice(0, 3000)}
 >>>
 
-Mark it. List which mark scheme points (by number) the answer earns; "awarded" is how many marks that gives, up to the total. For each point earned, copy the few words (at most 10, exactly as the student typed them) that earned it.
+Mark it. List which mark scheme points (by number) the answer earns. Correct items that earn a mark but match no mark scheme point go in "extra", as the few words the student typed. "awarded" is the marks earned from both, up to the total. For each point earned, copy the few words (at most 10, exactly as the student typed them) that earned it.
 Reply with JSON only:
-{"hit":[0,2],"awarded":2,"quotes":{"0":"words from the answer","2":"…"},"feedback":"…","improve":"…"}`,
+{"hit":[0,2],"extra":["words from the answer"],"awarded":3,"quotes":{"0":"words from the answer","2":"…"},"feedback":"…","improve":"…"}`,
   },
 });
 

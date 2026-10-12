@@ -710,7 +710,7 @@ export async function cloudWrittenQuestions(m: Material, count = 6): Promise<Wri
 
 /** Marks a written answer against its mark scheme. Throws an AIError if it can't. */
 export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Promise<WrittenMark> {
-  const r = await call<{ awarded: number; hit: number[]; quotes?: Record<string, string>; feedback: string; improve?: string }>("markWritten", {
+  const r = await call<{ awarded: number; hit: number[]; extra?: string[]; quotes?: Record<string, string>; feedback: string; improve?: string }>("markWritten", {
     pages: [],
     question: q.question,
     marks: q.marks,
@@ -727,5 +727,10 @@ export async function cloudMarkWritten(q: WrittenQuestion, answer: string): Prom
     const t = String(v ?? "").trim().replace(/^["“']|["”']$/g, "");
     if (hit.includes(i) && t.length >= 2 && answer.toLowerCase().includes(t.toLowerCase())) quotes[i] = t;
   }
+  // Correct items the mark scheme didn't list (e.g. another valid example) still get highlighted.
+  (Array.isArray(r.extra) ? r.extra : []).forEach((v, n) => {
+    const t = String(v ?? "").trim().replace(/^["“']|["”']$/g, "");
+    if (t.length >= 2 && answer.toLowerCase().includes(t.toLowerCase())) quotes[100 + n] = t;
+  });
   return { answer, awarded, hit, quotes, feedback: String(r.feedback ?? "").trim(), improve: String(r.improve ?? "").trim() || undefined, at: nowISO() };
 }
