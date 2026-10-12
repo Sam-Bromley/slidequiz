@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
 import { toast } from "@/components/ui/toast";
-import { endSentence, tidyQuestion, tidySentence } from "@/lib/tidy";
+import { tidyQuestion, tidySentence } from "@/lib/tidy";
 import { cn } from "@/lib/utils";
 import { AIError, cloudMarkWritten, cloudWrittenQuestions, costText, currentAllowance, ensureCredits, fits, refreshAllowance, textSize } from "@/services/ai/cloud";
 import { hasText } from "@/components/ai/ai-waiting";
@@ -40,11 +40,6 @@ function highlight(text: string, quotes: string[]) {
   );
 }
 
-/** A mark-scheme point as students see it: without the "(accept …)" notes, which are for the marker. */
-function shown(point: string) {
-  const t = point.replace(/\s*\((?:also\s+)?accept\b[^()]*(?:\([^()]*\)[^()]*)*\)/gi, "").replace(/\s*\[(?:also\s+)?accept\b[^\]]*\]/gi, "").trim();
-  return endSentence(t || point);
-}
 
 /** Which written question each lecture was last on (kept on this device). */
 function positions(): Record<string, string> {
@@ -248,7 +243,6 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
   const [stage, setStage] = useState(0);
   // How the last marking compared with the best before it (for "+2 marks better").
   const [gain, setGain] = useState<number | null>(null);
-  const [fresh, setFresh] = useState(false);
   useEffect(() => {
     if (!busy) return;
     setStage(0);
@@ -273,7 +267,6 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
       drafts.delete(q.id);
       actions.writtenMarked(r.awarded);
       setGain(before !== undefined && r.awarded > before ? r.awarded - before : null);
-      setFresh(true);
       setEditing(false);
       // A little celebration that grows with the marks.
       const sound = getState().settings.soundEffects !== false;
@@ -374,26 +367,6 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
                 {last.feedback && <p className="mt-0.5 text-[13.5px] text-foreground/85">{tidySentence(last.feedback)}</p>}
               </div>
             </div>
-
-            {last.awarded < q.marks && q.points.some((_, k) => !last.hit.includes(k)) && (
-              <section aria-label="What you missed">
-                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {last.hit.length ? "To get the rest" : "What would get marks"} · any {q.marks - last.awarded} of these
-                </p>
-                <ul className="space-y-2">
-                  {q.points.map((_, k) => (last.hit.includes(k) ? -1 : k)).filter((k) => k >= 0).map((k, n) => (
-                    <li
-                      key={k}
-                      className={cn("flex items-start gap-3 rounded-xl border border-dashed border-foreground/20 px-3.5 py-2.5", fresh && "animate-fade-up")}
-                      style={fresh ? { animationDelay: `${300 + (last.hit.length + n) * 140}ms` } : undefined}
-                    >
-                      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 border-dashed border-foreground/25 text-[11px] font-bold text-muted-foreground">+1</span>
-                      <span className="min-w-0 flex-1 text-[14px] text-foreground/85">{shown(q.points[k].text)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
 
             {last.improve && (
               <p className="rounded-xl bg-warning-soft/70 px-4 py-3 text-[13.5px]">
