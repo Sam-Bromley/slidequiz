@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, PenLine, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, MoreHorizontal, PenLine, RotateCcw, Trash2 } from "lucide-react";
+import { Menu } from "@/components/ui/menu";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
@@ -165,45 +166,64 @@ export function WrittenView({ material: m }: { material: Material }) {
   const tried = qs.filter((x) => x.last).length;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      {tried > 0 && (
-        <div className="flex items-center gap-3" aria-label={`Best so far: ${totalBest} of ${totalMarks} marks`}>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-            <div className={cn("h-full rounded-full transition-[width] duration-700 ease-out", totalBest === totalMarks ? "bg-success" : "bg-primary")} style={{ width: `${(totalBest / Math.max(1, totalMarks)) * 100}%` }} />
+    <div className="mx-auto max-w-2xl space-y-4">
+      {/* Marks so far, and a menu for the rest, on one quiet line. */}
+      <div className="flex min-h-8 items-center gap-2.5">
+        {tried > 0 ? (
+          <div className="flex flex-1 items-center gap-2.5" aria-label={`Best so far: ${totalBest} of ${totalMarks} marks`}>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className={cn("h-full rounded-full transition-[width] duration-700 ease-out", totalBest === totalMarks ? "bg-success" : "bg-primary")} style={{ width: `${(totalBest / Math.max(1, totalMarks)) * 100}%` }} />
+            </div>
+            <span className="text-[12.5px] tabular-nums text-muted-foreground">
+              {totalBest}/{totalMarks} marks
+            </span>
           </div>
-          <span className="text-[12.5px] font-semibold tabular-nums">
-            {totalBest}/{totalMarks} <span className="font-normal text-muted-foreground">marks</span>
-          </span>
-        </div>
-      )}
-      <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
-        <span>
-          Question {idx + 1} of {qs.length}
-        </span>
-        {tried > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              const before = list(m.id);
-              save(m.id, before.map(({ last: _l, best: _b, ...rest }) => rest));
-              setI(0);
-              setResets((n) => n + 1);
-              toast.undo("Progress reset", () => {
-                save(m.id, before);
-                setResets((n) => n + 1);
-              });
-            }}
-            title="Clear your answers and marks and start again"
-            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring"
-          >
-            <RotateCcw className="size-3.5" /> Reset progress
-          </button>
+        ) : (
+          <span className="flex-1" />
         )}
         {busy && (
-          <span className={cn("inline-flex items-center gap-1.5 text-[12.5px]", !tried && "ml-auto")}>
-            <Spinner className="size-3" /> Writing more questions…
+          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+            <Spinner className="size-3" /> Writing more…
           </span>
         )}
+        <Menu
+          label="Written answer actions"
+          items={[
+            ...(tried > 0
+              ? [
+                  {
+                    label: "Reset progress",
+                    icon: RotateCcw,
+                    onSelect: () => {
+                      const before = list(m.id);
+                      save(m.id, before.map(({ last: _l, best: _b, ...rest }) => rest));
+                      setI(0);
+                      setResets((n) => n + 1);
+                      toast.undo("Progress reset", () => {
+                        save(m.id, before);
+                        setResets((n) => n + 1);
+                      });
+                    },
+                  },
+                ]
+              : []),
+            {
+              label: "Delete this question",
+              icon: Trash2,
+              danger: true,
+              onSelect: () => {
+                const before = list(m.id);
+                save(m.id, before.filter((x) => x.id !== q.id));
+                toast.undo("Question deleted", () => save(m.id, before));
+              },
+            },
+          ]}
+          trigger={(p) => (
+            <button type="button" aria-label="More" className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring" {...p}>
+              <MoreHorizontal className="size-[18px]" />
+            </button>
+          )}
+        />
       </div>
       <QuestionCard key={`${q.id}-${resets}`} material={m} q={q} onNext={idx < qs.length - 1 ? () => setI(idx + 1) : undefined} />
       <div className="flex items-center justify-between">
@@ -255,7 +275,6 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
   useEffect(() => {
     if (editing) area.current?.focus({ preventScroll: true });
   }, [editing]);
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
 
   const mark = async () => {
     if (!text.trim()) return;
@@ -293,25 +312,8 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
 
   return (
     <article className="rounded-2xl border bg-card p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <p className="flex-1 text-[16.5px] font-semibold leading-snug">{tidyQuestion(q.question)}</p>
-        <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[12px] font-semibold tabular-nums text-secondary-foreground">
-          {q.marks} {q.marks === 1 ? "mark" : "marks"}
-        </span>
-        <button
-          type="button"
-          aria-label="Delete question"
-          title="Delete"
-          className="-mr-1 grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-destructive focus-ring"
-          onClick={() => {
-            const before = list(m.id);
-            save(m.id, before.filter((x) => x.id !== q.id));
-            toast.undo("Question deleted", () => save(m.id, before));
-          }}
-        >
-          <Trash2 className="size-4" />
-        </button>
-      </div>
+      <p className="mb-1.5 text-[12.5px] text-muted-foreground">{q.marks} {q.marks === 1 ? "mark" : "marks"}</p>
+      <p className="text-[17px] font-semibold leading-snug">{tidyQuestion(q.question)}</p>
 
       {editing ? (
         <div className="mt-4">
@@ -336,8 +338,7 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
           )}
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[12px] text-muted-foreground">
-              {words} {words === 1 ? "word" : "words"} · aim for {q.marks} {q.marks === 1 ? "point" : "key points"}
-              <span className="hidden sm:inline"> · Ctrl+Enter to mark</span>
+              Aim for {q.marks} {q.marks === 1 ? "point" : "key points"}
             </span>
             {last && (
               <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setEditing(false)}>
@@ -368,7 +369,7 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
               </div>
             </div>
 
-            {last.improve && (
+            {last.improve && last.awarded < q.marks && (
               <p className="rounded-xl bg-warning-soft/70 px-4 py-3 text-[13.5px]">
                 <span className="font-semibold">To get more marks: </span>
                 {tidySentence(last.improve)}

@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, RotateCcw, Shuffle, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, MoreHorizontal, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -24,7 +24,7 @@ function splitPrompt(prompt: string): { kicker: string | null; text: string } {
 }
 
 /** A small button that opens a panel underneath it. */
-function Pop({ label, title, children, align = "left", className }: { label: string; title: string; children: ReactNode; align?: "left" | "right"; className?: string }) {
+function Pop({ label, title, children, align = "left", className, icon }: { label: string; title: string; children: ReactNode; align?: "left" | "right"; className?: string; icon?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -40,10 +40,16 @@ function Pop({ label, title, children, align = "left", className }: { label: str
   }, [open]);
   return (
     <div ref={ref} className={cn("relative", className)}>
-      <button type="button" aria-expanded={open} aria-haspopup="true" title={title} onClick={() => setOpen((o) => !o)} className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring">
-        <span className="truncate">{label}</span>
-        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} />
-      </button>
+      {icon ? (
+        <button type="button" aria-expanded={open} aria-haspopup="true" aria-label={label} title={title} onClick={() => setOpen((o) => !o)} className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring">
+          {icon}
+        </button>
+      ) : (
+        <button type="button" aria-expanded={open} aria-haspopup="true" title={title} onClick={() => setOpen((o) => !o)} className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring">
+          <span className="truncate">{label}</span>
+          <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+        </button>
+      )}
       {open && (
         <div role="dialog" aria-label={title} className={cn("absolute top-full z-30 mt-1.5 w-64 animate-scale-in rounded-xl border bg-popover p-1.5 shadow-pop", align === "right" ? "right-0" : "left-0")}>
           {children}
@@ -375,11 +381,11 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex items-center gap-2">
         <Pop
           label={topicIds.length === 0 ? (mixed ? "All materials" : "All topics") : topicIds.length === 1 ? topics.find((t) => t.id === topicIds[0])?.name ?? "1 topic" : `${topicIds.length} ${mixed ? "materials" : "topics"}`}
           title={mixed ? "Materials to practise" : "Topics to practise"}
-          className="max-w-[70%]"
+          className="min-w-0 max-w-[55%]"
         >
           <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-[14px] hover:bg-accent">
             <input type="checkbox" className="size-4 accent-foreground" checked={topicIds.length === 0} onChange={() => onTopicsChange([])} />
@@ -405,23 +411,33 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
             );
           })}
         </Pop>
-        <button
-          type="button"
-          aria-pressed={shuffle}
-          title={shuffle ? "Questions in a random order" : "Questions in slide order"}
-          onClick={() => actions.updateSettings({ practiceShuffle: !shuffle })}
-          className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-ring", shuffle ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground")}
-        >
-          <Shuffle className="size-3.5" /> Shuffle
-        </button>
-        {/* Always takes its space (just hidden until there's progress), so nothing jumps after the first answer. */}
-        {(
-          <button type="button" onClick={resetProgress} title="Start this practice again from scratch" aria-hidden={prog.covered + prog.review === 0} tabIndex={prog.covered + prog.review === 0 ? -1 : undefined} className={cn("ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-ring", prog.covered + prog.review === 0 && "invisible")}>
-            <RotateCcw className="size-3.5" /> Reset progress
+        {/* How far through, small and on the same line. */}
+        <div className="ml-auto flex min-w-[110px] flex-1 items-center justify-end gap-2.5 sm:max-w-[220px]" aria-label={`${prog.covered} of ${prog.total} covered`}>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={prog.pct} aria-valuemin={0} aria-valuemax={100} aria-label="Material covered">
+            <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${prog.pct}%` }} />
+          </div>
+          <span className="shrink-0 text-[12.5px] tabular-nums text-muted-foreground">
+            {prog.covered}/{prog.total}
+          </span>
+        </div>
+        {/* Everything else tucked into one menu. */}
+        <Pop label="Practice settings" title="Practice settings" align="right" icon={<MoreHorizontal className="size-[18px]" />}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={shuffle}
+            onClick={() => actions.updateSettings({ practiceShuffle: !shuffle })}
+            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[14px] hover:bg-accent focus-ring"
+          >
+            <Shuffle className="size-4 text-muted-foreground" />
+            <span className="flex-1">Shuffle questions</span>
+            <span className={cn("relative h-5 w-9 rounded-full transition-colors", shuffle ? "bg-foreground" : "bg-muted-foreground/30")}>
+              <span className={cn("absolute top-0.5 size-4 rounded-full bg-background shadow transition-[left]", shuffle ? "left-[18px]" : "left-0.5")} />
+            </span>
           </button>
-        )}
-        <Pop label={`${count} options`} title="Answer options" align="right" className={cn(!(prog.covered + prog.review > 0) && "ml-auto")}>
-          <div className="grid grid-cols-4 gap-1 p-1" role="radiogroup" aria-label="Answer options per question">
+          <div className="my-1 border-t" />
+          <p className="px-2 pb-1 pt-1.5 text-[12px] text-muted-foreground">Answer options</p>
+          <div className="grid grid-cols-4 gap-1 px-1 pb-1" role="radiogroup" aria-label="Answer options per question">
             {COUNTS.map((n) => (
               <button
                 key={n}
@@ -435,20 +451,15 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
               </button>
             ))}
           </div>
-          <p className="px-2 pb-1 pt-2 text-[12px] text-muted-foreground">A to {LETTERS[count - 1]} for each question</p>
+          {prog.covered + prog.review > 0 && (
+            <>
+              <div className="my-1 border-t" />
+              <button type="button" onClick={resetProgress} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[14px] hover:bg-accent focus-ring">
+                <RotateCcw className="size-4 text-muted-foreground" /> Reset progress
+              </button>
+            </>
+          )}
         </Pop>
-      </div>
-
-      <div className="mb-5">
-        <div className="mb-1.5 flex items-center justify-between text-[12.5px] text-muted-foreground">
-          <span>
-            {prog.covered} of {prog.total} covered
-          </span>
-          <span className="tabular-nums">{prog.pct}%</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={prog.pct} aria-valuemin={0} aria-valuemax={100} aria-label="Material covered">
-          <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${prog.pct}%` }} />
-        </div>
       </div>
 
       {!all.length && !mixed && hasText(material) && material.ai?.status !== "done" ? (
@@ -571,7 +582,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
                 )}
               </p>
               {data.settings.showExplanations !== false && <p className="mt-1 text-[14.5px] leading-relaxed text-foreground/85">{tidySentence(sq!.explanation)}</p>}
-              {!rev && !sCorrect && !retrying && <p className="mt-1 text-[13px] text-muted-foreground">This one will come up again later.</p>}
               <div className="mt-4 flex items-center justify-between gap-3">
                 {page ? (
                   <button type="button" onClick={() => onOpenNotes(page.id, sq!.materialId)} className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">

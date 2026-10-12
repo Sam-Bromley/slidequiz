@@ -127,50 +127,39 @@ export function QuestionsPage() {
 
   return (
     <div>
-      <PageHeader title="Questions" className="mb-5" />
+      <PageHeader title="Questions" className="mb-4" />
 
-      {/* The two kinds of questions */}
-      <div className="mx-auto mb-5 grid max-w-2xl grid-cols-2 gap-2.5" role="group" aria-label="Question type">
-        {(
-          [
-            { m: "mcq", icon: ListChecks, title: "Multiple choice", sub: "Pick the right answer" },
-            { m: "written", icon: PenLine, title: "Written answers", sub: "Type it, get it marked" },
-          ] as const
-        ).map((o) => {
-          const on = mode === o.m;
-          return (
-            <button
-              key={o.m}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setMode(o.m)}
-              className={cn("flex items-center gap-2.5 rounded-2xl border px-3 py-3 text-left transition-colors focus-ring sm:gap-3 sm:px-4 sm:py-3.5", on ? "border-foreground bg-foreground text-background" : "bg-card hover:border-foreground/30")}
-            >
-              <span className={cn("hidden size-9 shrink-0 place-items-center rounded-xl sm:grid", on ? "bg-background/15" : "bg-secondary")}>
-                <o.icon className="size-[18px]" />
-              </span>
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 whitespace-nowrap text-[14px] font-semibold leading-tight sm:text-[14.5px]">
-                  <o.icon className="size-4 shrink-0 sm:hidden" />
-                  {o.title}
-                </span>
-                <span className={cn("hidden truncate text-[12.5px] sm:block", on ? "text-background/70" : "text-muted-foreground")}>{o.sub}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* What's being practised */}
-      <div className="mx-auto mb-5 flex max-w-2xl flex-wrap items-center gap-2">
-        <span className="text-[13px] text-muted-foreground">Practising</span>
-        <button type="button" onClick={() => setPicking(true)} className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border bg-card px-3 text-[13px] font-medium transition-colors hover:border-foreground/30 focus-ring">
+      {/* The two kinds of questions, and what's being practised, on one line. */}
+      <div className="mx-auto mb-4 flex max-w-2xl flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-full border bg-card p-1" role="group" aria-label="Question type">
+          {(
+            [
+              { m: "mcq", icon: ListChecks, title: "Multiple choice" },
+              { m: "written", icon: PenLine, title: "Written" },
+            ] as const
+          ).map((o) => {
+            const on = mode === o.m;
+            return (
+              <button
+                key={o.m}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setMode(o.m)}
+                className={cn("inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-medium transition-colors focus-ring", on ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}
+              >
+                <o.icon className="size-4" />
+                {o.title}
+              </button>
+            );
+          })}
+        </div>
+        <button type="button" onClick={() => setPicking(true)} aria-label={`Practising ${label}. Change`} className="ml-auto inline-flex h-10 min-w-0 max-w-full items-center gap-1.5 rounded-full border bg-card px-3.5 text-[13.5px] font-medium transition-colors hover:border-foreground/30 focus-ring max-sm:ml-0">
           {folder && <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />}
           <span className="truncate">{label}</span>
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
         {mode === "written" && shown.length > 1 && (
-          <Select aria-label="Lecture for written answers" value={writtenMat?.id} onChange={(e) => setWrittenFor(e.target.value)} className="h-8 w-auto max-w-full py-0 text-[13px]">
+          <Select aria-label="Lecture for written answers" value={writtenMat?.id} onChange={(e) => setWrittenFor(e.target.value)} className="h-10 w-auto max-w-full py-0 text-[13px]">
             {shown.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.title}
