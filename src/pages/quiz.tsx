@@ -99,7 +99,7 @@ export function QuizPage({ id }: { id: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.closest("input,textarea,select") || e.metaKey || e.ctrlKey || document.querySelector("[role=dialog]")) return;
+      if (t.closest("input,textarea,select") || e.metaKey || e.ctrlKey || document.querySelector("[role=dialog][aria-modal=true]")) return;
       if (e.key === "ArrowRight") go(index + 1);
       else if (e.key === "ArrowLeft") go(index - 1);
       else if (e.key.toLowerCase() === "f") toggleFlag();

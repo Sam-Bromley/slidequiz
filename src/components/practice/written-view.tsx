@@ -12,7 +12,7 @@ import { actions } from "@/store/actions";
 import { getState } from "@/store/store";
 import type { Material, WrittenQuestion } from "@/types/models";
 import { Spinner } from "@/components/ui/spinner";
-import { burst, chime, fanfare, floatText } from "@/lib/celebrate";
+import { burst, chime, floatText } from "@/lib/celebrate";
 import { useCountUp } from "@/lib/count-up";
 
 const list = (id: string) => getState().materials.find((m) => m.id === id)?.written ?? [];
@@ -294,13 +294,10 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
         const el = document.querySelector("[data-score]");
         // The same "+10" as multiple choice: 10 for each new mark.
         if (xp > 0) floatText(el, `+${xp}`, r.awarded === q.marks ? "hsl(var(--success))" : "#f59e0b");
-        if (r.awarded === q.marks) {
-          burst(el);
-          if (sound) fanfare();
-        } else if (r.awarded > 0) {
-          burst(el, ["#f59e0b", "#fbbf24", "#fde68a"]);
-          if (sound) chime(0);
-        }
+        // The same "right answer" sound as multiple choice.
+        if (r.awarded > 0 && sound) chime(0);
+        if (r.awarded === q.marks) burst(el);
+        else if (r.awarded > 0) burst(el, ["#f59e0b", "#fbbf24", "#fde68a"]);
       }, 650);
     } catch (e) {
       toast.error(aiMessage(e));
@@ -312,6 +309,20 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
 
   const last = q.last;
   const pct = last ? last.awarded / q.marks : 0;
+
+  // After marking, Enter (or →) goes on to the next question, like multiple choice.
+  useEffect(() => {
+    if (editing || !last || !onNext) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key !== "Enter" && e.key !== "ArrowRight") return;
+      if (t.closest("input,textarea,select,button,a,[contenteditable]") || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || document.querySelector("[role=dialog][aria-modal=true]")) return;
+      e.preventDefault();
+      onNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing, last, onNext]);
 
   return (
     <article className="rounded-2xl border bg-card p-5 sm:p-6">

@@ -363,7 +363,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.closest("input,textarea,select,[contenteditable]") || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog]")) return;
+      if (t.closest("input,textarea,select,[contenteditable]") || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog][aria-modal=true]")) return;
       // ← goes back to earlier questions; → / Enter comes forward again.
       if (e.key === "ArrowLeft" && canGoBack) {
         e.preventDefault();

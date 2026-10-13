@@ -212,8 +212,8 @@ export function UploadPage() {
       // Pictures save in the background (they show from memory meanwhile), so the lecture opens straight away.
       void persistPendingImages(mats.flatMap((m) => m.pages.flatMap((p) => (p.images ?? []).map((i) => i.id))));
       actions.addMaterials(mats);
-      // Every lecture's notes and questions are written (all at once) before anything opens, so there's
-      // no waiting when they're clicked. If it's taking unusually long, open once the first lecture
+      // Every lecture's notes, practice questions and written questions are made (all at once) before anything
+      // opens, so there's no waiting when they're clicked. If it's taking unusually long, open once the first lecture
       // has its notes and first questions, and let the rest finish in the background.
       let done = 0;
       const label = () => (mats.length > 1 ? `Writing your notes and questions… ${done} of ${mats.length} lectures done` : "Writing your notes and questions…");

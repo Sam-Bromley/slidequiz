@@ -92,7 +92,7 @@ function useGlobalShortcuts() {
         setUI({ command: true });
         return;
       }
-      if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog]")) return;
+      if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("[role=dialog][aria-modal=true]")) return;
       if (e.key === "/") {
         e.preventDefault();
         setUI({ command: true });

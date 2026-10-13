@@ -283,7 +283,18 @@ export function enhanceMaterial(id: ID): Promise<void> {
         } else count += actions.addPracticeQuestions(id, drafts);
         setAi({ questions: true });
       });
-      const [sections] = await Promise.all([notesJob, questionsJob]);
+      // Written-answer questions too, so they're ready when the lecture opens (only if there are credits for them).
+      const writtenJob = !m0.written?.length && fits(textSize(m0) + Math.ceil(textSize(m0) / 2), a)
+        ? cloudWrittenQuestions(m0, 6)
+            .then((fresh) => {
+              const cur = getState().materials.find((x) => x.id === id);
+              if (cur && fresh.length && !cur.written?.length) actions.updateMaterial(id, { written: fresh });
+            })
+            .catch(() => {
+              /* written questions are made later on the Written tab instead */
+            })
+        : Promise.resolve();
+      const [sections] = await Promise.all([notesJob, questionsJob, writtenJob]);
       if (notesDone) actions.retopicPractice(id);
       setAi({ status: "done", notes: sections, questions: count > 0 });
       if (notesDone) autoFlashcards(id);

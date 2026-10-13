@@ -604,7 +604,7 @@ export function DeckPage({ id }: { id: string }) {
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest("input,textarea,select,[contenteditable]") || document.querySelector("[role=dialog]")) return;
+      if ((e.target as HTMLElement).closest("input,textarea,select,[contenteditable]") || document.querySelector("[role=dialog][aria-modal=true]")) return;
       if (e.key === " ") {
         e.preventDefault();
         setFlipped((f) => !f);
