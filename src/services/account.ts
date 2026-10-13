@@ -84,7 +84,17 @@ function setSession(s: Session | null) {
 
 /* ------------------------------------------------------------------ Supabase requests */
 
-export class AccountError extends Error {}
+export class AccountError extends Error {
+  constructor(
+    message: string,
+    /** The server's status code, when it answered. */
+    public status = 0,
+    /** The server's own error text, before it was made friendly. */
+    public raw = "",
+  ) {
+    super(message);
+  }
+}
 
 const FRIENDLY: [RegExp, string][] = [
   [/invalid login credentials/i, "That email and password don't match."],
@@ -113,7 +123,10 @@ async function call<T>(path: string, init: RequestInit & { auth?: boolean } = {}
   }
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new AccountError(friendly(body?.msg ?? body?.error_description ?? body?.message ?? body?.error ?? `Something went wrong (${res.status}).`));
+  if (!res.ok) {
+    const raw = String(body?.msg ?? body?.error_description ?? body?.message ?? body?.error ?? "");
+    throw new AccountError(friendly(raw || `Something went wrong (${res.status}).`), res.status, `${raw} ${body?.error_code ?? body?.code ?? ""}`);
+  }
   return body as T;
 }
 
@@ -168,12 +181,17 @@ async function accessToken(): Promise<string | null> {
       setSession(toSession(t));
       return session!.access_token;
     } catch (e) {
-      // A rejected refresh token means the login has ended; a network error doesn't.
-      if (e instanceof AccountError && !/reach the server/.test(e.message)) {
+      // Only a login the server says has really ended logs you out. A dropped connection, a phone
+      // that went to sleep mid-request or a server hiccup just tries again later.
+      if (e instanceof AccountError && loginEnded(e)) {
         adoptStored();
         if (fresh(session)) return session!.access_token;
-        setSession(null);
-        import("@/components/ui/toast").then(({ toast }) => toast("You've been logged out. Log in again to keep your work synced.")).catch(() => {});
+        // Renewed elsewhere a moment ago (another tab or the app): wait and look again before giving up.
+        await new Promise((r) => setTimeout(r, 1500));
+        adoptStored();
+        if (fresh(session)) return session!.access_token;
+        endedOnDevice();
+        import("@/components/ui/toast").then(({ toast }) => toast("You've been logged out. Log in again to get your work back.")).catch(() => {});
       }
       return null;
     }
@@ -181,6 +199,29 @@ async function accessToken(): Promise<string | null> {
     refreshing = null;
   });
   return refreshing;
+}
+
+/** The server rejected the saved login for good (not a network or server problem). */
+const loginEnded = (e: AccountError) => (e.status === 400 || e.status === 401 || e.status === 403) && /refresh[_ ]?token|invalid[_ ]grant|not[_ ]found|revoked|session|expired|already used/i.test(e.raw);
+
+const STASH = (uid: string) => `slidequiz:stash:${uid}`;
+
+/**
+ * The login ended on its own (not by pressing Log out): put this account's work aside and leave the
+ * device logged out and clean, like after logging out. Logging back in to the same account brings
+ * back anything that hadn't been saved to the account yet.
+ */
+function endedOnDevice() {
+  const uid = session?.user.id ?? meta?.userId;
+  if (uid) save(STASH(uid), getState());
+  setSession(null);
+  meta = null;
+  save(META_KEY, null);
+  dirty = false;
+  applying = true;
+  replaceState({ ...emptyData(), onboarded: true });
+  forgetAppearance();
+  applying = false;
 }
 
 /** For other parts of the site that call Supabase as the logged-in student (e.g. the AI helper). */
@@ -452,6 +493,12 @@ export function syncNow(fresh = false): Promise<void> {
       if (!remote) {
         await push();
       } else if (fresh || meta?.userId !== uid) {
+        // Work put aside when this account's login ended on this device comes back first.
+        const stash = load<AppData>(STASH(uid));
+        if (stash) {
+          apply(merge(getState(), stash));
+          save(STASH(uid), null);
+        }
         // First time on this device: keep what's here and add what's in the account.
         const hasLocal = getState().materials.length || getState().flashcards.length;
         apply(hasLocal ? merge(getState(), remote.data) : remote.data);
@@ -511,6 +558,8 @@ export function startAccount() {
     }
   }
   if (session) set({ user: session.user });
+  // The login is gone but this device still has that account's work showing: tidy it away.
+  else if (meta?.userId) endedOnDevice();
   subscribeState(() => {
     if (!session || applying) return;
     dirty = true;
