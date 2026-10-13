@@ -259,7 +259,8 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
                     type="button"
                     aria-pressed={on}
                     onClick={() => pickFolder(f.id)}
-                    className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-ring", on ? "border-foreground bg-accent" : "hover:border-foreground/25 hover:bg-accent/50")}
+                    className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-ring", hex ? "hover:brightness-[0.98]" : on ? "border-foreground bg-accent" : "hover:border-foreground/25 hover:bg-accent/50")}
+                    style={hex ? { borderColor: on ? hex : hex + "55", backgroundColor: hex + (on ? "26" : "10") } : undefined}
                   >
                     <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary" style={hex ? { backgroundColor: hex + "26" } : undefined}>
                       <FolderIcon className={cn("size-[18px]", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
@@ -270,7 +271,7 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
                         {count} {count === 1 ? "lecture" : "lectures"}
                       </span>
                     </span>
-                    <Tick on={on} />
+                    <Tick on={on} colour={hex} />
                   </button>
                 );
               })}
@@ -296,17 +297,23 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
                     {g.name}
                   </p>
                 )}
-                <ul className="divide-y overflow-hidden rounded-xl border">
+                <ul className="divide-y overflow-hidden rounded-xl border" style={g.colour ? { borderColor: g.colour + "55", backgroundColor: g.colour + "0d" } : undefined}>
                   {g.items.map((m) => {
                     const on = picked.includes(m.id);
                     return (
                       <li key={m.id}>
-                        <button type="button" aria-pressed={on} onClick={() => toggle(m.id)} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors focus-ring", on ? "bg-accent" : "hover:bg-accent/50")}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => toggle(m.id)}
+                          className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors focus-ring", g.colour ? "hover:brightness-[0.98]" : on ? "bg-accent" : "hover:bg-accent/50")}
+                          style={g.colour ? { backgroundColor: on ? g.colour + "26" : undefined, borderColor: g.colour + "40" } : undefined}
+                        >
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[14px] font-medium">{m.title}</span>
                             {m.subject && <span className="block truncate text-[12px] text-muted-foreground">{m.subject}</span>}
                           </span>
-                          <Tick on={on} />
+                          <Tick on={on} colour={g.colour} />
                         </button>
                       </li>
                     );
@@ -323,9 +330,13 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
 }
 
 /** A round tick that fills in when chosen. */
-function Tick({ on }: { on: boolean }) {
+function Tick({ on, colour }: { on: boolean; colour?: string }) {
   return (
-    <span aria-hidden className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors", on ? "border-foreground bg-foreground text-background" : "border-muted-foreground/30")}>
+    <span
+      aria-hidden
+      className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors", on ? (colour ? "text-white" : "border-foreground bg-foreground text-background") : "border-muted-foreground/30")}
+      style={colour ? (on ? { borderColor: colour, backgroundColor: colour } : { borderColor: colour + "66" }) : undefined}
+    >
       {on && <Check className="size-3" strokeWidth={3.5} />}
     </span>
   );
