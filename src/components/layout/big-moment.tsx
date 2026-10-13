@@ -7,15 +7,17 @@ import { MOMENT_EVENT as EVENT, type Moment } from "@/lib/moments";
 
 /** Lives once at the top of the app. Moments that arrive together are shown one after the other. */
 export function BigMoments() {
-  const [queue, setQueue] = useState<Moment[]>([]);
+  const [queue, setQueue] = useState<{ id: number; m: Moment }[]>([]);
   useEffect(() => {
-    const on = (e: Event) => setQueue((q) => [...q, (e as CustomEvent<Moment>).detail]);
+    let n = 0;
+    const on = (e: Event) => setQueue((q) => [...q, { id: ++n, m: (e as CustomEvent<Moment>).detail }]);
     window.addEventListener(EVENT, on);
     return () => window.removeEventListener(EVENT, on);
   }, []);
-  const m = queue[0];
-  if (!m) return null;
-  return <MomentCard key={queue.length + JSON.stringify(m)} m={m} onDone={() => setQueue((q) => q.slice(1))} />;
+  const first = queue[0];
+  if (!first) return null;
+  // Keyed by its own id, so another moment arriving meanwhile doesn't restart this one.
+  return <MomentCard key={first.id} m={first.m} onDone={() => setQueue((q) => q.slice(1))} />;
 }
 
 function MomentCard({ m, onDone }: { m: Moment; onDone: () => void }) {
