@@ -55,7 +55,7 @@ export interface Settings {
   /** Night light switched on by hand: warms whichever theme is chosen (light stays light). */
   nightLight?: boolean;
   /** How My Materials is sorted. */
-  materialsSort?: "custom" | "recent" | "name";
+  materialsSort?: "custom" | "recent" | "name" | "newest" | "oldest";
   theme: ThemeName | "system";
   /** Switch to the warm night light automatically between nightStart and nightEnd. */
   nightLightAuto?: boolean;

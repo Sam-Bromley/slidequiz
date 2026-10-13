@@ -227,7 +227,7 @@ export function MaterialsPage() {
   const folderId = data.folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
   const [q, setQ] = useState("");
   const sort = data.settings.materialsSort ?? "custom";
-  const setSort = (v: string) => actions.updateSettings({ materialsSort: v as "custom" | "recent" | "name" });
+  const setSort = (v: string) => actions.updateSettings({ materialsSort: v as "custom" | "recent" | "name" | "newest" | "oldest" });
   const [selecting, setSelecting] = useState(false);
   const [sel, setSel] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -252,6 +252,8 @@ export function MaterialsPage() {
     const out = data.materials.filter((m) => (t ? `${m.title} ${m.subject} ${m.topics.map((x) => x.name).join(" ")} ${m.files.map((f) => f.name).join(" ")}`.toLowerCase().includes(t) : (m.folderId ?? null) === folderId));
     // "Your order": as dragged; new ones (not placed yet) go first, newest first.
     if (sort === "custom") return out.sort((a, b) => (a.order ?? -1) - (b.order ?? -1) || b.createdAt.localeCompare(a.createdAt));
+    if (sort === "newest") return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (sort === "oldest") return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     return out.sort((a, b) => (sort === "name" ? a.title.localeCompare(b.title) : (b.lastOpenedAt ?? b.lastStudiedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.lastStudiedAt ?? a.createdAt)));
   }, [data.materials, q, sort, folderId]);
 
@@ -359,6 +361,8 @@ export function MaterialsPage() {
           <Select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort materials" className="w-36 sm:w-40">
             <option value="custom">Your order</option>
             <option value="recent">Recently used</option>
+            <option value="newest">Newest added</option>
+            <option value="oldest">Oldest added</option>
             <option value="name">Name</option>
           </Select>
         </div>
