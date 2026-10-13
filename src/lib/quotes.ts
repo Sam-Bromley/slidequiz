@@ -150,6 +150,7 @@ export const QUOTES: { text: string; by: string }[] = [
 /** Quotes for particular days of the year ("month-day"), shown instead of the usual one. */
 export const SPECIAL_DAYS: Record<string, { text: string; by: string }> = {
   "5-4": { text: "May the Force be with you.", by: "Obi-Wan Kenobi" },
+  "7-5": { text: "Say my name.", by: "Heisenberg" },
   "9-19": { text: "I'm Batman.", by: "Batman" },
 };
 
