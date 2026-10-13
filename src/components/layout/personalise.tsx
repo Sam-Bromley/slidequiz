@@ -162,6 +162,12 @@ export function Personalise() {
               </button>
             </div>
           )}
+          {/* Hidden from its right-click menu: a way to bring it back. */}
+          {!photoOn && scene !== "none" && (dark ? data.settings.hideMoon : data.settings.hideSun) && (
+            <button type="button" onClick={() => actions.updateSettings(dark ? { hideMoon: false } : { hideSun: false })} className="mt-2 block w-full rounded-lg px-2 py-1.5 text-center text-[12.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring">
+              Show the {dark ? "moon" : "sun"} again
+            </button>
+          )}
           <input
             ref={fileRef}
             type="file"

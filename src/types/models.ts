@@ -83,6 +83,9 @@ export interface Settings {
   bgPhoto?: string;
   /** Pro: show that photo instead of the chosen scene. */
   bgPhotoOn?: boolean;
+  /** The sun or moon in the background hidden (right-click it → Hide). */
+  hideSun?: boolean;
+  hideMoon?: boolean;
   defaultDifficulty: DifficultySetting;
   defaultCount: number;
   showExplanations: boolean;

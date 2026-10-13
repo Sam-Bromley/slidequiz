@@ -1,4 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { EyeOff } from "lucide-react";
+import { actions } from "@/store/actions";
+import { useData } from "@/store/store";
 import type { BackgroundScene } from "@/types/models";
 import { moonPhase, moonPhaseName } from "@/lib/moon";
 
@@ -459,6 +463,19 @@ function DraggableOrb({ spot, style, label, children }: { spot: SunSpot; style?:
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const offsetRef = useRef(offset);
   offsetRef.current = offset;
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: Event) => !(e.target as Element | null)?.closest?.("[data-orb-menu]") && setMenu(null);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", key);
+    window.addEventListener("scroll", () => setMenu(null), { once: true });
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [menu]);
   useEffect(() => {
     const onSun = (x: number, y: number, target: EventTarget | null) => {
       if ((target as Element | null)?.closest?.(INTERACTIVE) || !el.current) return false;
@@ -499,11 +516,19 @@ function DraggableOrb({ spot, style, label, children }: { spot: SunSpot; style?:
       drag = null;
       setCursor(hover ? "grab" : "");
     };
+    // Right-click (or long-press) on it: a small menu to hide it.
+    const context = (e: MouseEvent) => {
+      if (!onSun(e.clientX, e.clientY, e.target)) return;
+      e.preventDefault();
+      setMenu({ x: e.clientX, y: e.clientY });
+    };
+    document.addEventListener("contextmenu", context);
     document.addEventListener("pointerdown", down);
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", up);
     document.addEventListener("pointercancel", up);
     return () => {
+      document.removeEventListener("contextmenu", context);
       document.removeEventListener("pointerdown", down);
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
@@ -526,6 +551,29 @@ function DraggableOrb({ spot, style, label, children }: { spot: SunSpot; style?:
       }}
     >
       {children}
+      {menu &&
+        createPortal(
+          <div
+            data-orb-menu
+            role="menu"
+            className="fixed z-[80] min-w-[160px] animate-scale-in rounded-xl border bg-popover p-1 text-popover-foreground shadow-pop"
+            style={{ left: Math.min(menu.x, window.innerWidth - 176), top: Math.min(menu.y, window.innerHeight - 56) }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              autoFocus
+              onClick={() => {
+                setMenu(null);
+                actions.updateSettings(label === "moon" ? { hideMoon: true } : { hideSun: true });
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] hover:bg-accent focus-ring"
+            >
+              <EyeOff className="size-4 text-muted-foreground" /> Hide {label}
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -555,6 +603,7 @@ function ForestSvg({ p }: { p: Pal }) {
 
 /** Decorative background preset, fixed behind the app. "none" = plain theme background. `photo`: a Pro member's own picture instead. */
 export function AppBackground({ scene, dark, photo, accent }: { scene: BackgroundScene; dark: boolean; photo?: string | null; accent?: string | null }) {
+  const { settings } = useData();
   if (photo)
     return (
       // Runs under the left bar too, which is frosted glass, so the photo blurs softly into it.
@@ -566,6 +615,8 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
   if (scene === "none" || !SCENE_ORDER.includes(scene)) return null;
   const p = scenePalette(scene, dark, accent);
   const sun = SUN_SPOT[scene];
+  const hideSun = !!settings.hideSun;
+  const hideMoon = !!settings.hideMoon;
   return (
     // Runs under the left bar too (frosted glass), so the scene blurs softly into it.
     <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
@@ -578,11 +629,11 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
       )}
       {/* Keyed by scene: switching to another background and back puts the sun back where it started. */}
       {dark ? (
-        <DraggableOrb key={`${scene}-moon`} spot={MOON_SPOT} label="moon" style={{ filter: "drop-shadow(0 0 2.5vmin rgba(255, 248, 225, 0.35))" }}>
+        !hideMoon && <DraggableOrb key={`${scene}-moon`} spot={MOON_SPOT} label="moon" style={{ filter: "drop-shadow(0 0 2.5vmin rgba(255, 248, 225, 0.35))" }}>
           <Moon sky={p.sky[0]} />
         </DraggableOrb>
       ) : (
-        sun && p.sun !== "transparent" && <DraggableOrb key={scene} spot={sun} label="sun" style={{ background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }} />
+        sun && p.sun !== "transparent" && !hideSun && <DraggableOrb key={scene} spot={sun} label="sun" style={{ background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }} />
       )}
       {scene === "forest" ? (
         <ForestSvg p={p} />
