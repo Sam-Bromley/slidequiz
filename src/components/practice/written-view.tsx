@@ -66,20 +66,38 @@ const STAGES = ["Reading your answerâ€¦", "Checking it against the mark schemeâ€
 
 /** The score as a ring that fills up, with the marks counting up in the middle. */
 function ScoreRing({ got, of }: { got: number; of: number }) {
-  const n = useCountUp(got, 900);
-  const pct = of ? n / of : 0;
+  // One segment per mark, filling in one after another.
+  const n = useCountUp(got, 250 * Math.max(1, got));
   const full = got === of;
   const colour = full ? "stroke-success" : got / of >= 0.5 ? "stroke-warning" : "stroke-destructive";
-  const R = 26;
+  const R = 28;
   const C = 2 * Math.PI * R;
+  const gap = of > 1 ? 10 : 0; // degrees between segments
+  const seg = ((360 / of - gap) / 360) * C;
   return (
-    <div className="relative size-[72px] shrink-0" aria-label={`${got} out of ${of} marks`}>
-      <svg viewBox="0 0 64 64" className="size-full -rotate-90" aria-hidden>
-        <circle cx="32" cy="32" r={R} fill="none" strokeWidth="6" className="stroke-muted" />
-        {pct > 0.01 && <circle cx="32" cy="32" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${pct * C} ${C}`} className={colour} />}
+    <div className="relative size-[76px] shrink-0" aria-label={`${got} out of ${of} marks`}>
+      <svg viewBox="0 0 68 68" className="size-full" aria-hidden>
+        {Array.from({ length: of }, (_, k) => {
+          const on = k < Math.round(n);
+          return (
+            <circle
+              key={k}
+              cx="34"
+              cy="34"
+              r={R}
+              fill="none"
+              strokeWidth="5"
+              strokeLinecap={of > 1 ? "round" : "butt"}
+              strokeDasharray={`${seg} ${C}`}
+              transform={`rotate(${-90 + gap / 2 + (k * 360) / of} 34 34)`}
+              className={cn("transition-colors duration-300", on ? colour : "stroke-muted")}
+            />
+          );
+        })}
       </svg>
-      <span data-score className={cn("absolute inset-0 grid place-items-center text-[17px] font-bold tabular-nums", full && n >= of - 0.01 && "animate-praise")}>
-        {Math.round(n)}/{of}
+      <span data-score className={cn("absolute inset-0 flex flex-col items-center justify-center leading-none", full && n >= of - 0.01 && "animate-praise")}>
+        <span className="text-[24px] font-extrabold tabular-nums">{Math.round(n)}</span>
+        <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">of {of}</span>
       </span>
     </div>
   );
