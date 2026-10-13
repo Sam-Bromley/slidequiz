@@ -1,3 +1,4 @@
+import { XP_GOLD } from "@/components/stats/level-card";
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, MoreHorizontal, PenLine, RotateCcw, Trash2 } from "lucide-react";
 import { Menu } from "@/components/ui/menu";
 import { useEffect, useRef, useState } from "react";
@@ -293,7 +294,7 @@ function QuestionCard({ material: m, q, onNext }: { material: Material; q: Writt
       setTimeout(() => {
         const el = document.querySelector("[data-score]");
         // The same "+10" as multiple choice: 10 for each new mark.
-        if (xp > 0) floatText(el, `+${xp}`, r.awarded === q.marks ? "hsl(var(--success))" : "#f59e0b");
+        if (xp > 0) floatText(el, `+${xp}`, XP_GOLD);
         // The same "right answer" sound as multiple choice.
         if (r.awarded > 0 && sound) chime(0);
         if (r.awarded === q.marks) burst(el);

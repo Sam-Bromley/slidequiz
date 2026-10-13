@@ -60,7 +60,7 @@ function MomentCard({ m, onDone }: { m: Moment; onDone: () => void }) {
                 {m.from}
               </span>
               <span
-                className="absolute inset-x-0 top-0 bg-gradient-to-b from-amber-400 to-orange-500 bg-clip-text text-[76px] font-extrabold leading-[84px] tabular-nums text-transparent transition-[transform,opacity] duration-500 ease-[cubic-bezier(.3,.7,.3,1.3)]"
+                className="absolute inset-x-0 top-0 bg-[linear-gradient(180deg,#ffd43b_0%,#fcc419_40%,#f08c00_100%)] bg-clip-text text-[76px] font-extrabold leading-[84px] tabular-nums text-transparent transition-[transform,opacity] duration-500 ease-[cubic-bezier(.3,.7,.3,1.3)]"
                 style={{ transform: phase >= 1 ? "none" : "translateY(100%)", opacity: phase >= 1 ? 1 : 0 }}
               >
                 {m.to}

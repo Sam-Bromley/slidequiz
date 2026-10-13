@@ -1,3 +1,4 @@
+import { XP_GOLD } from "@/components/stats/level-card";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, MoreHorizontal, RotateCcw, Shuffle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -214,7 +215,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     const ok = i === view.correct;
     if (ok) {
       burst(document.querySelector(`[data-answer="${i}"] [data-tick]`));
-      floatText(document.querySelector(`[data-answer="${i}"] [data-tick]`), streak >= 2 ? `+10 ×${Math.min(streak + 1, 9)}` : "+10");
+      floatText(document.querySelector(`[data-answer="${i}"] [data-tick]`), streak >= 2 ? `+10 ×${Math.min(streak + 1, 9)}` : "+10", XP_GOLD);
       const sound = getState().settings.soundEffects !== false;
       if (sound) chime(streak);
       buzz();
