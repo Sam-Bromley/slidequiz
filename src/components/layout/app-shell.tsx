@@ -171,11 +171,27 @@ function FreeCreditsButton() {
   );
 }
 
+/** The page before Settings, so pressing the settings button again goes back to it. */
+let beforeSettings = "/";
 function SettingsButton() {
   const { path } = useLocation();
-  const on = path.startsWith("/settings");
+  const on = path.startsWith("/settings") || path.startsWith("/privacy");
+  useEffect(() => {
+    if (!on) beforeSettings = location.hash.replace(/^#/, "") || "/";
+  }, [on, path]);
   return (
-    <Link to="/settings" aria-label="Settings" title="Settings" aria-current={on ? "page" : undefined} className={cn(buttonClass("ghost", "icon"), on && "bg-accent text-foreground")}>
+    <Link
+      to="/settings"
+      aria-label={on ? "Close settings" : "Settings"}
+      title={on ? "Close settings" : "Settings"}
+      aria-current={on ? "page" : undefined}
+      onClick={(e) => {
+        if (!on) return;
+        e.preventDefault();
+        navigate(beforeSettings);
+      }}
+      className={cn(buttonClass("ghost", "icon"), on && "bg-accent text-foreground")}
+    >
       <Settings />
     </Link>
   );
