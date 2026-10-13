@@ -40,14 +40,14 @@ export function UpgradeHint({ a, fewer }: { a: Allowance; fewer?: boolean }) {
     return (
       <>
         {fewer && "Choose fewer slides, or "}
-        {invite} and you both get 3 free credits. Free credits reset on {resetDate(a)}.
+        {invite} and you both get 2 free credits. Free credits reset on {resetDate(a)}.
       </>
     );
   if (a.plan === "free")
     return (
       <>
         {fewer && "Choose fewer slides, "}
-        {invite} (you both get 3 free credits) or{" "}
+        {invite} (you both get 2 free credits) or{" "}
         <Link to="/pro" className={link}>
           get Pro
         </Link>{" "}

@@ -15,7 +15,7 @@
 -- CREDITS also pay for: flashcards (about the same as the lecture text), written answer questions
 --   (half of that per set) and essay feedback (1 credit each).
 -- BONUS CREDITS (from inviting friends) don't expire: they're used once the monthly credits run out.
---   Inviting a friend: both get 3 once the friend has confirmed their email and made their first
+--   Inviting a friend: both get 2 once the friend has confirmed their email and made their first
 --   lecture (up to 10 friends a month).
 --
 -- FAIR USE ("Ask about these notes", marking written answers, essay questions; cheap): characters sent per day
@@ -265,7 +265,7 @@ as $$
   select public.allowance_for(auth.uid())
 $$;
 
--- Gives the friend and whoever invited them 3 bonus credits each, once: the friend must have joined
+-- Gives the friend and whoever invited them 2 bonus credits each, once: the friend must have joined
 -- in the last 30 days with an invite code, confirmed their email, and not be the inviter. Each
 -- inviter is rewarded for up to 10 friends a month.
 create or replace function public.reward_invite(p_user uuid)
@@ -278,7 +278,7 @@ declare
   u record;
   inviter uuid;
   added integer;
-  reward integer := 3 * 30000;
+  reward integer := 2 * 30000;
 begin
   select raw_user_meta_data ->> 'ref' as ref, email_confirmed_at, created_at, coalesce(is_anonymous, false) as anon
   into u from auth.users where id = p_user;

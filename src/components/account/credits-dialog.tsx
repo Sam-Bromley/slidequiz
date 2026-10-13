@@ -67,7 +67,7 @@ function EarnCreditsDialog() {
       size="sm"
     >
       <div className="space-y-2.5">
-        <Option icon={<Gift className="size-[18px]" />} title="Invite friends" text="Earn 3 free credits for every friend who signs up with your link and makes their first lecture. They get 3 too." onClick={openInvite} />
+        <Option icon={<Gift className="size-[18px]" />} title="Invite friends" text="Earn 2 free credits for every friend who signs up with your link and makes their first lecture. They get 2 too." onClick={openInvite} />
         {PLUS_ON && a?.plan !== "plus" && <Option icon={<Crown className="size-[18px]" />} title="Get Pro" text={`${PLUS.plusLectures} credits every month for ${PLUS.price} a ${PLUS.period}.`} to="/pro" tone="plain" />}
       </div>
     </Dialog>
@@ -95,7 +95,7 @@ function OutOfCreditsDialog() {
           </span>
           <span>
             <span className="block text-[14.5px] font-semibold">Invite a friend</span>
-            <span className="block text-[13px] text-muted-foreground">Earn 3 free credits when a friend signs up with your link and makes their first lecture. They get 3 too.</span>
+            <span className="block text-[13px] text-muted-foreground">Earn 2 free credits when a friend signs up with your link and makes their first lecture. They get 2 too.</span>
           </span>
         </button>
         {PLUS_ON && a?.plan !== "plus" && (
@@ -126,7 +126,7 @@ function InviteDialog() {
       .catch((e) => setError((e as Error).message));
   }, []);
   const link = info ? inviteLink(info.code) : "";
-  const message = `I've been revising with SlideQuiz. It turns lecture slides into notes, practice questions and flashcards. Sign up with my link and we both get 3 free credits: ${link}`;
+  const message = `I've been revising with SlideQuiz. It turns lecture slides into notes, practice questions and flashcards. Sign up with my link and we both get 2 free credits: ${link}`;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(link);
@@ -147,7 +147,7 @@ function InviteDialog() {
             <Gift className="size-5" />
           </span>
           <p className="text-[14px] leading-relaxed">
-            Earn <b>3 free credits</b> for every friend who signs up with your link and makes their first lecture. They get <b>3 free credits</b> too.
+            Earn <b>2 free credits</b> for every friend who signs up with your link and makes their first lecture. They get <b>2 free credits</b> too.
           </p>
         </div>
         {error ? (

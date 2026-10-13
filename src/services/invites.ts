@@ -1,6 +1,6 @@
 /**
  * Inviting friends: each student has a link (slidequiz.co.uk/?ref=CODE). A friend who signs up
- * through it, confirms their email and makes their first lecture gets 3 bonus credits, and so does
+ * through it, confirms their email and makes their first lecture gets 2 bonus credits, and so does
  * the student who invited them (up to 10 friends a month). The database does the rewarding (see
  * reward_invite in supabase/ai-setup.sql); this file keeps the code from the link until sign-up.
  */
