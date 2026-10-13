@@ -5,7 +5,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { toast } from "@/components/ui/toast";
-import { confetti } from "@/lib/confetti";
 import { Link } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { AIError, cloudEssayFeedback, cloudEssayQuestion, ensureCredits, refreshAllowance } from "@/services/ai/cloud";
@@ -465,7 +464,6 @@ export function EssayEditor({ essay: e, materials }: { essay: EssayDraft; materi
             onClick={() => {
               patchEssay(e.id, { completed: !e.completed });
               if (!e.completed) {
-                confetti({ count: 60 });
                 toast("Marked as completed");
               }
             }}

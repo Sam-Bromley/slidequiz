@@ -1,3 +1,4 @@
+import { longestStreak, streakDays, studyDaysOf } from "@/components/layout/streak";
 import { LevelCard } from "@/components/stats/level-card";
 import { BarChart3, Layers, ListChecks, PenLine, Target } from "lucide-react";
 import { useState } from "react";
@@ -61,6 +62,31 @@ function revision(d: AppData): Row[] {
 }
 
 /** One number at the top, counting up when the page opens. */
+/** The current streak and the longest one ever. */
+function StreakCard() {
+  const data = useData();
+  const days = studyDaysOf(data);
+  const now = streakDays(days).count;
+  const best = Math.max(longestStreak(days), now);
+  return (
+    <section aria-label={`Longest streak: ${best} days`} className="flex items-center gap-4 rounded-2xl border bg-card p-4 sm:p-5">
+      <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-orange-500/10 text-[28px]" aria-hidden>
+        🔥
+      </div>
+      <div className="min-w-0">
+        <p className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">Longest streak</p>
+        <p className="text-[22px] font-bold tabular-nums leading-tight">
+          {best} {best === 1 ? "day" : "days"}
+        </p>
+        <p className="text-[12.5px] text-muted-foreground">
+          Now: {now} {now === 1 ? "day" : "days"}
+          {now > 0 && now >= best ? " · your best!" : ""}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function Tile({ icon: Icon, label, value, pct, colour }: { icon: typeof Target; label: string; value: number | null; pct?: boolean; colour: string }) {
   const n = Math.round(useCountUp(value ?? 0));
   return (
@@ -121,7 +147,10 @@ export function StatsPage() {
     <div className="space-y-8">
       <PageHeader title="Stats" description="What you've revised, and which lectures you've spent the most time on." className="mb-0 sm:mb-0" />
 
-      <LevelCard xp={data.user.xp} />
+      <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr]">
+        <LevelCard xp={data.user.xp} />
+        <StreakCard />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

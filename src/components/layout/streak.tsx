@@ -4,6 +4,7 @@ import { LevelCard } from "@/components/stats/level-card";
 import { Link } from "@/lib/router";
 import { dayKey } from "@/lib/utils";
 import { useData } from "@/store/store";
+import type { AppData } from "@/services/db/types";
 import { DAILY_GOAL, todayCount } from "@/lib/rewards";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,29 @@ export function streakDays(days: string[] | undefined, now = new Date()): { coun
     d.setDate(d.getDate() - 1);
   }
   return { count, today };
+}
+
+/** Every day with some revision (including older practice from before streaks were recorded). */
+export function studyDaysOf(data: AppData): string[] {
+  return [...(data.user.studyDays ?? []), ...data.questions.flatMap((q) => (q.stats.lastAnsweredAt ? [dayKey(q.stats.lastAnsweredAt)] : [])), ...data.sessions.map((s) => dayKey(s.startedAt)), ...Object.keys(data.user.studyLog ?? {})];
+}
+
+/** The most days in a row ever revised. */
+export function longestStreak(days: string[]): number {
+  const sorted = [...new Set(days)].sort();
+  let best = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of sorted) {
+    if (prev) {
+      const next = new Date(prev + "T12:00:00");
+      next.setDate(next.getDate() + 1);
+      run = dayKey(next) === d ? run + 1 : 1;
+    } else run = 1;
+    best = Math.max(best, run);
+    prev = d;
+  }
+  return best;
 }
 
 /** A little flame in the top corner that grows the longer the streak goes on. */

@@ -1,3 +1,4 @@
+import { LevelBar } from "@/components/stats/level-card";
 import { ChevronDown, Folder as FolderIcon, ListChecks, PenLine, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -35,6 +36,8 @@ const savePick = (p: Pick) => {
 
 /** The lecture chosen for written answers, kept while switching between pages. */
 let keptWritten: ID | null = null;
+/** The topics picked for each practice, kept while switching between pages. */
+const keptTopics = new Map<string, ID[]>();
 
 function lastMode(): Mode {
   try {
@@ -93,7 +96,11 @@ export function QuestionsPage() {
   }, [key]);
 
   const startTopic = query.get("t");
-  const [topics, setTopics] = useState<ID[]>(() => (startTopic ? [startTopic] : []));
+  const [topics, setTopicsState] = useState<ID[]>(() => (startTopic ? [startTopic] : keptTopics.get(key) ?? []));
+  const setTopics = (t: ID[]) => {
+    keptTopics.set(key, t);
+    setTopicsState(t);
+  };
   const firstKey = useRef(key);
   useEffect(() => {
     if (firstKey.current !== key) setTopics([]);
@@ -128,6 +135,11 @@ export function QuestionsPage() {
   return (
     <div>
       <PageHeader title="Questions" className="mb-4" />
+
+      {/* Your level, filling up as you answer. */}
+      <div className="mx-auto mb-4 max-w-2xl">
+        <LevelBar xp={data.user.xp} />
+      </div>
 
       {/* The two kinds of questions, and what's being practised, on one line. */}
       <div className="mx-auto mb-4 flex max-w-2xl flex-wrap items-center gap-2">

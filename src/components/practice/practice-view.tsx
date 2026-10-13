@@ -6,7 +6,6 @@ import { balanceOldQuestions, cloudMoreQuestions, refreshAllowance } from "@/ser
 import { cn } from "@/lib/utils";
 import { endSentence, optionsAreSentences, tidyOption, tidyQuestion, tidySentence } from "@/lib/tidy";
 import { AIWaiting, hasText } from "@/components/ai/ai-waiting";
-import { confetti } from "@/lib/confetti";
 import { burst, buzz, chime, fanfare, floatText } from "@/lib/celebrate";
 import { isCovered, needsReview, practiceQueue, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
@@ -63,6 +62,12 @@ function Pop({ label, title, children, align = "left", className, icon }: { labe
 type PastAnswer = { qid: ID; view: { options: string[]; correct: number }; chosen: number | null };
 /** Answer history per material (or folder), for as long as the site is open. */
 const HISTORY = new Map<string, PastAnswer[]>();
+/**
+ * Where you are in each practice (order, current question and its options, answer streak), kept while the site
+ * is open, so going to another page and back carries on exactly where you were instead of shuffling again.
+ */
+type Session = { filterKey: string; queue: ID[]; pos: number; chosen: number | null; retrying: boolean; streak: number; view?: { qid: ID; pos: number; v: { options: string[]; correct: number } } };
+const SESSIONS = new Map<string, Session>();
 
 /**
  * One question at a time. Normally for one material (filtered by topic); with `mixed`,
@@ -76,24 +81,35 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const all = setFor(data);
   const topicQs = topicIds.length ? all.filter((q) => groupOf(q) && topicIds.includes(groupOf(q)!)) : all;
   const shuffle = !!data.settings.practiceShuffle;
-  const [queue, setQueue] = useState<ID[]>(() => practiceQueue(topicQs, shuffle));
+  const historyKey = mixed ? mixed.map((m) => m.id).join(",") : material.id;
+  const filterKey = `${topicIds.join(",")}|${shuffle}`;
+  // Coming back to the same practice: pick up where you left off.
+  const [saved] = useState(() => {
+    const s0 = SESSIONS.get(historyKey);
+    return s0 && s0.filterKey === filterKey ? s0 : null;
+  });
+  const [queue, setQueue] = useState<ID[]>(() => {
+    if (!saved) return practiceQueue(topicQs, shuffle);
+    const have = new Set(topicQs.map((x) => x.id));
+    const kept = saved.queue.filter((id) => have.has(id));
+    return [...kept, ...topicQs.map((x) => x.id).filter((id) => !kept.includes(id))];
+  });
   // Even out the options of older questions, so the answer can't be spotted by its length.
   const materialIds = (mixed ?? [material]).map((m) => m.id).join(",");
   useEffect(() => {
     for (const id of materialIds.split(",")) balanceOldQuestions(id);
   }, [materialIds]);
-  const [pos, setPos] = useState(0);
-  const [chosen, setChosen] = useState<number | null>(null);
+  const [pos, setPos] = useState(() => saved?.pos ?? 0);
+  const [chosen, setChosen] = useState<number | null>(() => saved?.chosen ?? null);
   /** Having another go at a question you got wrong (fresh order, doesn't count towards your progress). */
   const [tries, setTries] = useState(0);
-  const [retrying, setRetrying] = useState(false);
+  const [retrying, setRetrying] = useState(() => saved?.retrying ?? false);
   const [round, setRound] = useState(0);
   /** Right answers in a row (for the "3 in a row" chip and a chime that climbs a little each time). */
-  const [streak, setStreak] = useState(0);
+  const [streak, setStreak] = useState(() => saved?.streak ?? 0);
   const [praise, setPraise] = useState("Correct");
   const nextBtn = useRef<HTMLButtonElement>(null);
   /** Every question answered (kept while the site is open, across rounds and tab switches), so you can go back to any of them. */
-  const historyKey = mixed ? mixed.map((m) => m.id).join(",") : material.id;
   const [past, setPastState] = useState<PastAnswer[]>(() => HISTORY.get(historyKey) ?? []);
   const setPast = (fn: (ps: PastAnswer[]) => PastAnswer[]) =>
     setPastState((ps) => {
@@ -106,7 +122,6 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
 
   // Rebuild the order when the topic filter or the question set changes. New questions being added
   // (e.g. "More questions") just join the end, so practice carries on without starting again.
-  const filterKey = `${topicIds.join(",")}|${shuffle}`;
   const idsNow = topicQs.map((q) => q.id);
   const setKey = `${filterKey}|${idsNow.join(",")}`;
   const lastKey = useRef(setKey);
@@ -142,7 +157,18 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   // unless the question has already been answered (then it waits for the next one).
   const frozen = useRef(count);
   if (!answered) frozen.current = count;
-  const view = useMemo(() => (q ? shuffleOptions(q, frozen.current) : null), [qid, pos, round, tries, frozen.current]); // eslint-disable-line react-hooks/exhaustive-deps
+  const savedView = useRef(saved?.view);
+  const view = useMemo(() => {
+    if (!q) return null;
+    // The same option order as before leaving the page.
+    const sv = savedView.current;
+    savedView.current = undefined;
+    if (sv && sv.qid === q.id && sv.pos === pos && sv.v.options.length === frozen.current) return sv.v;
+    return shuffleOptions(q, frozen.current);
+  }, [qid, pos, round, tries, frozen.current]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    SESSIONS.set(historyKey, { filterKey, queue, pos, chosen, retrying, streak, view: q && view ? { qid: q.id, pos, v: view } : undefined });
+  });
   // Looking back at an earlier question, or at the current one.
   const rev = viewIdx !== null ? past[viewIdx] : null;
   const sq = rev ? all.find((x) => x.id === rev.qid) : q;
@@ -169,10 +195,10 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
   const coveredN = all.filter(isCovered).length;
   const prog = { total: all.length, covered: coveredN, review: all.filter(needsReview).length, pct: all.length ? Math.round((coveredN / all.length) * 100) : 0 };
 
-  // Confetti only for covering every topic (100% of the lecture).
+  // A fanfare for covering every topic (100% of the lecture).
   const lastPct = useRef(prog.pct);
   useEffect(() => {
-    if (prog.pct === 100 && lastPct.current < 100 && prog.total >= 3) confetti();
+    if (prog.pct === 100 && lastPct.current < 100 && prog.total >= 3 && getState().settings.soundEffects !== false) fanfare();
     lastPct.current = prog.pct;
   }, [prog.pct, prog.total]);
   const roundOver = all.length > 0 && !rev && !q;
@@ -192,7 +218,7 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
       const sound = getState().settings.soundEffects !== false;
       if (sound) chime(streak);
       buzz();
-      // The last question of a topic (but not of the whole lecture: that gets confetti).
+      // The last question of a topic (but not of the whole lecture: that gets a fanfare).
       if (!isCovered(q) && !mixed && q.topicId) {
         const inTopic = all.filter((x) => x.topicId === q.topicId);
         const rest = all.filter((x) => x.id !== q.id && !isCovered(x));

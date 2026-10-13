@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { confetti } from "@/lib/confetti";
 import { fanfare } from "@/lib/celebrate";
 import { levelName } from "@/lib/levels";
 import { getState } from "@/store/store";
@@ -27,7 +26,6 @@ function MomentCard({ m, onDone }: { m: Moment; onDone: () => void }) {
     const sound = getState().settings.soundEffects !== false;
     const t1 = setTimeout(() => {
       setPhase(1);
-      confetti({ count: m.kind === "level" ? 160 : 110, originY: 0.45 });
       if (sound) fanfare();
     }, m.kind === "level" ? 650 : 150);
     const t2 = setTimeout(() => setPhase(2), m.kind === "level" ? 3300 : 2600);

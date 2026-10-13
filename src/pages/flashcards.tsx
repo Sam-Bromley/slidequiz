@@ -18,7 +18,6 @@ import { cardsFor } from "@/services/flashcards";
 import { aiReady, usesBuiltIn } from "@/services/ai/ai-key";
 import { actions } from "@/store/actions";
 import { getState, useData } from "@/store/store";
-import { confetti } from "@/lib/confetti";
 import { fanfare } from "@/lib/celebrate";
 import type { Deck, DeckFolder, Flashcard, ID } from "@/types/models";
 
@@ -591,7 +590,6 @@ export function DeckPage({ id }: { id: string }) {
     const total = studyOrder.length;
     if (total >= 3 && next.size === total) {
       setTimeout(() => {
-        confetti();
         if (getState().settings.soundEffects !== false) fanfare();
         toast("Deck complete 🎉", { description: `You went through all ${total} cards.` });
       }, 450);

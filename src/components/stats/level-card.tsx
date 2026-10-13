@@ -24,3 +24,21 @@ export function LevelCard({ xp, compact }: { xp: number; compact?: boolean }) {
   );
 }
 
+
+/** A slim level bar (for the top of Questions): level, name and XP to the next level. Fills up as XP comes in. */
+export function LevelBar({ xp }: { xp: number }) {
+  const l = levelInfo(xp);
+  const fill = useCountUp(l.pct * 100, 600);
+  return (
+    <div className="flex items-center gap-2.5" aria-label={`Level ${l.level}, ${l.name}: ${l.into} of ${l.next} XP to the next level`}>
+      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-b from-amber-400 to-orange-500 text-[13px] font-extrabold tabular-nums text-white">{l.level}</span>
+      <span className="max-w-[40%] shrink-0 truncate text-[13px] font-semibold">{l.name}</span>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${fill}%` }} />
+      </div>
+      <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
+        {l.into}/{l.next} XP
+      </span>
+    </div>
+  );
+}
