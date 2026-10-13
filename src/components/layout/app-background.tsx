@@ -4,7 +4,6 @@ import { EyeOff } from "lucide-react";
 import { actions } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { BackgroundScene } from "@/types/models";
-import { moonPhase, moonPhaseName } from "@/lib/moon";
 
 type Pal = { sky: [string, string, string]; sun: string; layers: [string, string, string]; stars?: boolean; glow?: [string, string] };
 
@@ -402,60 +401,8 @@ function StarField() {
   );
 }
 
-/** At night every background gets the moon, high on the right. */
-const MOON_SPOT: SunSpot = { left: "80%", top: "10%", size: "11vmin", preview: { left: "78%", top: "12%", size: 9 } };
-
 /**
- * Today's moon, as it looks from England. Checks again every hour so it changes day by day.
- * The unlit part is solid (the sky's colour, a touch lighter) so stars never show through it.
- */
-/**
- * The lit part as everything on the lit side of the line between light and dark, reaching past the edge of the moon
- * (the circle clip gives the outline), so the outline is drawn once and the tips of a crescent stay sharp.
- */
-function litSide(p: number) {
-  const k = Math.cos(2 * Math.PI * p); // 1 at new moon, -1 at full
-  // A touch past the true curve, so at new and full moon the line sits just outside the edge (no hairline rim).
-  const crescent = k > 0;
-  // A crescent too thin to draw cleanly (the day or two around new moon) shows as new moon instead of a hairline.
-  const rx = Math.abs(k) * 50 + (crescent && k > 0.94 ? 6 : 1.5);
-  const waxing = p < 0.5;
-  const bulgeRight = waxing === crescent;
-  const x = waxing ? 112 : -12;
-  return `M50 -12 L50 0 A${rx} 50 0 0 ${bulgeRight ? 1 : 0} 50 100 L50 112 L${x} 112 L${x} -12 Z`;
-}
-
-/** How much of the moon is lit, 0 (new) to 1 (full). */
-const litShare = (p: number) => (1 - Math.cos(2 * Math.PI * p)) / 2;
-
-function Moon({ sky }: { sky: string }) {
-  const [phase, setPhase] = useState(() => moonPhase());
-  useEffect(() => {
-    const t = setInterval(() => setPhase(moonPhase()), 60 * 60 * 1000);
-    return () => clearInterval(t);
-  }, []);
-  const id = useId().replace(/:/g, "");
-  // One smooth outline: everything is drawn a little larger and cut by a single circle, so the lit part and the dark
-  // part share one clean edge (no thin rim or speckles where two edges would meet).
-  return (
-    <svg viewBox="0 0 100 100" className="size-full overflow-visible" role="img" aria-label={moonPhaseName(phase)} shapeRendering="geometricPrecision">
-      <defs>
-        <clipPath id={`${id}-disc`}>
-          <circle cx={50} cy={50} r={50} />
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#${id}-disc)`}>
-        <rect x={-5} y={-5} width={110} height={110} fill={sky} />
-        <rect x={-5} y={-5} width={110} height={110} fill="#ffffff" fillOpacity={0.06} />
-        {/* Around new moon nothing is lit, around full moon all of it is: drawn as one shape so no specks show at the edge. */}
-        {litShare(phase) > 0.99 ? <rect x={-5} y={-5} width={110} height={110} fill="#f3efe2" /> : litShare(phase) > 0.02 && <path d={litSide(phase)} fill="#f3efe2" />}
-      </g>
-    </svg>
-  );
-}
-
-/**
- * The sun (or moon at night) can be dragged anywhere in the sky, including down behind the hills.
+ * The sun can be dragged anywhere in the sky, including down behind the hills.
  * It stays where it's dropped until the background is changed.
  */
 function DraggableOrb({ spot, style, label, children }: { spot: SunSpot; style?: React.CSSProperties; label: string; children?: React.ReactNode }) {
@@ -616,7 +563,6 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
   const p = scenePalette(scene, dark, accent);
   const sun = SUN_SPOT[scene];
   const hideSun = settings.hideOrb === "sun";
-  const hideMoon = settings.hideOrb === "moon";
   return (
     // Runs under the left bar too (frosted glass), so the scene blurs softly into it.
     <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>
@@ -628,13 +574,8 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
         </>
       )}
       {/* Keyed by scene: switching to another background and back puts the sun back where it started. */}
-      {dark ? (
-        !hideMoon && <DraggableOrb key={`${scene}-moon`} spot={MOON_SPOT} label="moon" style={{ filter: "drop-shadow(0 0 2.5vmin rgba(255, 248, 225, 0.35))" }}>
-          <Moon sky={p.sky[0]} />
-        </DraggableOrb>
-      ) : (
-        sun && p.sun !== "transparent" && !hideSun && <DraggableOrb key={scene} spot={sun} label="sun" style={{ background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }} />
-      )}
+      {/* No moon at night: only the sun, in light mode. */}
+      {!dark && sun && p.sun !== "transparent" && !hideSun && <DraggableOrb key={scene} spot={sun} label="sun" style={{ background: p.sun, boxShadow: `0 0 0 2vmin ${p.sun}22, 0 0 12vmin 4vmin ${p.sun}30` }} />}
       {scene === "forest" ? (
         <ForestSvg p={p} />
       ) : (
