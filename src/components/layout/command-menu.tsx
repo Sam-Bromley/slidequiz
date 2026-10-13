@@ -37,7 +37,7 @@ export function CommandMenu() {
       { id: "a-night", group: "Actions", label: "Night light (warm colours)", icon: Sunset, run: () => actions.updateSettings({ nightLight: true }), keywords: "theme blue light late night warm" },
       { id: "a-keys", group: "Actions", label: "Keyboard shortcuts", icon: Keyboard, run: () => setUI({ shortcuts: true }) },
     ];
-    const mats: Item[] = data.materials.map((m) => ({ id: m.id, group: "Materials", label: `${m.subject} · ${m.title}`, sub: `${m.pages.length} ${m.unit}`, icon: FileText, run: () => navigate(`/materials/${m.id}`), keywords: m.topics.map((t) => t.name).join(" ") }));
+    const mats: Item[] = data.materials.map((m) => ({ id: m.id, group: "Materials", label: m.title, sub: `${m.pages.length} ${m.unit}`, icon: FileText, run: () => navigate(`/materials/${m.id}`), keywords: m.topics.map((t) => t.name).join(" ") }));
     const topics: Item[] = data.materials.flatMap((m) => m.topics.map((t) => ({ id: t.id, group: "Topics", label: t.name, sub: m.title, icon: BookOpen, run: () => navigate(`/materials/${m.id}?tab=notes`) })));
     return [...act, ...mats, ...topics];
   }, [data]);

@@ -359,8 +359,8 @@ function Feedback({ q, answer, showExplanation, onOverride }: { q: Question; ans
         <div className="min-w-0 flex-1">
           <p className="font-semibold">
             {status === "correct" ? "Correct" : status === "partial" ? "Partly correct" : answer.skipped ? "Skipped" : "Not quite"}
-            {fb?.estimatedMark && <span className="ml-2 font-normal text-muted-foreground">· Estimated mark {fb.estimatedMark}</span>}
-            {q.type === "matching" && <span className="ml-2 font-normal text-muted-foreground">· {Math.round(answer.score * (q.pairs?.length ?? 0))}/{q.pairs?.length} pairs</span>}
+            {fb?.estimatedMark && <span className="ml-2 font-normal text-muted-foreground">Estimated mark {fb.estimatedMark}</span>}
+            {q.type === "matching" && <span className="ml-2 font-normal text-muted-foreground">{Math.round(answer.score * (q.pairs?.length ?? 0))}/{q.pairs?.length} pairs</span>}
           </p>
           {correctText && status !== "correct" && (
             <p className="mt-1 text-[14px]">

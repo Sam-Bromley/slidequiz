@@ -53,7 +53,7 @@ export function StartQuizDialog() {
       description="Pick your material and how you'd like to be tested."
       footer={
         <>
-          <span className="mr-auto text-[13px] text-muted-foreground">{plural(ui.quiz?.questionIds?.length ?? n, "question")}{timed ? ` · ${minutes} min` : ""}</span>
+          <span className="mr-auto text-[13px] text-muted-foreground">{plural(ui.quiz?.questionIds?.length ?? n, "question")}{timed ? `, ${minutes} min` : ""}</span>
           <Button variant="ghost" onClick={close}>Cancel</Button>
           <Button onClick={start} disabled={!ui.quiz?.questionIds?.length && n === 0}>Start quiz</Button>
         </>
@@ -70,7 +70,7 @@ export function StartQuizDialog() {
                   <label key={m.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-accent", mids.includes(m.id) && "border-primary/40 bg-primary-soft/50")}>
                     <Checkbox checked={mids.includes(m.id)} disabled={!qn} onChange={(e) => setMids((s) => (e.target.checked ? [...s, m.id] : s.filter((x) => x !== m.id)))} />
                     <span className="flex-1 text-sm">
-                      <span className="font-medium">{m.subject} · {m.title}</span>
+                      <span className="font-medium">{m.title}</span>
                     </span>
                     <span className="text-xs tabular-nums text-muted-foreground">{qn ? plural(qn, "question") : "No questions yet"}</span>
                   </label>

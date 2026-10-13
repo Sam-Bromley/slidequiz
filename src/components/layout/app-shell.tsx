@@ -151,7 +151,7 @@ function Sidebar() {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize sidebar"
-        title="Drag to resize · double-click to reset"
+        title="Drag to resize, double-click to reset"
         onPointerDown={startDrag}
         onDoubleClick={() => actions.updateSettings({ sidebarWidth: SB_DEFAULT })}
         className="absolute -right-1 inset-y-0 w-2 cursor-ew-resize touch-none transition-colors hover:bg-foreground/10"

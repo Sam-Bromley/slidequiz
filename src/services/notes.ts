@@ -341,5 +341,5 @@ export function notesExportDoc(m: Material): import("@/services/export").ExportD
     }
   }
   const mine = (m.marks ?? []).filter((x) => x.note).length;
-  return { title: `${m.title}`, subtitle: [m.subject, "Revision notes", mine ? `${mine} of your own note${mine === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · "), blocks };
+  return { title: `${m.title}`, subtitle: [m.subject, "Revision notes", mine ? `${mine} of your own note${mine === 1 ? "" : "s"}` : ""].filter(Boolean).join(", "), blocks };
 }

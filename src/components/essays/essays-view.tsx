@@ -322,10 +322,10 @@ function Section({ id, title, role, progress, words, tips, children, defaultOpen
 const BOX_LABEL = (box: string) => {
   const [a, b] = box.split(".");
   const part = (defs: FieldDef[]) => defs.find((f) => f.key === b)?.label;
-  if (a === "intro") return b ? `Introduction · ${part(INTRO_FIELDS) ?? b}` : "Introduction";
-  if (a === "conclusion") return b ? `Conclusion · ${part(CONCLUSION_FIELDS) ?? b}` : "Conclusion";
+  if (a === "intro") return b ? `Introduction: ${part(INTRO_FIELDS) ?? b}` : "Introduction";
+  if (a === "conclusion") return b ? `Conclusion: ${part(CONCLUSION_FIELDS) ?? b}` : "Conclusion";
   const m = a.match(/^point(\d+)$/);
-  if (m) return b ? `Point ${m[1]} · ${part(POINT_FIELDS) ?? b}` : `Point ${m[1]}`;
+  if (m) return b ? `Point ${m[1]}: ${part(POINT_FIELDS) ?? b}` : `Point ${m[1]}`;
   return { references: "References", flow: "Flow", style: "Style", question: "The question" }[a] ?? box;
 };
 
@@ -584,7 +584,7 @@ function WordGuide({ n, p, aim, total }: { n: number; p: number; aim: [number, n
   const off = total >= 200 && (p < aim[0] - 3 || p > aim[1] + 3);
   return (
     <span className={cn(off && "text-warning")} title={`Aim for about ${aim[0]}–${aim[1]}% of your words`}>
-      {n} words{total >= 100 ? ` · ${p}%` : ""}
+      {n} words{total >= 100 ? ` (${p}%)` : ""}
     </span>
   );
 }

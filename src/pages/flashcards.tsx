@@ -545,7 +545,7 @@ function FlipCard({ card, flipped, onFlip, onSwipe }: { card: Flashcard; flipped
           <p className="whitespace-pre-line text-[20px] font-semibold leading-snug sm:text-[22px]">{tidyCard(card.front)}</p>
           <span className="absolute bottom-4 text-[12px] text-muted-foreground">
             <span className="[@media(pointer:coarse)]:hidden">Click to flip</span>
-            <span className="hidden [@media(pointer:coarse)]:inline">Tap to flip · swipe for next</span>
+            <span className="hidden [@media(pointer:coarse)]:inline">Tap to flip, swipe for next</span>
           </span>
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center shadow-pop [backface-visibility:hidden] [transform:rotateY(180deg)]">

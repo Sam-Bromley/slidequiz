@@ -33,7 +33,7 @@ export function MixedPracticePage() {
 
   return (
     <div>
-      <PageHeader back={{ to: `/materials?f=${folder.id}`, label: folder.name }} title={`Practise ${folder.name}`} description={[`${mats.length} material${mats.length === 1 ? "" : "s"}`, exam].filter(Boolean).join(" · ")} className="mb-5" />
+      <PageHeader back={{ to: `/materials?f=${folder.id}`, label: folder.name }} title={`Practise ${folder.name}`} description={[`${mats.length} material${mats.length === 1 ? "" : "s"}`, exam].filter(Boolean).join(", ")} className="mb-5" />
       {mats.length ? (
         <PracticeView material={combined} mixed={mats} topicIds={picked} onTopicsChange={setPicked} onOpenNotes={(pageId, mid) => navigate(`/materials/${mid}?p=${pageId}`)} />
       ) : (

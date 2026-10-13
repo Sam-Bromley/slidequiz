@@ -155,7 +155,7 @@ export function PlusPage() {
               onClick={() => setBilling(b)}
               className={cn("rounded-full px-4 py-1.5 text-[13.5px] font-medium transition-colors focus-ring", billing === b ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}
             >
-              {b === "month" ? "Monthly" : `Yearly · save ${PLUS.yearSaving}`}
+              {b === "month" ? "Monthly" : `Yearly (save ${PLUS.yearSaving})`}
             </button>
           ))}
         </div>

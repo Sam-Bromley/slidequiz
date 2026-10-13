@@ -160,7 +160,7 @@ export function QuizPage({ id }: { id: string }) {
               Question {index + 1} <span className="font-normal text-muted-foreground">of {questions.length}</span>
             </span>
             <button onClick={() => setNavOpen(true)} className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-ring">
-              <Grid3x3 className="size-3.5" /> {attempt.flagged.length ? `${attempt.flagged.length} flagged · ` : ""}All questions
+              <Grid3x3 className="size-3.5" /> {attempt.flagged.length ? `${attempt.flagged.length} flagged, ` : ""}All questions
             </button>
           </div>
           <div className="flex gap-1" aria-hidden>
@@ -211,7 +211,7 @@ export function QuizPage({ id }: { id: string }) {
           )}
           <span className="ml-auto hidden items-center gap-1 text-[11.5px] text-muted-foreground md:inline-flex">
             <Kbd>←</Kbd>
-            <Kbd>→</Kbd> move · <Kbd>F</Kbd> flag
+            <Kbd>→</Kbd> move, <Kbd>F</Kbd> flag
           </span>
           <Button onClick={next} className="ml-auto md:ml-2" variant={isLast ? "default" : answered ? "default" : "outline"} loading={marking}>
             {isLast ? (
@@ -227,7 +227,7 @@ export function QuizPage({ id }: { id: string }) {
         </div>
       </footer>
 
-      <Dialog open={navOpen} onClose={() => setNavOpen(false)} title="All questions" description={`${questions.length - unanswered} answered · ${unanswered} unanswered · ${attempt.flagged.length} flagged`}>
+      <Dialog open={navOpen} onClose={() => setNavOpen(false)} title="All questions" description={`${questions.length - unanswered} answered, ${unanswered} unanswered, ${attempt.flagged.length} flagged`}>
         <QuestionGrid questions={questions} answers={attempt.answers} flagged={attempt.flagged} exam={exam} current={index} onPick={(i) => { go(i); setNavOpen(false); }} />
         {attempt.flagged.length > 0 && (
           <div className="mt-5">

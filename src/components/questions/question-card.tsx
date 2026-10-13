@@ -25,7 +25,7 @@ export function QuestionMeta({ q, number, showMaterial }: { q: Question; number?
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
       {number != null && <span className="font-medium text-foreground">{number}.</span>}
-      <span>{parts.join(" · ")}</span>
+      <span>{parts.join(", ")}</span>
       {q.sources.slice(0, 2).map((s) => (
         <SourceChip key={s.pageId} source={s} />
       ))}

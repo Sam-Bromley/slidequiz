@@ -286,11 +286,11 @@ ${String(b.answer ?? "").slice(0, 3000)}
 >>>
 
 Mark it in two steps.
-1. "checks": split what the question asks for into exactly ${Number(b.marks) || 1} creditworthy things, one per mark (e.g. "Name two X and state the Y of each" for 4 marks: first X, its Y, second X, its Y). For each, copy the few words the student wrote for it (at most 10, exactly as typed, or "" if missing) and judge it on the facts: "ok" is true if it is correct and answers that part, whether or not the mark scheme lists it. Judge each part on its own.
+1. "checks": split what the question asks for into exactly ${Number(b.marks) || 1} creditworthy things, one per mark (e.g. "Name two X and state the Y of each" for 4 marks: first X, its Y, second X, its Y). For each, copy the few words the student wrote for it (at most 10, exactly as typed, or "" if missing), then in "why" say in a few words whether it is correct AND answers exactly what was asked, then "ok". "ok" is true only if both: it is factually right, and it answers this question as worded (e.g. for "substances transported by plasma", something plasma carries, such as glucose or carbon dioxide, not what plasma is made of, such as water). A correct fact that answers a different question is not ok. It doesn't need to be in the mark scheme. Judge each part on its own.
 2. "hit": which mark scheme points (by number) the answer matches, and "quotes": the student's words for each.
-"awarded" is the number of checks that are ok. The feedback must agree with it: if every check is ok, it is full marks and "improve" is empty.
+"awarded" is the number of checks that are ok. Write "feedback" and "improve" last, from the checks only: never call an item wrong or off the question if its check is ok, and never praise one whose check isn't. If every check is ok, it is full marks and "improve" is empty.
 Reply with JSON only:
-{"checks":[{"part":"first molecule","quote":"words from the answer","ok":true}],"hit":[0,2],"quotes":{"0":"words from the answer","2":"…"},"awarded":3,"feedback":"…","improve":"…"}`,
+{"checks":[{"part":"first molecule","quote":"words from the answer","why":"correct, and is what was asked","ok":true}],"hit":[0,2],"quotes":{"0":"words from the answer","2":"…"},"awarded":3,"feedback":"…","improve":"…"}`,
   },
 });
 

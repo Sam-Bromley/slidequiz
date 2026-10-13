@@ -54,7 +54,7 @@ export function QuizResultsPage({ id }: { id: string }) {
 
   return (
     <div className="space-y-8">
-      <PageHeader back={{ to: "/", label: "Home" }} eyebrow={`${a.mode === "exam" ? "Exam" : "Practice"} · ${formatDate(a.finishedAt!, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`} title={a.title} className="mb-0 sm:mb-0" />
+      <PageHeader back={{ to: "/", label: "Home" }} eyebrow={`${a.mode === "exam" ? "Exam" : "Practice"}, ${formatDate(a.finishedAt!, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`} title={a.title} className="mb-0 sm:mb-0" />
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col items-center gap-6 rounded-2xl border bg-card p-6 sm:flex-row">
@@ -78,7 +78,7 @@ export function QuizResultsPage({ id }: { id: string }) {
                 <div className="mb-1.5 flex items-center justify-between text-[13.5px]">
                   <span className="font-medium">{t.name}</span>
                   <span className="tabular-nums text-muted-foreground">
-                    {t.correct}/{t.total} · {pct(t.score)}
+                    {t.correct}/{t.total} ({pct(t.score)})
                   </span>
                 </div>
                 <Progress value={t.score} tone={t.score >= 0.75 ? "success" : t.score >= 0.5 ? "warning" : "danger"} size="sm" label={`${t.name} score`} />

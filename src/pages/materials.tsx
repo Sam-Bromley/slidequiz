@@ -156,7 +156,7 @@ function FolderTile({ f, count, onDropMaterial, colW, onLive, onSave, drag, drop
         <span className="block truncate text-[15px] font-semibold" title={f.name}>{f.name}</span>
         <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground">
           {count ? plural(count, "item") : "Empty"}
-          {exam && <span className={cn(soon && "font-medium text-warning")}> · {exam}</span>}
+          {exam && <span className={cn(soon && "font-medium text-warning")}>, {exam}</span>}
         </span>
       </Link>
       <div className="relative z-10">
@@ -208,7 +208,6 @@ function FolderBar({ f }: { f: Folder }) {
       </button>
       {cov.total > 0 && (
         <>
-          <span aria-hidden>·</span>
           <span>{cov.pct}% covered</span>
           <Link to={`/practice?f=${f.id}`} className={buttonClass("outline", "sm", "ml-auto rounded-full")}>
             <Play /> Practise all
@@ -403,15 +402,15 @@ export function MaterialsPage() {
       {hits.length > 0 && (
         <section aria-labelledby="hits-h" className={cn(list.length > 0 && "mt-8")}>
           <h2 id="hits-h" className="mb-2 text-[13px] font-medium text-muted-foreground">
-            In your notes · {hits.length}
-            {hits.length >= 60 ? "+" : ""}
+            In your notes ({hits.length}
+            {hits.length >= 60 ? "+" : ""})
           </h2>
           <ul className="divide-y rounded-xl border bg-card">
             {hits.map((h, i) => (
               <li key={i}>
                 <Link to={`/materials/${h.materialId}?p=${h.pageId}`} className="block px-4 py-3 transition-colors hover:bg-accent focus-ring">
                   <span className="block truncate text-[12px] text-muted-foreground">
-                    {h.materialTitle} · {h.pageTitle}
+                    {h.materialTitle}: {h.pageTitle}
                   </span>
                   <span className="mt-0.5 block text-[14px] leading-snug">
                     {highlightParts(h.snippet, q).map((part, j) => (part.hit ? <mark key={j} className="rounded bg-warning-soft px-0.5 text-foreground">{part.text}</mark> : <span key={j}>{part.text}</span>))}
@@ -452,7 +451,7 @@ export function MaterialsPage() {
           <div className="mx-auto flex max-w-3xl animate-fade-up flex-col gap-3 rounded-2xl border bg-popover p-4 shadow-pop sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] text-muted-foreground">Make questions from:</p>
-              <p className="truncate text-[14px] font-semibold">{selectedMaterials.map((m) => m.title).join(" · ")}</p>
+              <p className="truncate text-[14px] font-semibold">{selectedMaterials.map((m) => m.title).join(", ")}</p>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" size="icon" aria-label="Clear selection" onClick={() => setSel([])}>

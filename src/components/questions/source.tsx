@@ -27,7 +27,7 @@ export function SourceChip({ source, className }: { source: SourceRef; className
         open={open}
         onClose={() => setOpen(false)}
         title={page ? page.title : source.label}
-        description={material ? `${material.title} · ${source.label}` : "This source is no longer available."}
+        description={material ? `${material.title}, ${source.label}` : "This source is no longer available."}
         footer={
           material && (
             <Link to={`/materials/${material.id}?tab=content&page=${source.pageId}`} className={buttonClass("outline", "sm")} onClick={() => setOpen(false)}>

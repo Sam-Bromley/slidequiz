@@ -386,7 +386,7 @@ export function SettingsPage() {
         <Link to="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
           Privacy policy
         </Link>
-        <span aria-hidden> · </span>
+        <span aria-hidden className="inline-block w-5" />
         <a href="about/" className="underline-offset-2 hover:text-foreground hover:underline">
           About
         </a>

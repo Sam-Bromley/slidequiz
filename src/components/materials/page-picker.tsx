@@ -21,8 +21,8 @@ function Highlight({ text, q }: { text: string; q: string }) {
 }
 
 function snippet(text: string, q: string, n = 150) {
-  if (!q) return truncate(text.replace(/\n+/g, " · "), n);
-  const flat = text.replace(/\n+/g, " · ");
+  if (!q) return truncate(text.replace(/\n+/g, " / "), n);
+  const flat = text.replace(/\n+/g, " / ");
   const i = flat.toLowerCase().indexOf(q.toLowerCase());
   if (i < 0) return truncate(flat, n);
   const start = Math.max(0, i - 50);
@@ -160,7 +160,6 @@ export function PagePicker({ material, onToggle, onSetText, focusPageId }: PageP
           {query && visible.length > 0 && (
             <>
               <button className="font-medium text-primary hover:underline" onClick={() => onToggle(visible.map((p) => p.id), true)}>Select matches</button>
-              <span aria-hidden>·</span>
             </>
           )}
           <button className="inline-flex items-center gap-1 font-medium hover:text-foreground" onClick={() => setOnlyIncluded((v) => !v)} aria-pressed={onlyIncluded}>

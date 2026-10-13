@@ -87,7 +87,7 @@ export function ExportDialog({ open, onClose, title, questions, flashcards, summ
       open={open}
       onClose={onClose}
       title="Export"
-      description={`${title} · ${count}`}
+      description={`${title}, ${count}`}
       footer={
         <>
           <Button variant="ghost" onClick={copy} className="mr-auto">

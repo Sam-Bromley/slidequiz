@@ -24,7 +24,7 @@ export const unitWord = (m: Pick<Material, "unit">, n = 2) => {
   return n === 1 ? w : w + "s";
 };
 
-export const materialLabel = (m: Material) => `${m.subject} · ${m.title}`;
+export const materialLabel = (m: Material) => m.title;
 
 export function questionsFor(d: AppData, materialIds: ID[]) {
   return d.questions.filter((q) => materialIds.includes(q.materialId));

@@ -32,7 +32,7 @@ export function TopicRow({ t, action = true }: { t: TopicStat; action?: boolean 
         <p className="truncate text-[14px] font-medium">{t.name}</p>
         <p className="truncate text-[12px] text-muted-foreground">
           {t.materialTitle}
-          {t.mastery != null && <> · {pct(t.mastery)} mastery</>}
+          {t.mastery != null && <>, {pct(t.mastery)} mastery</>}
         </p>
       </div>
       <StatusPill status={t.status} />

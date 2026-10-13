@@ -39,8 +39,8 @@ interface Item {
 function withTimeLeft(label: string, done: number, elapsedMs: number) {
   if (done < 0.08 || done >= 0.98 || elapsedMs < 2000) return label;
   const left = Math.round(((elapsedMs / done) * (1 - done)) / 1000);
-  if (left < 3) return `${label} · almost done`;
-  return `${label} · about ${left < 60 ? `${Math.max(5, Math.round(left / 5) * 5)} seconds` : `${Math.round(left / 60)} minute${Math.round(left / 60) === 1 ? "" : "s"}`} left`;
+  if (left < 3) return `${label}, almost done`;
+  return `${label}, about ${left < 60 ? `${Math.max(5, Math.round(left / 5) * 5)} seconds` : `${Math.round(left / 60)} minute${Math.round(left / 60) === 1 ? "" : "s"}`} left`;
 }
 
 export function UploadPage() {
@@ -115,7 +115,7 @@ export function UploadPage() {
     try {
       const doc = await youtubeDocument(url);
       const material = buildMaterial(doc, { name: doc.title, size: 0 });
-      patch(id, { name: doc.title, status: "ready", progress: 1, label: `YouTube · ${doc.pages.length} sections`, material });
+      patch(id, { name: doc.title, status: "ready", progress: 1, label: `YouTube, ${doc.pages.length} sections`, material });
     } catch (e) {
       patch(id, {
         status: "error",
@@ -312,7 +312,7 @@ export function UploadPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium">{it.material?.title ?? it.name}</p>
                   <p className="text-[12.5px] text-muted-foreground">
-                    {it.size ? `${formatBytes(it.size)} · ` : ""}{it.status === "error" ? <span className="font-medium text-destructive">{it.error}</span> : it.label}
+                    {it.size ? `${formatBytes(it.size)}, ` : ""}{it.status === "error" ? <span className="font-medium text-destructive">{it.error}</span> : it.label}
                   </p>
                   {it.status === "reading" && <Progress value={it.progress} size="sm" className="mt-2 max-w-xs" label={`${it.name} progress`} />}
                 </div>

@@ -80,7 +80,7 @@ function StreakCard() {
         </p>
         <p className="text-[12.5px] text-muted-foreground">
           Now: {now} {now === 1 ? "day" : "days"}
-          {now > 0 && now >= best ? " · your best!" : ""}
+          {now > 0 && now >= best ? ", your best!" : ""}
         </p>
       </div>
     </section>
@@ -224,7 +224,7 @@ export function StatsPage() {
                     </span>
                     {s.id !== "other" && (
                       <span className="mt-1 block text-[12px] text-muted-foreground">
-                        {[s.questions && `${s.questions} ${s.questions === 1 ? "question" : "questions"}`, s.cards && `${s.cards} ${s.cards === 1 ? "card" : "cards"}`, s.written && `${s.written} written`].filter(Boolean).join(" · ")}
+                        {[s.questions && `${s.questions} ${s.questions === 1 ? "question" : "questions"}`, s.cards && `${s.cards} ${s.cards === 1 ? "card" : "cards"}`, s.written && `${s.written} written`].filter(Boolean).join(", ")}
                       </span>
                     )}
                   </span>

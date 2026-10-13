@@ -28,7 +28,7 @@ export function AskPage() {
           <Select aria-label="Choose material" value={m.id} onChange={(e) => navigate(`/ask?m=${e.target.value}`, { replace: true })} className="w-64">
             {data.materials.map((x) => (
               <option key={x.id} value={x.id}>
-                {x.subject} · {x.title}
+                {x.title}
               </option>
             ))}
           </Select>

@@ -108,7 +108,7 @@ export function questionsDoc(questions: Question[], opts: QuestionExportOptions,
   const blocks: Block[] = questions.map((q, i) => ({
     kind: "question" as const,
     number: i + 1,
-    meta: [TYPE_LABEL[q.type], q.difficulty[0].toUpperCase() + q.difficulty.slice(1), topicName(q), q.sources.map((s) => s.label).join(", "), q.marks && q.marks > 1 ? `${q.marks} marks` : ""].filter(Boolean).join(" · "),
+    meta: [TYPE_LABEL[q.type], q.difficulty[0].toUpperCase() + q.difficulty.slice(1), topicName(q), q.sources.map((s) => s.label).join(", "), q.marks && q.marks > 1 ? `${q.marks} marks` : ""].filter(Boolean).join(", "),
     prompt: q.prompt,
     options: q.options && q.type === "mcq" ? q.options.map((o, j) => `${LETTERS[j]}. ${o}`) : q.type === "true_false" ? ["True", "False"] : undefined,
     pairs: q.pairs,
@@ -125,7 +125,7 @@ export function questionsDoc(questions: Question[], opts: QuestionExportOptions,
   }
   return {
     title: opts.title,
-    subtitle: `${questions.length} questions${opts.worksheet ? " · Name: ______________________   Date: ____________" : ""}`,
+    subtitle: `${questions.length} questions${opts.worksheet ? "     Name: ______________________   Date: ____________" : ""}`,
     blocks,
   };
 }
@@ -333,7 +333,7 @@ export async function toPdf(doc: ExportDoc): Promise<Blob> {
     }
   }
   const pages = pdf.getPages();
-  pages.forEach((p, i) => p.drawText(pdfSafe(`SlideQuiz · ${doc.title} · ${i + 1}/${pages.length}`), { x: M, y: 28, size: 8, font, color: muted }));
+  pages.forEach((p, i) => p.drawText(pdfSafe(`SlideQuiz    ${doc.title}    ${i + 1}/${pages.length}`), { x: M, y: 28, size: 8, font, color: muted }));
   return new Blob([await pdf.save() as BlobPart], { type: "application/pdf" });
 }
 

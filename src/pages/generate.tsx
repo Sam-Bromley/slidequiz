@@ -55,7 +55,7 @@ export function GeneratePage() {
   const unit = materials.length === 1 ? unitWord(materials[0], includedPages) : includedPages === 1 ? "page" : "pages";
   const questionKinds = kinds.filter((k) => k !== "flashcards" && k !== "summary");
   const diffLabel = DIFFICULTY_SETTINGS.find((d) => d.value === difficulty)!.label;
-  const summaryLine = [`${includedPages} ${unit}`, questionKinds.length ? plural(count, "question") : null, kinds.includes("flashcards") ? "flashcards" : null, kinds.includes("summary") ? "summary" : null, questionKinds.length ? `${diffLabel} difficulty` : null, plural(selectedTopics.length, "topic")].filter(Boolean).join(" · ");
+  const summaryLine = [`${includedPages} ${unit}`, questionKinds.length ? plural(count, "question") : null, kinds.includes("flashcards") ? "flashcards" : null, kinds.includes("summary") ? "summary" : null, questionKinds.length ? `${diffLabel} difficulty` : null, plural(selectedTopics.length, "topic")].filter(Boolean).join(", ");
 
   const run = async (quick: boolean) => {
     const req = {
@@ -137,9 +137,9 @@ export function GeneratePage() {
             return (
               <div key={m.id} className="flex items-center gap-2 rounded-xl border bg-card py-1.5 pl-3 pr-1.5">
                 <div>
-                  <p className="text-[13.5px] font-semibold leading-tight">{m.subject} · {m.title}</p>
+                  <p className="text-[13.5px] font-semibold leading-tight">{m.title}</p>
                   <Link to={`/materials/${m.id}?tab=content`} className="text-[12px] text-muted-foreground hover:text-primary hover:underline">
-                    Using {inc} of {m.pages.length} {unitWord(m)} · Edit selection
+                    Using {inc} of {m.pages.length} {unitWord(m)}. Edit selection
                   </Link>
                 </div>
                 <Button variant="ghost" size="icon-sm" aria-label={`Remove ${m.title}`} onClick={() => setMids((s) => s.filter((x) => x !== m.id))}>
@@ -151,7 +151,7 @@ export function GeneratePage() {
           <Menu
             label="Add material"
             align="start"
-            items={data.materials.filter((m) => !mids.includes(m.id)).map((m) => ({ label: `${m.subject} · ${m.title}`, onSelect: () => setMids((s) => [...s, m.id]) }))}
+            items={data.materials.filter((m) => !mids.includes(m.id)).map((m) => ({ label: m.title, onSelect: () => setMids((s) => [...s, m.id]) }))}
             trigger={(p) => (
               <Button variant="outline" size="sm" {...p} disabled={mids.length === data.materials.length}>
                 <Plus /> Add material
@@ -233,7 +233,7 @@ export function GeneratePage() {
                   <label key={t.id} className={cn("flex cursor-pointer items-center gap-2 rounded-lg border py-1.5 pl-2.5 pr-3 text-[13.5px] transition-colors hover:bg-accent", on ? "border-primary/40 bg-primary-soft/60" : "text-muted-foreground")}>
                     <Checkbox checked={on} onChange={() => setTopicIds(on ? selectedTopics.filter((x) => x !== t.id) : [...selectedTopics, t.id])} />
                     {t.name}
-                    {materials.length > 1 && <span className="text-[11.5px] text-muted-foreground">· {t.materialTitle}</span>}
+                    {materials.length > 1 && <span className="text-[11.5px] text-muted-foreground">({t.materialTitle})</span>}
                   </label>
                 );
               })}
@@ -268,7 +268,7 @@ export function GeneratePage() {
       <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom,0px))] z-30 border-t bg-background/92 backdrop-blur-md lg:bottom-0 lg:left-[var(--sb,248px)]">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <p className="min-w-0 flex-1 truncate text-[13.5px] font-medium tabular-nums" aria-live="polite">
-            {custom ? summaryLine : `${includedPages} ${unit} · 10 questions · Mixed difficulty · ${plural(allTopics.length, "topic")}`}
+            {custom ? summaryLine : `${includedPages} ${unit}, 10 questions, mixed difficulty, ${plural(allTopics.length, "topic")}`}
           </p>
           <Button size="lg" onClick={() => run(!custom)} disabled={!materials.length || (custom && (!kinds.length || !selectedTopics.length))}>
             Make questions

@@ -85,7 +85,7 @@ function Today() {
           <h2 className="text-[18px] font-bold">What should I study today?</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">
             Recommended session: <span className="font-semibold text-foreground">{minutes} minutes</span>
-            {todayTasks.length > 0 && <> · Plan: {todayTasks.map((t) => t.label).join(", ")}</>}
+            {todayTasks.length > 0 && <>. Plan: {todayTasks.map((t) => t.label).join(", ")}</>}
           </p>
           <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button size="lg" onClick={() => startQuickStudy()}>
@@ -143,7 +143,7 @@ function Today() {
             return (
               <div key={st} className="rounded-xl border bg-card px-4 pb-2 pt-3.5">
                 <h3 className={cn("flex items-center gap-2 text-[13px] font-semibold", STATUS_META[st].text)}>
-                  <span className={cn("size-2 rounded-full", STATUS_META[st].dot)} /> {STATUS_META[st].label} · {ts.length}
+                  <span className={cn("size-2 rounded-full", STATUS_META[st].dot)} /> {STATUS_META[st].label} ({ts.length})
                 </h3>
                 <ul className="divide-y">{ts.map((t) => <TopicRow key={t.topicId} t={t} />)}</ul>
               </div>
@@ -190,7 +190,7 @@ function PlanView({ plan }: { plan: StudyPlan }) {
           <CalendarDays className="size-5" />
         </span>
         <div className="flex-1">
-          <p className="text-[12.5px] font-medium text-muted-foreground">{plan.subject} exam · {formatDate(plan.examDate, { weekday: "long", day: "numeric", month: "long" })}</p>
+          <p className="text-[12.5px] font-medium text-muted-foreground">{plan.subject} exam, {formatDate(plan.examDate, { weekday: "long", day: "numeric", month: "long" })}</p>
           <p className="text-[18px] font-bold">{daysLeft > 0 ? `${plural(daysLeft, "day")} to go` : daysLeft === 0 ? "Exam day, good luck" : "Exam finished"}</p>
           <div className="mt-2 flex items-center gap-3">
             <Progress value={prog.fraction} className="max-w-xs" label="Plan progress" />
@@ -215,7 +215,7 @@ function PlanView({ plan }: { plan: StudyPlan }) {
             <li key={d.date} className={cn("rounded-xl border bg-card", isToday && "border-primary/50 ring-1 ring-primary/40", past && "opacity-75")}>
               <div className="flex items-center justify-between border-b px-4 py-2.5">
                 <p className="text-[13px] font-semibold">
-                  Day {dayNum} <span className="font-normal text-muted-foreground">· {formatDate(d.date)}</span>
+                  Day {dayNum} <span className="font-normal text-muted-foreground">{formatDate(d.date)}</span>
                 </p>
                 {isToday && <span className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">Today</span>}
               </div>
@@ -311,7 +311,7 @@ function NewPlanDialog({ open, onClose }: { open: boolean; onClose: () => void }
             {data.materials.map((m) => (
               <label key={m.id} className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm hover:bg-accent">
                 <Checkbox checked={mids.includes(m.id)} onChange={(e) => setMids((s) => (e.target.checked ? [...s, m.id] : s.filter((x) => x !== m.id)))} />
-                {m.subject} · {m.title}
+                {m.title}
               </label>
             ))}
           </div>

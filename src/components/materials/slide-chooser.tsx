@@ -84,9 +84,9 @@ export function SlideChooser({ material, onChange }: { material: Material; onCha
         <p className="mt-2 min-h-[20px] truncate text-[13px] text-muted-foreground" aria-live="polite">
           {info ? (
             <>
-              <span className="font-medium text-foreground">{info.label}</span> · {info.title}
-              {preview(info) && info.title !== preview(info) ? <span> · {preview(info)}</span> : null}
-              {!info.included && <span> · left out</span>}
+              <span className="font-medium text-foreground">{info.label}</span>: {info.title}
+              {preview(info) && info.title !== preview(info) ? <span>, {preview(info)}</span> : null}
+              {!info.included && <span> (left out)</span>}
             </>
           ) : (
             <span className="hidden sm:inline">Hover over a {word} to see what's on it.</span>
@@ -124,7 +124,7 @@ export function SlideChooser({ material, onChange }: { material: Material; onCha
                   aria-label={`Image on ${p.label}${on ? " (included)" : " (left out)"}`}
                   onClick={() => toggleImage(p.id, img.id)}
                   className={cn("group relative aspect-[4/3] overflow-hidden rounded-lg border bg-muted transition focus-ring", on ? "border-foreground/30" : "opacity-45", !p.included && "cursor-not-allowed")}
-                  title={p.included ? `${p.label} · ${p.title}` : `${p.label} is left out`}
+                  title={p.included ? `${p.label}: ${p.title}` : `${p.label} is left out`}
                 >
                   <StoredImage id={img.id} alt={`Image on ${p.label}`} className="size-full object-cover" />
                   <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums text-white">{p.index}</span>

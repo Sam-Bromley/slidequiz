@@ -45,7 +45,7 @@ export function MaterialIcon({ m, className, hue }: { m: Material; className?: s
 }
 
 export function materialStatsLine(m: Material, c: ReturnType<typeof materialCounts>) {
-  return [`${c.pages} ${unitWord(m, c.pages)}`, c.questions ? `${c.questions} questions` : null].filter(Boolean).join(" · ");
+  return [`${c.pages} ${unitWord(m, c.pages)}`, c.questions ? `${c.questions} questions` : null].filter(Boolean).join(", ");
 }
 
 export function RenameDialog({ m, open, onClose }: { m: Material; open: boolean; onClose: () => void }) {

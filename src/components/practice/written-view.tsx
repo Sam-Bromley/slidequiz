@@ -65,35 +65,26 @@ const drafts = new Map<string, string>();
 const STAGES = ["Reading your answer…", "Checking it against the mark scheme…", "Adding up your marks…"];
 
 /** The score as a ring that fills up, with the marks counting up in the middle. */
+/** The SlideQuiz green. */
+const RING_GREEN = "#22c55e";
+
 function ScoreRing({ got, of }: { got: number; of: number }) {
-  // One segment per mark, filling in one after another.
-  const n = useCountUp(got, 250 * Math.max(1, got));
+  const n = useCountUp(got, 900);
+  const pct = of ? Math.min(1, n / of) : 0;
   const full = got === of;
-  const colour = full ? "stroke-success" : got / of >= 0.5 ? "stroke-warning" : "stroke-destructive";
-  const R = 28;
+  const R = 30;
   const C = 2 * Math.PI * R;
-  const gap = of > 1 ? 10 : 0; // degrees between segments
-  const seg = ((360 / of - gap) / 360) * C;
   return (
     <div className="relative size-[76px] shrink-0" aria-label={`${got} out of ${of} marks`}>
-      <svg viewBox="0 0 68 68" className="size-full" aria-hidden>
-        {Array.from({ length: of }, (_, k) => {
-          const on = k < Math.round(n);
-          return (
-            <circle
-              key={k}
-              cx="34"
-              cy="34"
-              r={R}
-              fill="none"
-              strokeWidth="5"
-              strokeLinecap={of > 1 ? "round" : "butt"}
-              strokeDasharray={`${seg} ${C}`}
-              transform={`rotate(${-90 + gap / 2 + (k * 360) / of} 34 34)`}
-              className={cn("transition-colors duration-300", on ? colour : "stroke-muted")}
-            />
-          );
-        })}
+      <svg viewBox="0 0 72 72" className="size-full -rotate-90" shapeRendering="geometricPrecision" aria-hidden>
+        <circle cx="36" cy="36" r={R} fill="none" strokeWidth="6" className="stroke-muted" />
+        {pct > 0.005 &&
+          (pct >= 0.999 ? (
+            // Full marks: one whole, seamless ring (no cap where the ends would meet).
+            <circle cx="36" cy="36" r={R} fill="none" strokeWidth="6" stroke={RING_GREEN} />
+          ) : (
+            <circle cx="36" cy="36" r={R} fill="none" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${pct * C} ${C}`} stroke={RING_GREEN} />
+          ))}
       </svg>
       <span data-score className={cn("absolute inset-0 flex flex-col items-center justify-center leading-none", full && n >= of - 0.01 && "animate-praise")}>
         <span className="text-[24px] font-extrabold tabular-nums">{Math.round(n)}</span>

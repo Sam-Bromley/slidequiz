@@ -1,5 +1,6 @@
 import { LevelBar } from "@/components/stats/level-card";
-import { ChevronDown, Folder as FolderIcon, ListChecks, PenLine, Upload } from "lucide-react";
+import { Check, ChevronDown, Folder as FolderIcon, ListChecks, PenLine, Search, Upload } from "lucide-react";
+import { colourHex } from "@/components/ui/colour-dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PracticeView } from "@/components/practice/practice-view";
@@ -7,7 +8,7 @@ import { WrittenView } from "@/components/practice/written-view";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Select } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { buildPracticeQuestions, practiceSet } from "@/services/practice";
@@ -202,6 +203,7 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
   const mats = data.materials;
   const [folder, setFolder] = useState<ID | null>(current.folderId ?? null);
   const [picked, setPicked] = useState<ID[]>(current.folderId ? mats.filter((m) => m.folderId === current.folderId).map((m) => m.id) : current.ids);
+  const [q, setQ] = useState("");
   const folders = data.folders.filter((f) => mats.some((m) => m.folderId === f.id));
   const toggle = (id: ID) => {
     setFolder(null);
@@ -212,34 +214,63 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
     setFolder(on ? null : fid);
     setPicked(on ? [] : mats.filter((m) => m.folderId === fid).map((m) => m.id));
   };
+  // Lectures grouped under their folders, the way they're organised in Notes.
+  const t = q.trim().toLowerCase();
+  const shown = mats.filter((m) => !t || `${m.title} ${m.subject}`.toLowerCase().includes(t));
+  const groups = [
+    ...data.folders.map((f) => ({ id: f.id, name: f.name, colour: colourHex(f.color), items: shown.filter((m) => m.folderId === f.id) })),
+    { id: "none", name: data.folders.length ? "Not in a folder" : "", colour: undefined, items: shown.filter((m) => !m.folderId || !data.folders.some((f) => f.id === m.folderId)) },
+  ].filter((g) => g.items.length);
+  const n = picked.length;
   return (
     <Dialog
       open
       onClose={onClose}
       title="What to practise"
-      description="A whole module folder, or any lectures."
       size="lg"
       footer={
         <>
+          {n > 0 && (
+            <button type="button" onClick={() => (setPicked([]), setFolder(null))} className="mr-auto text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-ring">
+              Clear
+            </button>
+          )}
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={!picked.length} onClick={() => onPick(folder ? { folderId: folder, ids: [] } : { ids: mats.map((m) => m.id).filter((id) => picked.includes(id)) })}>
-            Practise
+          <Button disabled={!n} onClick={() => onPick(folder ? { folderId: folder, ids: [] } : { ids: mats.map((m) => m.id).filter((id) => picked.includes(id)) })}>
+            {n ? `Practise ${n} ${n === 1 ? "lecture" : "lectures"}` : "Practise"}
           </Button>
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         {folders.length > 0 && (
           <div>
-            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Folders</p>
-            <div className="flex flex-wrap gap-2">
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Whole module</p>
+            <div className="grid gap-2 sm:grid-cols-2">
               {folders.map((f) => {
                 const on = folder === f.id;
+                const hex = colourHex(f.color);
+                const count = mats.filter((m) => m.folderId === f.id).length;
                 return (
-                  <button key={f.id} type="button" aria-pressed={on} onClick={() => pickFolder(f.id)} className={cn("inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13.5px] transition-colors focus-ring", on ? "border-primary bg-primary-soft text-primary" : "hover:bg-accent")}>
-                    <FolderIcon className="size-4" /> {f.name} <span className="text-muted-foreground">{mats.filter((m) => m.folderId === f.id).length}</span>
+                  <button
+                    key={f.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => pickFolder(f.id)}
+                    className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-ring", on ? "border-foreground bg-accent" : "hover:border-foreground/25 hover:bg-accent/50")}
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary" style={hex ? { backgroundColor: hex + "26" } : undefined}>
+                      <FolderIcon className={cn("size-[18px]", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-medium">{f.name}</span>
+                      <span className="block text-[12px] text-muted-foreground">
+                        {count} {count === 1 ? "lecture" : "lectures"}
+                      </span>
+                    </span>
+                    <Tick on={on} />
                   </button>
                 );
               })}
@@ -247,22 +278,55 @@ function PickDialog({ current, onClose, onPick }: { current: Pick; onClose: () =
           </div>
         )}
         <div>
-          <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Lectures</p>
-          <ul className="max-h-[45vh] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
-            {mats.map((m) => (
-              <li key={m.id}>
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 hover:bg-accent/60">
-                  <input type="checkbox" className="size-4 accent-foreground" checked={picked.includes(m.id)} onChange={() => toggle(m.id)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium">{m.title}</span>
-                    {m.subject && <span className="block text-[12px] text-muted-foreground">{m.subject}</span>}
-                  </span>
-                </label>
-              </li>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Or pick lectures</p>
+            {mats.length > 6 && (
+              <div className="relative w-44">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search lectures" className="h-8 pl-8 text-[13px]" />
+              </div>
+            )}
+          </div>
+          <div className="max-h-[42vh] space-y-3 overflow-y-auto pr-1 scrollbar-thin">
+            {groups.map((g) => (
+              <div key={g.id}>
+                {g.name && (
+                  <p className="mb-1 flex items-center gap-1.5 px-1 text-[12px] font-medium text-muted-foreground">
+                    <span className="size-2 rounded-full" style={{ background: g.colour ?? "hsl(var(--muted-foreground) / 0.4)" }} />
+                    {g.name}
+                  </p>
+                )}
+                <ul className="divide-y overflow-hidden rounded-xl border">
+                  {g.items.map((m) => {
+                    const on = picked.includes(m.id);
+                    return (
+                      <li key={m.id}>
+                        <button type="button" aria-pressed={on} onClick={() => toggle(m.id)} className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors focus-ring", on ? "bg-accent" : "hover:bg-accent/50")}>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[14px] font-medium">{m.title}</span>
+                            {m.subject && <span className="block truncate text-[12px] text-muted-foreground">{m.subject}</span>}
+                          </span>
+                          <Tick on={on} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             ))}
-          </ul>
+            {!groups.length && <p className="py-6 text-center text-[13px] text-muted-foreground">No lectures match “{q}”.</p>}
+          </div>
         </div>
       </div>
     </Dialog>
+  );
+}
+
+/** A round tick that fills in when chosen. */
+function Tick({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors", on ? "border-foreground bg-foreground text-background" : "border-muted-foreground/30")}>
+      {on && <Check className="size-3" strokeWidth={3.5} />}
+    </span>
   );
 }

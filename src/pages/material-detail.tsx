@@ -39,7 +39,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
   useEffect(() => {
     if (!m) return;
     actions.touchMaterial(m.id);
-    actions.setLastVisit(`/materials/${m.id}`, `${m.subject} · ${m.title}`);
+    actions.setLastVisit(`/materials/${m.id}`, m.title);
     // Materials from before the notes/practice update get their questions made on first open.
     if (!practiceSet(data, m.id).length && m.pages.some((p) => p.included && p.text.trim())) buildPracticeQuestions(m.id);
     enhanceMaterial(m.id);
@@ -79,7 +79,7 @@ export function MaterialDetailPage({ id }: { id: string }) {
         back={{ to: "/materials", label: "Notes" }}
         eyebrow={aiReady(m) || usesBuiltIn(m) ? m.subject : undefined}
         title={m.title}
-        description={prog.total ? `${included} of ${m.pages.length} ${unitWord(m)} · ${prog.total} questions · ${prog.pct}% covered` : `${included} of ${m.pages.length} ${unitWord(m)}`}
+        description={prog.total ? `${included} of ${m.pages.length} ${unitWord(m)}, ${prog.total} questions, ${prog.pct}% covered` : `${included} of ${m.pages.length} ${unitWord(m)}`}
         actions={
           <>
             {prog.total > 0 && (

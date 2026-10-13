@@ -202,7 +202,7 @@ function EssayTile({ e }: { e: EssayDraft }) {
       <Link to={`/essays/${e.id}`} className="block rounded-2xl p-4 pr-12 focus-ring">
         <span className={cn("line-clamp-2 text-[14.5px] font-semibold leading-snug", !e.question.trim() && "text-muted-foreground")}>{e.question.trim() || "No question yet"}</span>
         <span className="mt-1 block truncate text-[12.5px] text-muted-foreground">
-          {titles.length > 1 ? plural(titles.length, "lecture") : (titles[0] ?? "Lecture deleted")} · {plural(words, "word")}
+          {titles.length > 1 ? plural(titles.length, "lecture") : (titles[0] ?? "Lecture deleted")}, {plural(words, "word")}
         </span>
         <span className="mt-3 flex items-center gap-2">
           {e.completed ? (

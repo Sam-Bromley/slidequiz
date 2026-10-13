@@ -48,7 +48,7 @@ export function HistoryPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{a.title}</p>
                     <p className="text-[12.5px] text-muted-foreground">
-                      {n} of {a.questionIds.length} answered · {a.mode === "exam" ? "Exam mode" : "Practice"} · started {relativeTime(a.startedAt)}
+                      {n} of {a.questionIds.length} answered, {a.mode === "exam" ? "exam mode" : "practice"}, started {relativeTime(a.startedAt)}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -92,11 +92,9 @@ export function HistoryPage() {
                     <Link to={`/quiz/${a.id}/results`} className="block truncate text-[14.5px] font-semibold after:absolute after:inset-0 focus-ring">
                       {a.title}
                     </Link>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-muted-foreground">
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-4 text-[12.5px] text-muted-foreground">
                       <span>{formatDate(a.finishedAt!, { weekday: "short", day: "numeric", month: "short" })}</span>
-                      <span aria-hidden>·</span>
                       <span>{s.correct}/{s.total} correct</span>
-                      <span aria-hidden>·</span>
                       <span className="inline-flex items-center gap-1"><Clock className="size-3" /> {formatDuration(a.elapsedMs)}</span>
                     </p>
                   </div>

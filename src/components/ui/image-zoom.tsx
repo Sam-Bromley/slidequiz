@@ -154,7 +154,7 @@ export function ImageZoom({ id, alt, onClose }: { id: string; alt: string; onClo
           />
         )}
       </div>
-      <p className="pb-3 text-center text-[12px] text-white/50">Scroll or pinch to zoom · drag to move · double-click to zoom in or out</p>
+      <p className="pb-3 text-center text-[12px] text-white/50">Scroll or pinch to zoom, drag to move, double-click to zoom in or out</p>
     </div>,
     document.body,
   );

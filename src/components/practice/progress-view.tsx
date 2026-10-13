@@ -106,7 +106,7 @@ export function ProgressView({ material, onPractise }: { material: Material; onP
                 </div>
                 <p className="mt-1.5 text-[12.5px] text-muted-foreground">
                   {r.covered} of {r.total} right
-                  {r.answered < r.total && <> · {r.total - r.answered} not tried</>}
+                  {r.answered < r.total && <>, {r.total - r.answered} not tried</>}
                 </p>
               </button>
             </li>
