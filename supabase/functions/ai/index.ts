@@ -8,6 +8,8 @@
 // SUPABASE_URL and SUPABASE_ANON_KEY are provided by Supabase automatically.
 
 const MODEL = Deno.env.get("AI_MODEL") ?? "claude-haiku-4-5-20251001";
+/** Marking needs subject knowledge to be right, so it uses a stronger model (falls back to MODEL if unavailable). */
+const MARK_MODEL = Deno.env.get("AI_MARK_MODEL") ?? "claude-sonnet-5";
 const MAX_INPUT = 60_000; // characters of slide text per request
 
 const ALLOWED = [/^https:\/\/(www\.)?slidequiz\.co\.uk$/, /^https:\/\/sam-bromley\.github\.io$/, /^http:\/\/localhost(:\d+)?$/];
@@ -269,6 +271,7 @@ How to mark:
 - "Compare": each mark is one comparison point covering both things (a difference stated for both, e.g. "neutrophils have a multi-lobed nucleus, eosinophils a bi-lobed one", or a similarity, e.g. "both are granulocytes"). A difference written as two sentences, one per cell, is still one point. Accept any valid point, listed or not.
 - Stay inside what the question asks about. If it asks about structure, only structure counts and only structure is suggested (not function, numbers in the blood or role); the same for any other focus word.
 - Never ask for more than the question does. If it asks for two, never suggest a third. Before replying, check that "awarded" matches your feedback: if the answer gives everything the question asks for, correctly, award full marks.
+- Before calling anything wrong, check it against everything you know about the subject, not just the slides or the mark scheme (e.g. basophils are white blood cells that release histamine, so "releases histamine" is a real white blood cell role). Only mark it wrong if it is actually false or doesn't answer the question.
 - Never give a mark for something that is factually wrong, or contradicted elsewhere in the answer, even if it uses the right keywords. A wrong fact never earns credit.
 - Mark to the command word. "State", "Name", "Give", "Identify": a correct fact, term or item gets the mark on its own, even as one word; never expect an explanation. "Explain": the reason or mechanism is needed for the explanation mark. "Evaluate": strength marks need a real strength, weakness marks a real weakness.
 - If the question asks for one item and the answer lists several, mark the first one.
@@ -460,12 +463,19 @@ Deno.serve(async (req) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
   let left: number | null = null;
-  const ask = () =>
+  const send = (model: string) =>
     fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: task.maxTokens, temperature: body.task === "markWritten" ? 0 : undefined, system: task.system, messages: [{ role: "user", content: task.prompt(body, pages) }] }),
+      body: JSON.stringify({ model, max_tokens: task.maxTokens, temperature: body.task === "markWritten" ? 0 : undefined, system: task.system, messages: [{ role: "user", content: task.prompt(body, pages) }] }),
     });
+  const ask = async () => {
+    if (body.task !== "markWritten" || MARK_MODEL === MODEL) return send(MODEL);
+    const r = await send(MARK_MODEL);
+    // The stronger model isn't available on this account (or is overloaded): mark with the usual one.
+    if (r.status === 404 || r.status === 400 || r.status === 403 || r.status === 529) return send(MODEL);
+    return r;
+  };
   let early: Promise<Response> | null = null;
   const sha = async (t: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((x) => x.toString(16).padStart(2, "0")).join("");
   // What uses credits, and how much (1 credit = 30,000 characters). The same request is only
