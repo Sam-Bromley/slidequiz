@@ -147,10 +147,18 @@ export const QUOTES: { text: string; by: string }[] = [
   { text: "He who asks a question is a fool for five minutes; he who does not ask remains a fool forever.", by: "Chinese proverb" },
 ];
 
+/** Quotes for particular days of the year ("month-day"), shown instead of the usual one. */
+export const SPECIAL_DAYS: Record<string, { text: string; by: string }> = {
+  "5-4": { text: "May the Force be with you.", by: "Obi-Wan Kenobi" },
+  "9-19": { text: "I'm Batman.", by: "Batman" },
+};
+
 /** The same quote all day for everyone, changing at midnight UK time. */
 export function quoteOfTheDay(d = new Date()) {
   const uk = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
   const get = (t: string) => Number(uk.find((p) => p.type === t)?.value);
+  const special = SPECIAL_DAYS[`${get("month")}-${get("day")}`];
+  if (special) return special;
   const day = Math.floor(Date.UTC(get("year"), get("month") - 1, get("day")) / 86_400_000);
   // Step through the list in a scrambled order so neighbouring days feel different.
   return QUOTES[(day * 37) % QUOTES.length];
