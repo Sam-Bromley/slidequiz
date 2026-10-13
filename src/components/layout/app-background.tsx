@@ -565,7 +565,7 @@ function DraggableOrb({ spot, style, label, children }: { spot: SunSpot; style?:
               autoFocus
               onClick={() => {
                 setMenu(null);
-                actions.updateSettings(label === "moon" ? { hideMoon: true } : { hideSun: true });
+                actions.updateSettings({ hideOrb: label === "moon" ? "moon" : "sun" });
               }}
               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] hover:bg-accent focus-ring"
             >
@@ -615,8 +615,8 @@ export function AppBackground({ scene, dark, photo, accent }: { scene: Backgroun
   if (scene === "none" || !SCENE_ORDER.includes(scene)) return null;
   const p = scenePalette(scene, dark, accent);
   const sun = SUN_SPOT[scene];
-  const hideSun = !!settings.hideSun;
-  const hideMoon = !!settings.hideMoon;
+  const hideSun = settings.hideOrb === "sun";
+  const hideMoon = settings.hideOrb === "moon";
   return (
     // Runs under the left bar too (frosted glass), so the scene blurs softly into it.
     <div className="scene-root pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden style={{ background: `linear-gradient(to bottom, ${p.sky[0]} 0%, ${p.sky[1]} 55%, ${p.sky[2]} 100%)` }}>

@@ -113,7 +113,7 @@ export function Personalise() {
             {SCENE_ORDER.map((s) => {
               const on = scene === s && !photoOn;
               return (
-                <button key={s} role="radio" aria-checked={on} onClick={() => actions.updateSettings({ scene: s, bgPhotoOn: false })} className="group text-left focus-ring rounded-xl">
+                <button key={s} role="radio" aria-checked={on} onClick={() => actions.updateSettings({ scene: s, bgPhotoOn: false, ...(scene !== s || photoOn ? { hideOrb: undefined } : {}) })} className="group text-left focus-ring rounded-xl">
                   <span className={cn("relative block h-14 overflow-hidden rounded-xl border-2 transition-colors", on ? "border-foreground" : "border-transparent group-hover:border-border")}>
                     <ScenePreview scene={s} dark={dark} accent={data.settings.accent && data.settings.accent !== "default" ? data.settings.accent : null} />
                     {on && (
@@ -161,12 +161,6 @@ export function Personalise() {
                 Remove
               </button>
             </div>
-          )}
-          {/* Hidden from its right-click menu: a way to bring it back. */}
-          {!photoOn && scene !== "none" && (dark ? data.settings.hideMoon : data.settings.hideSun) && (
-            <button type="button" onClick={() => actions.updateSettings(dark ? { hideMoon: false } : { hideSun: false })} className="mt-2 block w-full rounded-lg px-2 py-1.5 text-center text-[12.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring">
-              Show the {dark ? "moon" : "sun"} again
-            </button>
           )}
           <input
             ref={fileRef}
