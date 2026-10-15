@@ -116,6 +116,9 @@ Reply with JSON only: {"answer":"…","pageIds":["ids of the slides you used"]}`
   },
 };
 
+// Questions for slides an older lecture has none on (same writer, fair use rather than credits).
+TASKS.gapQuestions = TASKS.questions;
+
 /* ---------------------------------------------------------------- essays */
 
 const LEVEL: Record<string, string> = { gcse: "GCSE", alevel: "A-level", uni: "university" };
@@ -524,7 +527,7 @@ Deno.serve(async (req) => {
     await logFailure(body.task, out.stop_reason === "max_tokens" ? "cut short" : "unreadable reply");
     return json({ error: "The reply was cut short. Try again." }, 502, origin);
   }
-  if (body.task === "questions" && Array.isArray(result?.questions)) {
+  if ((body.task === "questions" || body.task === "gapQuestions") && Array.isArray(result?.questions)) {
     // Every slide with real content must have questions, so nothing that could come up in an exam is
     // missed: any the first pass skipped get their own questions now (part of the same request).
     const asked = new Set(result.questions.map((q: any) => String(q?.pageId ?? "")));

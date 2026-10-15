@@ -21,7 +21,7 @@ import { tidyLine, tidyTerm } from "@/lib/tidy";
 import { isJunkCard } from "@/lib/junk-card";
 import type { NoteMark, WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
-import { aiKey } from "./ai-key";
+import { aiKey, aiReady } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
 
 export const AI_ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
@@ -444,6 +444,48 @@ export async function cloudMoreQuestions(id: ID, onAdded?: (total: number) => vo
     onAdded?.(total);
   }
   return total;
+}
+
+const SKIP_TITLE = /^(thank|any questions|questions\??$|references|reading|further reading|learning (objectives|outcomes)|objectives|contents|agenda|overview)/i;
+const filling = new Set<ID>();
+/**
+ * Lectures made before every slide was guaranteed questions: finds slides with real content that have
+ * none and writes questions for just those, once per lecture (fair use, not credits). Runs in the background.
+ */
+export async function fillQuestionGaps(id: ID): Promise<number> {
+  const m = getState().materials.find((x) => x.id === id);
+  if (!m || filling.has(id) || !aiReady(m) || m.ai?.status !== "done" || !m.ai.questions) return 0;
+  const key = aiKey(m);
+  if (m.ai.gaps === key) return 0;
+  const have = new Set(getState().questions.filter((q) => q.materialId === id && q.pool).flatMap((q) => q.sources.map((s) => s.pageId)));
+  const gaps = cloudPages(m).filter((p) => !have.has(p.id) && `${p.title} ${p.text}`.trim().length > 120 && !SKIP_TITLE.test(p.title.trim()));
+  const done = () => {
+    const cur = getState().materials.find((x) => x.id === id)?.ai;
+    if (cur) actions.updateMaterial(id, { ai: { ...cur, gaps: key } });
+  };
+  if (!gaps.length) {
+    done();
+    return 0;
+  }
+  filling.add(id);
+  let added = 0;
+  try {
+    const topicOf = new Map(m.pages.map((p) => [p.id, p.topicId]));
+    const labelOf = new Map(m.pages.map((p) => [p.id, p.label]));
+    const avoid = getState().questions.filter((q) => q.materialId === id && q.pool).map((q) => q.prompt).slice(-60);
+    for (const c of chunks(gaps)) {
+      const r = await call<{ questions: CloudQuestion[] }>("gapQuestions", { title: m.title, pages: c, avoid });
+      const ids = new Set(c.map((p) => p.id));
+      const drafts = (r.questions ?? []).filter((q) => ids.has(q.pageId)).flatMap((q) => toDraft(q, m, topicOf, labelOf));
+      added += actions.addPracticeQuestions(id, drafts);
+    }
+    done();
+  } catch {
+    /* tried again next time the lecture is opened */
+  } finally {
+    filling.delete(id);
+  }
+  return added;
 }
 
 /** True when a question's options aren't all about the same length (matches the check on the server). */

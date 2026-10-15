@@ -12,6 +12,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { buildPracticeQuestions, practiceSet } from "@/services/practice";
+import { fillQuestionGaps } from "@/services/ai/cloud";
 import { useData } from "@/store/store";
 import type { ID, Material } from "@/types/models";
 
@@ -93,6 +94,8 @@ export function QuestionsPage() {
   const key = shown.map((m) => m.id).join(",");
   useEffect(() => {
     for (const m of shown) if (!practiceSet(data, m.id).length && m.pages.some((p) => p.included && p.text.trim())) buildPracticeQuestions(m.id);
+    // Any slide with real content but no questions yet gets some (older lectures), in the background.
+    for (const m of shown) void fillQuestionGaps(m.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

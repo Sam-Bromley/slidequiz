@@ -12,7 +12,7 @@ import { Tabs, tabPanelProps } from "@/components/ui/tabs";
 import { usePlanQuiet } from "@/services/plus";
 import { Link, navigate, useLocation } from "@/lib/router";
 import { notesExportDoc } from "@/services/notes";
-import { aiQuestionsReady, aiReady, enhanceMaterial, usesBuiltIn } from "@/services/ai/cloud";
+import { aiQuestionsReady, aiReady, enhanceMaterial, fillQuestionGaps, usesBuiltIn } from "@/services/ai/cloud";
 import { buildPracticeQuestions, overallProgress, practiceSet, shuffleOptions } from "@/services/practice";
 import { actions } from "@/store/actions";
 import { unitWord } from "@/store/selectors";
@@ -42,7 +42,8 @@ export function MaterialDetailPage({ id }: { id: string }) {
     actions.setLastVisit(`/materials/${m.id}`, m.title);
     // Materials from before the notes/practice update get their questions made on first open.
     if (!practiceSet(data, m.id).length && m.pages.some((p) => p.included && p.text.trim())) buildPracticeQuestions(m.id);
-    enhanceMaterial(m.id);
+    // Older lectures: any slide with real content but no questions gets some, in the background.
+    enhanceMaterial(m.id).then(() => fillQuestionGaps(m.id));
     // Opened from search or mixed practice: jump to that slide in the notes.
     const target = query.get("p");
     if (target)

@@ -243,6 +243,8 @@ export interface MaterialAI {
   style?: number;
   /** Why it last failed, shown small on the "Couldn't write" panel. */
   error?: string;
+  /** Older lectures: the slides (by `key`) already checked for slides with no questions, and filled in. */
+  gaps?: string;
   at: string;
 }
 
