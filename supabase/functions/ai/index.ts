@@ -463,11 +463,11 @@ Deno.serve(async (req) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
   let left: number | null = null;
-  const send = (model: string) =>
+  const send = (model: string, prompt?: string) =>
     fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: task.maxTokens, temperature: body.task === "markWritten" ? 0 : undefined, system: task.system, messages: [{ role: "user", content: task.prompt(body, pages) }] }),
+      body: JSON.stringify({ model, max_tokens: task.maxTokens, temperature: body.task === "markWritten" ? 0 : undefined, system: task.system, messages: [{ role: "user", content: prompt ?? task.prompt(body, pages) }] }),
     });
   const ask = async () => {
     if (body.task !== "markWritten" || MARK_MODEL === MODEL) return send(MODEL);
@@ -524,7 +524,28 @@ Deno.serve(async (req) => {
     await logFailure(body.task, out.stop_reason === "max_tokens" ? "cut short" : "unreadable reply");
     return json({ error: "The reply was cut short. Try again." }, 502, origin);
   }
-  if (body.task === "questions" && Array.isArray(result?.questions)) result.questions = await balanceOptions(result.questions);
+  if (body.task === "questions" && Array.isArray(result?.questions)) {
+    // Every slide with real content must have questions, so nothing that could come up in an exam is
+    // missed: any the first pass skipped get their own questions now (part of the same request).
+    const asked = new Set(result.questions.map((q: any) => String(q?.pageId ?? "")));
+    const skip = /^(thank|any questions|questions\??$|references|reading|further reading|learning (objectives|outcomes)|objectives|contents|agenda|overview|summary of (today|this))/i;
+    const missing = (body.pages as Page[]).filter((p) => !asked.has(String(p.id)) && `${p.title} ${p.text}`.trim().length > 120 && !skip.test(String(p.title ?? "").trim()));
+    if (missing.length) {
+      const extraPages = missing.map((p) => `[${String(p.id).slice(0, 40)}] ${p.label} — ${p.title}\n${String(p.text).slice(0, 4000)}`).join("\n\n").slice(0, MAX_INPUT);
+      try {
+        const r2 = await send(MODEL, task.prompt({ ...body, avoid: result.questions.map((q: any) => String(q?.question ?? "")) }, extraPages));
+        if (r2.ok) {
+          const o2 = await r2.json();
+          const t2: string = (o2.content ?? []).map((c: any) => c.text ?? "").join("");
+          const more = JSON.parse(t2.slice(t2.indexOf("{"), t2.lastIndexOf("}") + 1))?.questions;
+          if (Array.isArray(more)) result.questions.push(...more.filter((q: any) => missing.some((p) => String(p.id) === String(q?.pageId))));
+        }
+      } catch {
+        /* the questions already written still go back */
+      }
+    }
+    result.questions = await balanceOptions(result.questions);
+  }
   return json(result, 200, origin);
 });
 
