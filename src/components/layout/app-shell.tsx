@@ -16,6 +16,11 @@ import { cn } from "@/lib/utils";
 import { useData } from "@/store/store";
 import { Logo, LogoMark } from "./logo";
 import { NAV, navTarget, openedItem, sectionOf } from "./nav";
+import { sessionGet, sessionSet } from "@/lib/session";
+import type { Settings as AppSettings } from "@/types/models";
+
+type LastOpen = NonNullable<AppSettings["lastOpen"]>;
+const LAST_OPEN = "slidequiz:last-open";
 
 const SB_DEFAULT = 248;
 const SB_MIN = 68;
@@ -236,7 +241,7 @@ function useNavTo() {
   const data = useData();
   const { path } = useLocation();
   const items = (key: "flashcards" | "notes" | "essays") => (key === "flashcards" ? data.decks ?? [] : key === "notes" ? data.materials : data.essayDrafts ?? []);
-  return (n: (typeof NAV)[number]) => navTarget(n, path, data.settings.lastOpen, items);
+  return (n: (typeof NAV)[number]) => navTarget(n, path, sessionGet<LastOpen>(LAST_OPEN) ?? undefined, items);
 }
 
 function BottomNav() {
@@ -323,10 +328,11 @@ export function AppShell({ children, bare }: { children: ReactNode; bare?: boole
     const key = sectionOf(here);
     if (!key) return;
     const item = openedItem(here);
-    const last = data.settings.lastOpen ?? {};
+    const last = sessionGet<LastOpen>(LAST_OPEN) ?? {};
     // The full spot (with its folder or tab), so going back to the list and then elsewhere returns to the list.
     const place = !item && hereFolder ? `${here}?f=${encodeURIComponent(hereFolder)}` : here;
-    actions.updateSettings({ lastOpen: { ...last, ...(item ? { [key]: item.id } : {}), place: { ...(last.place ?? {}), [key]: place }, at: { ...(last.at ?? {}), [key]: new Date().toISOString() } } });
+    // Only for as long as the site is open (closing it starts each tab fresh).
+    sessionSet(LAST_OPEN, { ...last, ...(item ? { [key]: item.id } : {}), place: { ...(last.place ?? {}), [key]: place }, at: { ...(last.at ?? {}), [key]: new Date().toISOString() } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [here, hereFolder]);
   // Pro members' own photo (only while they have Pro, and only on the device it was added on).

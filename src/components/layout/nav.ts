@@ -50,6 +50,8 @@ export function navTarget(n: NavItem, path: string, last: LastOpen | undefined, 
   if (!s || n.match(path)) return n.to;
   const list = items(s.key);
   if (!list.length) return n.to;
+  // Nothing opened in this section since the site was opened: show the list to choose from.
+  if (!last?.place?.[s.key] && !last?.[s.key]) return n.to;
   const newest = list.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
   // Back to exactly where they were (the list, a folder or a lecture), unless something new was made since.
   const place = last?.place?.[s.key];

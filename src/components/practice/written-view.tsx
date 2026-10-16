@@ -43,10 +43,10 @@ function highlight(text: string, quotes: string[]) {
 }
 
 
-/** Which written question each lecture was last on (kept on this device). */
+/** Which written question each lecture was last on (kept while the site is open). */
 function positions(): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem("slidequiz:written-pos") || "{}");
+    return JSON.parse(sessionStorage.getItem("slidequiz:written-pos") || "{}");
   } catch {
     return {};
   }
@@ -54,7 +54,7 @@ function positions(): Record<string, string> {
 const lastQuestion = (mid: string) => positions()[mid];
 function rememberQuestion(mid: string, qid: string) {
   try {
-    localStorage.setItem("slidequiz:written-pos", JSON.stringify({ ...positions(), [mid]: qid }));
+    sessionStorage.setItem("slidequiz:written-pos", JSON.stringify({ ...positions(), [mid]: qid }));
   } catch {
     /* storage blocked */
   }

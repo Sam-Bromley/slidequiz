@@ -22,7 +22,7 @@ const PICK_KEY = "slidequiz:questions-pick";
 
 const loadPick = (): Pick | null => {
   try {
-    const p = JSON.parse(localStorage.getItem(PICK_KEY) ?? "null");
+    const p = JSON.parse(sessionStorage.getItem(PICK_KEY) ?? "null");
     return p && Array.isArray(p.ids) ? p : null;
   } catch {
     return null;
@@ -30,7 +30,7 @@ const loadPick = (): Pick | null => {
 };
 const savePick = (p: Pick) => {
   try {
-    localStorage.setItem(PICK_KEY, JSON.stringify(p));
+    sessionStorage.setItem(PICK_KEY, JSON.stringify(p));
   } catch {
     /* storage blocked */
   }
@@ -43,7 +43,7 @@ const keptTopics = new Map<string, ID[]>();
 
 function lastMode(): Mode {
   try {
-    return localStorage.getItem("slidequiz:qmode") === "written" ? "written" : "mcq";
+    return sessionStorage.getItem("slidequiz:qmode") === "written" ? "written" : "mcq";
   } catch {
     return "mcq";
   }
@@ -63,7 +63,7 @@ export function QuestionsPage() {
   const setMode = (m: Mode) => {
     setModeState(m);
     try {
-      localStorage.setItem("slidequiz:qmode", m);
+      sessionStorage.setItem("slidequiz:qmode", m);
     } catch {
       /* storage blocked */
     }
