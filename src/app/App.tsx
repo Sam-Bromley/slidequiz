@@ -127,6 +127,8 @@ export function App() {
   // Tidy away flashcard decks whose lecture was deleted (and that have no cards left).
   useEffect(() => actions.dropOrphanDecks(), [data.materials.length, data.decks?.length]);
   useEffect(() => actions.dropJunkCards(), [data.flashcards.length]);
+  // And practice questions about the course itself (lecture recording, deadlines) rather than the subject.
+  useEffect(() => actions.dropJunkQuestions(), [data.questions.length]);
   useEffect(() => initAds(), []);
   useGlobalShortcuts();
   useClickBounce();

@@ -1,4 +1,4 @@
-import { isJunkCard } from "@/lib/junk-card";
+import { isJunkCard, isJunkQuestion } from "@/lib/junk-card";
 import { emptyData } from "./defaults";
 import { levelInfo } from "@/lib/levels";
 import { showMoment } from "@/lib/moments";
@@ -156,6 +156,12 @@ export const actions = {
     const s0 = getState();
     if (!s0.flashcards.some((c) => isJunkCard(c.front, c.back))) return;
     setState((s) => ({ ...s, flashcards: s.flashcards.filter((c) => !isJunkCard(c.front, c.back)) }));
+  },
+  /** Removes practice questions about the course rather than the subject (lecture recording, deadlines, the room). */
+  dropJunkQuestions() {
+    const s0 = getState();
+    if (!s0.questions.some((q) => q.pool && isJunkQuestion(q.prompt, q.answer ?? ""))) return;
+    setState((s) => ({ ...s, questions: s.questions.filter((q) => !(q.pool && isJunkQuestion(q.prompt, q.answer ?? ""))) }));
   },
   /** Removes flashcard decks left empty by lectures deleted before decks were tidied up with them. */
   dropOrphanDecks() {

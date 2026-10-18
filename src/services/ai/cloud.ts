@@ -18,7 +18,7 @@ import { nowISO, uid } from "@/lib/utils";
 import { referencesText, type PageInfo } from "@/services/references";
 import { buildNotes, lineKey } from "@/services/notes";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
-import { isJunkCard } from "@/lib/junk-card";
+import { isJunkCard, isJunkQuestion } from "@/lib/junk-card";
 import type { NoteMark, WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey, aiReady } from "./ai-key";
@@ -399,6 +399,8 @@ type CloudQuestion = { pageId: ID; question: string; correct: string; wrong: str
 function toDraft(q: CloudQuestion, m: Material, topicOf: Map<ID, ID | null>, labelOf: Map<ID, string>): QuestionDraft[] {
   const wrong = [...new Set((q.wrong ?? []).map((w) => String(w).trim()).filter((w) => w && w !== q.correct))];
   if (!q.question?.trim() || !q.correct?.trim() || wrong.length < 2) return [];
+  // About the course or the lecture itself (recording, the room, deadlines), not the subject.
+  if (isJunkQuestion(q.question, q.correct)) return [];
   const source: SourceRef[] = labelOf.has(q.pageId) ? [{ pageId: q.pageId, label: labelOf.get(q.pageId)! }] : [];
   return [
     {
@@ -446,7 +448,7 @@ export async function cloudMoreQuestions(id: ID, onAdded?: (total: number) => vo
   return total;
 }
 
-const SKIP_TITLE = /^(thank|any questions|questions\??$|references|reading|further reading|learning (objectives|outcomes)|objectives|contents|agenda|overview)/i;
+const SKIP_TITLE = /^(thank|any questions|questions\??$|references|reading|further reading|learning (objectives|outcomes)|objectives|contents|agenda|overview|housekeeping|welcome|introduction to the module|module (overview|information)|lecture recording|recording|assessment|timetable)/i;
 const filling = new Set<ID>();
 /**
  * Lectures made before every slide was guaranteed questions: finds slides with real content that have
