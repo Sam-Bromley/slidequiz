@@ -73,8 +73,9 @@ export function overallProgress(d: AppData, m: Material) {
  * mixed back in every few questions, then anything else (oldest answer first).
  */
 export function practiceQueue(qs: Question[], shuffle = false): ID[] {
-  // Shuffled: new questions come in a random order instead of slide order.
-  const fresh = shuffle ? shuffled(qs.filter((q) => !q.stats.attempts)) : qs.filter((q) => !q.stats.attempts);
+  // Shuffled: new questions come in a random order. Otherwise in slide order, from the first slide on
+  // (questions are written in parallel pieces and added later, so the order they were saved in isn't it).
+  const fresh = shuffle ? shuffled(qs.filter((q) => !q.stats.attempts)) : inSlideOrder(qs.filter((q) => !q.stats.attempts));
   const wrong = qs.filter(needsReview).sort((a, b) => (a.stats.lastAnsweredAt ?? "").localeCompare(b.stats.lastAnsweredAt ?? ""));
   const rest = qs.filter((q) => isCovered(q) || (q.stats.attempts && !q.stats.lastResult)).sort((a, b) => (a.stats.lastAnsweredAt ?? "").localeCompare(b.stats.lastAnsweredAt ?? ""));
   const out: ID[] = [];
@@ -86,6 +87,19 @@ export function practiceQueue(qs: Question[], shuffle = false): ID[] {
   while (w < wrong.length) out.push(wrong[w++].id);
   (shuffle ? shuffled(rest) : rest).forEach((q) => out.push(q.id));
   return out;
+}
+
+/** Questions ordered by the slide they come from (lecture by lecture), keeping their order within a slide. */
+function inSlideOrder(qs: Question[]): Question[] {
+  const pos = new Map<string, number>();
+  const mats = new Map<string, number>();
+  for (const m of getState().materials) m.pages.forEach((p, i) => pos.set(p.id, i));
+  qs.forEach((q) => !mats.has(q.materialId) && mats.set(q.materialId, mats.size));
+  const at = (q: Question) => pos.get(q.sources[0]?.pageId ?? "") ?? Number.MAX_SAFE_INTEGER;
+  return qs
+    .map((q, i) => ({ q, i }))
+    .sort((a, b) => (mats.get(a.q.materialId) ?? 0) - (mats.get(b.q.materialId) ?? 0) || at(a.q) - at(b.q) || a.i - b.i)
+    .map((x) => x.q);
 }
 
 function shuffled<T>(xs: T[]): T[] {
