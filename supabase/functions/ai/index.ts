@@ -512,7 +512,7 @@ Deno.serve(async (req) => {
   if (!r.ok) {
     const detail = String((await r.json().catch(() => null))?.error?.message ?? r.status);
     console.error("Anthropic error:", detail);
-    await logFailure(body.task, `error ${r.status}`);
+    await logFailure(body.task, `error ${r.status}: ${detail}`);
     const busy = r.status === 429 || r.status === 529;
     return json({ error: busy ? "SlideQuiz is busy right now. Try again in a minute." : `Couldn't write this right now (error ${r.status}). Try again in a minute.` }, 502, origin);
   }
