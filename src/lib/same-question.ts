@@ -22,14 +22,17 @@ function overlap(a: string, b: string) {
   return n / Math.min(A.size, B.size);
 }
 
+type Q = Pick<Question, "prompt" | "options" | "correctIndex" | "answer">;
+
 /**
- * True when two questions are the same question (the same or nearly the same wording, with the same answer).
- * A question about the same fact asked a clearly different way is NOT the same.
+ * True when two questions test the same thing: the same or nearly the same wording, or the same right answer
+ * asked about in much the same words. Questions with different answers are different facts.
  */
-export function sameQuestion(a: Pick<Question, "prompt" | "options" | "correctIndex" | "answer">, b: Pick<Question, "prompt" | "options" | "correctIndex" | "answer">) {
+export function sameQuestion(a: Q, b: Q) {
   const pa = words(a.prompt).join(" ");
   const pb = words(b.prompt).join(" ");
   if (pa && pa === pb) return true;
-  const sameAnswer = words(answerOf(a)).join(" ") === words(answerOf(b)).join(" ");
-  return sameAnswer && overlap(a.prompt, b.prompt) >= 0.8;
+  const ans = words(answerOf(a)).join(" ");
+  if (!ans || ans !== words(answerOf(b)).join(" ")) return false;
+  return overlap(a.prompt, b.prompt) >= 0.5;
 }
