@@ -1,5 +1,5 @@
 import { ArrowUpRight, ChevronRight, Folder as FolderIcon, Lightbulb, RotateCcw, Search, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MaterialIcon } from "@/components/materials/material-card";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { aiKey } from "@/services/ai/ai-key";
-import { explainMaterial } from "@/services/ai/cloud";
+import { explainSlide } from "@/services/ai/cloud";
 import { folderOrder } from "@/store/actions";
 import { useData } from "@/store/store";
 import type { ExplainedSlide, Folder, Material } from "@/types/models";
@@ -60,7 +60,7 @@ export function SummaryPage() {
         <EmptyState
           icon={Lightbulb}
           title="No lectures yet"
-          description="Add your slides and every one is explained simply here, slide by slide."
+          description="Add your slides, then type any slide number to have it explained."
           action={
             <Link to="/upload" className={buttonClass()}>
               <Upload /> Add material
@@ -93,7 +93,7 @@ export function SummaryPage() {
           </nav>
         </div>
       ) : (
-        <PageHeader title="Summary" description="Pick a lecture: each slide's key point, explained simply." className="mb-5" />
+        <PageHeader title="Summary" description="Pick a lecture, then type the slide you want explained." className="mb-5" />
       )}
       {data.materials.length > 6 && (
         <div className="relative mb-4">
@@ -139,7 +139,7 @@ export function SummaryPage() {
                 <MaterialIcon m={m} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14.5px] font-semibold">{m.title}</span>
-                  <span className="block truncate text-[12.5px] text-muted-foreground">{ready ? `${m.explained!.slides.length} key points` : m.subject || "Ready to explain"}</span>
+                  <span className="block truncate text-[12.5px] text-muted-foreground">{ready ? `${m.explained!.slides.length} explained` : m.subject || `${m.pages.length} slides`}</span>
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -172,8 +172,7 @@ function SlideCard({ s, m, n }: { s: ExplainedSlide; m: Material; n: number }) {
   return (
     <article id={`sum-${s.pageId}`} className="scroll-mt-32 rounded-2xl border bg-card p-5 sm:p-6">
       <div className="mb-1 flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
-        <span className="grid size-6 place-items-center rounded-full bg-secondary text-[11.5px] font-bold text-foreground">{n}</span>
-        <span>{page?.label ?? "Slide"}</span>
+        <span>{page?.label || `Slide ${n}`}</span>
         <Link to={`/materials/${m.id}?p=${s.pageId}`} className="ml-auto inline-flex items-center gap-0.5 rounded hover:text-foreground focus-ring">
           In your notes <ArrowUpRight className="size-3.5" />
         </Link>
@@ -229,75 +228,42 @@ function SlideCard({ s, m, n }: { s: ExplainedSlide; m: Material; n: number }) {
   );
 }
 
-/** Along the top: every explained slide, tap one to jump to it. The one you're reading is highlighted. */
-function SlidePicker({ slides }: { slides: ExplainedSlide[] }) {
-  const [active, setActive] = useState(slides[0]?.pageId);
-  const bar = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const els = slides.map((s) => document.getElementById(`sum-${s.pageId}`)).filter(Boolean) as HTMLElement[];
-    const io = new IntersectionObserver(
-      (entries) => {
-        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (top) setActive(top.target.id.slice(4));
-      },
-      { rootMargin: "-130px 0px -55% 0px" },
-    );
-    els.forEach((e) => io.observe(e));
-    return () => io.disconnect();
-  }, [slides]);
-  // Keep the highlighted one in view in the bar.
-  useEffect(() => {
-    const el = bar.current?.querySelector<HTMLElement>(`[data-id="${active}"]`);
-    if (el && bar.current) bar.current.scrollTo({ left: el.offsetLeft - bar.current.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
-  }, [active]);
-  const go = (id: string) => {
-    setActive(id);
-    document.getElementById(`sum-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-  return (
-    <nav aria-label="Slides" className="sticky top-14 z-10 -mx-4 mb-5 bg-background/85 px-4 py-2 backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:px-2">
-      <div ref={bar} className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
-        {slides.map((s, i) => (
-          <button
-            key={s.pageId}
-            type="button"
-            data-id={s.pageId}
-            onClick={() => go(s.pageId)}
-            aria-current={active === s.pageId ? "true" : undefined}
-            className={cn(
-              "shrink-0 rounded-full border px-3 py-1 text-[12.5px] transition-colors focus-ring",
-              active === s.pageId ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {i + 1}. {s.title.length > 28 ? s.title.slice(0, 27) + "…" : s.title}
-          </button>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
-/** One lecture: every content slide's key point, explained step by step. Written the first time it's opened. */
+/** One lecture: type a slide number and just that slide is explained (saved, so it's instant next time). */
 export function SummaryLecturePage({ id }: { id: string }) {
   const data = useData();
   const m = data.materials.find((x) => x.id === id);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const ready = !!m && m.explained?.key === aiKey(m);
-  const slides = ready ? m!.explained!.slides : [];
+  const [num, setNum] = useState("");
+  const [shown, setShown] = useState<string | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<{ n: number; msg: string } | null>(null);
+  const done = m && m.explained?.key === aiKey(m) ? m.explained.slides : [];
+  const total = m?.pages.length ?? 0;
+  const numOf = (pageId: string) => (m ? m.pages.findIndex((p) => p.id === pageId) + 1 : 0);
 
-  const run = () => {
+  const explain = (n: number) => {
     if (!m) return;
-    setError("");
-    setBusy(true);
-    explainMaterial(m.id)
-      .catch((e) => setError((e as Error).message || "Couldn't explain this lecture. Try again."))
-      .finally(() => setBusy(false));
+    setNote("");
+    setError(null);
+    if (!Number.isInteger(n) || n < 1 || n > total) {
+      setNote(`Type a slide number from 1 to ${total}.`);
+      return;
+    }
+    const page = m.pages[n - 1];
+    if (done.some((x) => x.pageId === page.id)) {
+      setShown(page.id);
+      return;
+    }
+    setBusy(n);
+    setShown(null);
+    explainSlide(m.id, page.id)
+      .then((r) => {
+        if (r === "admin") setNote(`Slide ${n} is admin or has nothing to explain.`);
+        else setShown(page.id);
+      })
+      .catch((e) => setError({ n, msg: (e as Error).message || "Couldn't explain this slide. Try again." }))
+      .finally(() => setBusy(null));
   };
-  useEffect(() => {
-    if (m && !(ready && slides.length && m.explained?.full)) run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
 
   if (!m)
     return (
@@ -309,31 +275,74 @@ export function SummaryLecturePage({ id }: { id: string }) {
       </div>
     );
 
+  const current = done.find((x) => x.pageId === shown);
+
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader back={{ to: m.folderId && data.folders.some((f) => f.id === m.folderId) ? `/summary?f=${m.folderId}` : "/summary", label: data.folders.find((f) => f.id === m.folderId)?.name ?? "Summary" }} eyebrow={m.subject || undefined} title={m.title} description={slides.length ? `${slides.length} key points, explained simply` : undefined} className="mb-5" />
+      <PageHeader
+        back={{ to: m.folderId && data.folders.some((f) => f.id === m.folderId) ? `/summary?f=${m.folderId}` : "/summary", label: data.folders.find((f) => f.id === m.folderId)?.name ?? "Summary" }}
+        eyebrow={m.subject || undefined}
+        title={m.title}
+        description={`Type the slide you want explained (1 to ${total}).`}
+        className="mb-5"
+      />
 
-      {slides.length > 1 && <SlidePicker slides={slides} />}
+      <form
+        className="mb-4 flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          explain(parseInt(num, 10));
+        }}
+      >
+        <label htmlFor="slide-num" className="sr-only">
+          Slide number
+        </label>
+        <Input id="slide-num" inputMode="numeric" autoComplete="off" value={num} onChange={(e) => setNum(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Slide number" className="max-w-[180px]" data-autofocus />
+        <Button type="submit" disabled={!num.trim() || busy !== null}>
+          Explain
+        </Button>
+      </form>
 
-      <div className="space-y-4">
-        {slides.map((s, i) => (
-          <SlideCard key={s.pageId} s={s} m={m} n={i + 1} />
-        ))}
-      </div>
-
-      {busy && (
-        <div className={cn("flex items-center justify-center gap-2.5 text-[14px] text-muted-foreground", slides.length ? "py-6" : "min-h-[40vh]")} aria-live="polite">
-          <Spinner className="size-4" /> {slides.length ? "Explaining the rest…" : "Explaining each slide…"}
+      {done.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Explained so far</p>
+          <div className="flex flex-wrap gap-1.5">
+            {done.map((x) => {
+              const n = numOf(x.pageId);
+              return (
+                <button
+                  key={x.pageId}
+                  type="button"
+                  onClick={() => (setShown(x.pageId), setNote(""), setError(null), setNum(String(n)))}
+                  aria-current={shown === x.pageId ? "true" : undefined}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-[12.5px] transition-colors focus-ring",
+                    shown === x.pageId ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {n}. {x.title.length > 26 ? x.title.slice(0, 25) + "…" : x.title}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
-      {!busy && error && (
-        <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-center">
-          <p className="text-[14px] text-muted-foreground">{error}</p>
-          <Button variant="outline" onClick={run}>
+
+      {busy !== null && (
+        <div className="flex min-h-[30vh] items-center justify-center gap-2.5 text-[14px] text-muted-foreground" aria-live="polite">
+          <Spinner className="size-4" /> Explaining slide {busy}…
+        </div>
+      )}
+      {busy === null && note && <p className="rounded-xl bg-subtle px-4 py-3 text-[14px] text-muted-foreground" aria-live="polite">{note}</p>}
+      {busy === null && error && (
+        <div className="flex min-h-[25vh] flex-col items-center justify-center gap-3 text-center">
+          <p className="text-[14px] text-muted-foreground">{error.msg}</p>
+          <Button variant="outline" onClick={() => explain(error.n)}>
             <RotateCcw /> Try again
           </Button>
         </div>
       )}
+      {busy === null && current && <SlideCard s={current} m={m} n={numOf(current.pageId)} />}
     </div>
   );
 }
