@@ -656,5 +656,7 @@ export interface Explained {
   /** The slides (and text) these were written from; if they change, they're written again. */
   key: string;
   slides: ExplainedSlide[];
+  /** Every content slide has been checked for (missed ones were written in a second pass). */
+  full?: boolean;
   at: ISODate;
 }

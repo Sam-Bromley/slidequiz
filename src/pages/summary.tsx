@@ -1,5 +1,5 @@
 import { ArrowUpRight, ChevronRight, Folder as FolderIcon, Lightbulb, RotateCcw, Search, Upload } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MaterialIcon } from "@/components/materials/material-card";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -170,7 +170,7 @@ function Detail({ text }: { text: string }) {
 function SlideCard({ s, m, n }: { s: ExplainedSlide; m: Material; n: number }) {
   const page = m.pages.find((p) => p.id === s.pageId);
   return (
-    <article id={`sum-${s.pageId}`} className="scroll-mt-20 rounded-2xl border bg-card p-5 sm:p-6">
+    <article id={`sum-${s.pageId}`} className="scroll-mt-32 rounded-2xl border bg-card p-5 sm:p-6">
       <div className="mb-1 flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
         <span className="grid size-6 place-items-center rounded-full bg-secondary text-[11.5px] font-bold text-foreground">{n}</span>
         <span>{page?.label ?? "Slide"}</span>
@@ -229,6 +229,54 @@ function SlideCard({ s, m, n }: { s: ExplainedSlide; m: Material; n: number }) {
   );
 }
 
+/** Along the top: every explained slide, tap one to jump to it. The one you're reading is highlighted. */
+function SlidePicker({ slides }: { slides: ExplainedSlide[] }) {
+  const [active, setActive] = useState(slides[0]?.pageId);
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const els = slides.map((s) => document.getElementById(`sum-${s.pageId}`)).filter(Boolean) as HTMLElement[];
+    const io = new IntersectionObserver(
+      (entries) => {
+        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setActive(top.target.id.slice(4));
+      },
+      { rootMargin: "-130px 0px -55% 0px" },
+    );
+    els.forEach((e) => io.observe(e));
+    return () => io.disconnect();
+  }, [slides]);
+  // Keep the highlighted one in view in the bar.
+  useEffect(() => {
+    const el = bar.current?.querySelector<HTMLElement>(`[data-id="${active}"]`);
+    if (el && bar.current) bar.current.scrollTo({ left: el.offsetLeft - bar.current.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
+  }, [active]);
+  const go = (id: string) => {
+    setActive(id);
+    document.getElementById(`sum-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <nav aria-label="Slides" className="sticky top-14 z-10 -mx-4 mb-5 bg-background/85 px-4 py-2 backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:px-2">
+      <div ref={bar} className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
+        {slides.map((s, i) => (
+          <button
+            key={s.pageId}
+            type="button"
+            data-id={s.pageId}
+            onClick={() => go(s.pageId)}
+            aria-current={active === s.pageId ? "true" : undefined}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1 text-[12.5px] transition-colors focus-ring",
+              active === s.pageId ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {i + 1}. {s.title.length > 28 ? s.title.slice(0, 27) + "…" : s.title}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 /** One lecture: every content slide's key point, explained step by step. Written the first time it's opened. */
 export function SummaryLecturePage({ id }: { id: string }) {
   const data = useData();
@@ -247,7 +295,7 @@ export function SummaryLecturePage({ id }: { id: string }) {
       .finally(() => setBusy(false));
   };
   useEffect(() => {
-    if (m && (!ready || !slides.length)) run();
+    if (m && !(ready && slides.length && m.explained?.full)) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -265,15 +313,7 @@ export function SummaryLecturePage({ id }: { id: string }) {
     <div className="mx-auto max-w-3xl">
       <PageHeader back={{ to: m.folderId && data.folders.some((f) => f.id === m.folderId) ? `/summary?f=${m.folderId}` : "/summary", label: data.folders.find((f) => f.id === m.folderId)?.name ?? "Summary" }} eyebrow={m.subject || undefined} title={m.title} description={slides.length ? `${slides.length} key points, explained simply` : undefined} className="mb-5" />
 
-      {slides.length > 3 && (
-        <nav aria-label="Key points" className="-mx-1 mb-5 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
-          {slides.map((s, i) => (
-            <a key={s.pageId} href={`#sum-${s.pageId}`} onClick={(e) => (e.preventDefault(), document.getElementById(`sum-${s.pageId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }))} className={cn("shrink-0 rounded-full border bg-card px-3 py-1 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground focus-ring")}>
-              {i + 1}. {s.title.length > 28 ? s.title.slice(0, 27) + "…" : s.title}
-            </a>
-          ))}
-        </nav>
-      )}
+      {slides.length > 1 && <SlidePicker slides={slides} />}
 
       <div className="space-y-4">
         {slides.map((s, i) => (

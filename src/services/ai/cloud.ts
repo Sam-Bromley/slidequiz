@@ -496,19 +496,28 @@ const explaining = new Map<ID, Promise<void>>();
  * are left out). Written the first time the lecture is opened there, a piece at a time so it shows as it
  * arrives, and kept until the slides change. Fair use rather than credits.
  */
+/** Up to `n` slides per request, so long lectures never run out of room and every slide gets its turn. */
+function groupsOf<T>(xs: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n));
+  return out;
+}
+
 export function explainMaterial(id: ID): Promise<void> {
   const m = getState().materials.find((x) => x.id === id);
   if (!m) return Promise.resolve();
   const key = aiKey(m);
-  if (m.explained?.key === key && m.explained.slides.length) return Promise.resolve();
+  const cached = m.explained?.key === key ? m.explained : undefined;
+  if (cached?.full && cached.slides.length) return Promise.resolve();
   if (explaining.has(id)) return explaining.get(id)!;
   const job = (async () => {
+    // Every slide with real content on it (title-only and admin slides are left out).
     const pages = cloudPages(m).filter((p) => `${p.title} ${p.text}`.trim().length > 40 && !SKIP_TITLE.test(p.title.trim()));
     const order = new Map(m.pages.map((p, i) => [p.id, i]));
-    let got: ExplainedSlide[] = [];
-    const save = () => actions.updateMaterial(id, { explained: { key, slides: [...got].sort((a, b) => (order.get(a.pageId) ?? 0) - (order.get(b.pageId) ?? 0)), at: nowISO() } });
-    await runLimited(chunks(pages), 4, async (c) => {
-      const r = await call<{ slides: ExplainedSlide[] }>("explain", { title: m.title, pages: c });
+    let got: ExplainedSlide[] = cached?.slides ?? [];
+    const save = (full = false) => actions.updateMaterial(id, { explained: { key, slides: [...got].sort((a, b) => (order.get(a.pageId) ?? 0) - (order.get(b.pageId) ?? 0)), full, at: nowISO() } });
+    const ask = async (c: CloudPage[], all: boolean) => {
+      const r = await call<{ slides: ExplainedSlide[] }>("explain", { title: m.title, pages: c, all }).catch(() => ({ slides: [] as ExplainedSlide[] }));
       const ids = new Set(c.map((p) => p.id));
       const clean = (r.slides ?? [])
         .filter((x) => x && ids.has(x.pageId) && x.keyPoint?.trim() && Array.isArray(x.steps) && x.steps.length)
@@ -521,10 +530,21 @@ export function explainMaterial(id: ID): Promise<void> {
           example: String(x.example ?? "").trim() || undefined,
           remember: (Array.isArray(x.remember) ? x.remember : []).filter((r2) => r2?.term && r2?.role).map((r2) => ({ term: String(r2.term).trim(), role: String(r2.role).trim(), note: String(r2.note ?? "").trim() })),
         }));
-      got = [...got.filter((g) => !ids.has(g.pageId)), ...clean];
+      const back = new Set(clean.map((x) => x.pageId));
+      got = [...got.filter((g) => !back.has(g.pageId)), ...clean];
       save();
-    });
+    };
+    const missing = () => {
+      const have = new Set(got.map((g) => g.pageId));
+      return pages.filter((p) => !have.has(p.id));
+    };
+    // First pass: a few slides at a time.
+    if (missing().length) await runLimited(groupsOf(missing(), 5), 4, (c) => ask(c, false));
+    // Second pass: anything with real content that was missed, two at a time and told to cover each one.
+    const gaps = missing().filter((p) => p.text.trim().length > 80);
+    if (gaps.length) await runLimited(groupsOf(gaps, 2), 4, (c) => ask(c, true));
     if (!got.length) throw new AIError("Nothing to explain came back. Try again.");
+    save(true);
   })().finally(() => explaining.delete(id));
   explaining.set(id, job);
   return job;

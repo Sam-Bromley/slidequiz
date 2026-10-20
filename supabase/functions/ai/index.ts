@@ -125,7 +125,9 @@ You are a brilliant, friendly tutor who makes hard lecture content easy to follo
 Slides (each starts with [id]):
 ${pages}
 
-For EACH slide that teaches subject content, write a short, easy-to-follow explanation. Skip slides that are only admin or housekeeping (title slides, "Any questions?", thank-you slides, learning objectives, contents, reading lists, lecture recording, assessment, timetable) and slides with almost nothing on them: leave them out completely.
+${b.all
+  ? "These slides were missed before. Explain EVERY one of them that has any subject content on it, even a little (a diagram label, a single fact, a definition). Only leave out a slide that is purely admin (title slide, thank-you, lecture recording, assessment, timetable)."
+  : 'For EVERY slide that teaches subject content, write a short, easy-to-follow explanation (one entry per slide: never skip or merge content slides). Skip slides that are only admin or housekeeping (title slides, "Any questions?", thank-you slides, learning objectives, contents, reading lists, lecture recording, assessment, timetable) and slides with nothing on them: leave them out completely.'}
 For each slide:
 - "title": the slide's idea in a few words.
 - "keyPoint": the one thing to remember from it, one short sentence.
