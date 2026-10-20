@@ -1,4 +1,4 @@
-import { ArrowUpRight, ChevronRight, Lightbulb, RotateCcw, Search, Upload } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Folder as FolderIcon, Lightbulb, RotateCcw, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MaterialIcon } from "@/components/materials/material-card";
@@ -7,27 +7,51 @@ import { colourHex } from "@/components/ui/colour-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Link } from "@/lib/router";
+import { Link, useLocation } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { aiKey } from "@/services/ai/ai-key";
 import { explainMaterial } from "@/services/ai/cloud";
+import { folderOrder } from "@/store/actions";
 import { useData } from "@/store/store";
-import type { ExplainedSlide, Material } from "@/types/models";
+import type { ExplainedSlide, Folder, Material } from "@/types/models";
 
 /* ---------------------------------------------------------------- all lectures */
 
-/** Every uploaded lecture, to pick one and read its slides explained simply. */
+/** Lectures sorted the same way as in Notes. */
+function notesOrder(list: Material[], sort: string) {
+  const out = [...list];
+  if (sort === "custom") return out.sort((a, b) => (a.order ?? -1) - (b.order ?? -1) || b.createdAt.localeCompare(a.createdAt));
+  if (sort === "newest") return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (sort === "oldest") return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return out.sort((a, b) => (sort === "name" ? a.title.localeCompare(b.title) : (b.lastOpenedAt ?? b.lastStudiedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.lastStudiedAt ?? a.createdAt)));
+}
+
+/** Every uploaded lecture, in the same folders as Notes, to pick one and read its slides explained. */
 export function SummaryPage() {
   const data = useData();
+  const { query } = useLocation();
+  const folderId = data.folders.some((f) => f.id === query.get("f")) ? query.get("f") : null;
   const [q, setQ] = useState("");
   const t = q.trim().toLowerCase();
+  const sort = data.settings.materialsSort ?? "custom";
+
+  const trail = useMemo(() => {
+    const out: Folder[] = [];
+    let cur = data.folders.find((f) => f.id === folderId);
+    while (cur) {
+      out.unshift(cur);
+      const parent: string | null = cur.parentId;
+      cur = data.folders.find((f) => f.id === parent);
+    }
+    return out;
+  }, [data.folders, folderId]);
+
+  const folders = t ? [] : data.folders.filter((f) => (f.parentId ?? null) === folderId).sort(folderOrder);
   const mats = useMemo(
-    () =>
-      [...data.materials]
-        .filter((m) => !t || `${m.title} ${m.subject}`.toLowerCase().includes(t))
-        .sort((a, b) => (b.lastOpenedAt ?? b.createdAt).localeCompare(a.lastOpenedAt ?? a.createdAt)),
-    [data.materials, t],
+    () => notesOrder(data.materials.filter((m) => (t ? `${m.title} ${m.subject}`.toLowerCase().includes(t) : (m.folderId ?? null) === folderId)), sort),
+    [data.materials, t, folderId, sort],
   );
+  const countIn = (id: string) => data.materials.filter((m) => m.folderId === id).length + data.folders.filter((f) => f.parentId === id).length;
 
   if (!data.materials.length)
     return (
@@ -48,12 +72,58 @@ export function SummaryPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="Summary" description="Pick a lecture: each slide's key point, explained simply." className="mb-5" />
+      {trail.length ? (
+        <div className="mb-5">
+          <nav aria-label="Folder path" className="flex min-w-0 flex-wrap items-center gap-1 text-[24px] font-semibold tracking-tight">
+            <Link to="/summary" className="rounded text-muted-foreground hover:text-foreground focus-ring">
+              Summary
+            </Link>
+            {trail.map((f, i) => (
+              <span key={f.id} className="flex min-w-0 items-center gap-1">
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                {i === trail.length - 1 ? (
+                  <span className="truncate">{f.name}</span>
+                ) : (
+                  <Link to={`/summary?f=${f.id}`} className="truncate rounded text-muted-foreground hover:text-foreground focus-ring">
+                    {f.name}
+                  </Link>
+                )}
+              </span>
+            ))}
+          </nav>
+        </div>
+      ) : (
+        <PageHeader title="Summary" description="Pick a lecture: each slide's key point, explained simply." className="mb-5" />
+      )}
       {data.materials.length > 6 && (
         <div className="relative mb-4">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lectures" aria-label="Search lectures" className="pl-9" />
         </div>
+      )}
+      {folders.length > 0 && (
+        <ul className="mb-4 grid gap-2.5 sm:grid-cols-2">
+          {folders.map((f) => {
+            const hex = colourHex(f.color);
+            const n = countIn(f.id);
+            return (
+              <li key={f.id}>
+                <Link
+                  to={`/summary?f=${f.id}`}
+                  className="group flex items-center gap-3 rounded-2xl border bg-card px-3.5 py-3 transition-colors hover:border-foreground/20 focus-ring"
+                  style={hex ? { backgroundColor: hex + "12", borderColor: hex + "55" } : undefined}
+                >
+                  <FolderIcon className={cn("size-[22px] shrink-0", !hex && "text-muted-foreground")} style={hex ? { color: hex, fill: hex + "33" } : undefined} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14.5px] font-semibold">{f.name}</span>
+                    <span className="block truncate text-[12.5px] text-muted-foreground">{n === 1 ? "1 item" : `${n} items`}</span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
       <ul className="grid gap-2.5 sm:grid-cols-2">
         {mats.map((m) => {
@@ -77,7 +147,8 @@ export function SummaryPage() {
           );
         })}
       </ul>
-      {!mats.length && <p className="py-10 text-center text-[14px] text-muted-foreground">No lectures match “{q}”.</p>}
+      {t && !mats.length && <p className="py-10 text-center text-[14px] text-muted-foreground">No lectures match “{q}”.</p>}
+      {!t && !mats.length && !folders.length && <p className="py-10 text-center text-[14px] text-muted-foreground">This folder is empty.</p>}
     </div>
   );
 }
@@ -192,7 +263,7 @@ export function SummaryLecturePage({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader back={{ to: "/summary", label: "Summary" }} eyebrow={m.subject || undefined} title={m.title} description={slides.length ? `${slides.length} key points, explained simply` : undefined} className="mb-5" />
+      <PageHeader back={{ to: m.folderId && data.folders.some((f) => f.id === m.folderId) ? `/summary?f=${m.folderId}` : "/summary", label: data.folders.find((f) => f.id === m.folderId)?.name ?? "Summary" }} eyebrow={m.subject || undefined} title={m.title} description={slides.length ? `${slides.length} key points, explained simply` : undefined} className="mb-5" />
 
       {slides.length > 3 && (
         <nav aria-label="Key points" className="-mx-1 mb-5 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
@@ -212,7 +283,7 @@ export function SummaryLecturePage({ id }: { id: string }) {
 
       {busy && (
         <div className={cn("flex items-center justify-center gap-2.5 text-[14px] text-muted-foreground", slides.length ? "py-6" : "min-h-[40vh]")} aria-live="polite">
-          <Spinner className="size-4" /> {slides.length ? "Explaining the rest…" : "Explaining each slide simply…"}
+          <Spinner className="size-4" /> {slides.length ? "Explaining the rest…" : "Explaining each slide…"}
         </div>
       )}
       {!busy && error && (
