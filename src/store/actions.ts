@@ -1,4 +1,5 @@
 import { isJunkCard, isJunkQuestion } from "@/lib/junk-card";
+import { sameQuestion } from "@/lib/same-question";
 import { emptyData } from "./defaults";
 import { levelInfo } from "@/lib/levels";
 import { showMoment } from "@/lib/moments";
@@ -179,6 +180,23 @@ export const actions = {
       materials: s.materials.map((m) => (m.id === materialId && m.written?.some((w) => out.has(w.id)) ? { ...m, written: m.written.filter((w) => !out.has(w.id)) } : m)),
     }));
   },
+  /** Removes repeated questions in each lecture: keeps the first one (and its progress). */
+  dropRepeatedQuestions() {
+    const s0 = getState();
+    const drop = new Set<ID>();
+    const byMat = new Map<ID, Question[]>();
+    for (const q of s0.questions) if (q.pool) byMat.set(q.materialId, [...(byMat.get(q.materialId) ?? []), q]);
+    byMat.forEach((qs) => {
+      const kept: Question[] = [];
+      // Ones already answered are kept first, so no progress is lost.
+      for (const q of [...qs].sort((a, b) => b.stats.attempts - a.stats.attempts || a.createdAt.localeCompare(b.createdAt))) {
+        if (kept.some((k) => sameQuestion(k, q))) drop.add(q.id);
+        else kept.push(q);
+      }
+    });
+    if (!drop.size) return;
+    setState((s) => ({ ...s, questions: s.questions.filter((q) => !drop.has(q.id)) }));
+  },
   /** Removes flashcard decks left empty by lectures deleted before decks were tidied up with them. */
   dropOrphanDecks() {
     const s0 = getState();
@@ -279,7 +297,9 @@ export const actions = {
       const old = s.questions.filter((q) => q.materialId === materialId && q.pool);
       const key = (q: { prompt: string; answer: string }) => `${q.prompt}|${q.answer}`;
       const oldBy = new Map(old.map((q) => [key(q), q]));
-      const next: Question[] = drafts.map((d) => {
+      const kept: QuestionDraft[] = [];
+      for (const d of drafts) if (!kept.some((k) => sameQuestion(k, d))) kept.push(d);
+      const next: Question[] = kept.map((d) => {
         const prev = oldBy.get(key(d));
         return prev ? { ...prev, ...d, id: prev.id, stats: prev.stats, createdAt: prev.createdAt } : { ...d, id: uid("q"), createdAt: now, stats: { attempts: 0, correct: 0 } };
       });
@@ -306,12 +326,12 @@ export const actions = {
     const now = nowISO();
     let added = 0;
     setState((s) => {
-      const have = new Set(s.questions.filter((q) => q.materialId === materialId && q.pool).map((q) => q.prompt.trim().toLowerCase()));
+      // Never the same question twice (the same fact asked a clearly different way is fine).
+      const have: QuestionDraft[] = s.questions.filter((q) => q.materialId === materialId && q.pool);
       const fresh: Question[] = [];
       for (const d of drafts) {
-        const k = d.prompt.trim().toLowerCase();
-        if (have.has(k)) continue;
-        have.add(k);
+        if (have.some((h) => sameQuestion(h, d))) continue;
+        have.push(d);
         fresh.push({ ...d, id: uid("q"), createdAt: now, stats: { attempts: 0, correct: 0 } });
       }
       added = fresh.length;

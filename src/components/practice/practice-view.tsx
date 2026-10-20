@@ -236,12 +236,17 @@ export function PracticeView({ material, mixed, topicIds, onTopicsChange, onOpen
     } else setStreak(0);
     actions.answerPractice(q.id, ok);
     if (!ok) {
-      // Ask it again a few questions later.
+      // A few questions later, test the same part again with a differently worded question from the same
+      // slide (never the identical question straight back). If there isn't one, it comes round next time.
       setQueue((qu) => {
         const later = qu.slice(pos + 1);
-        if (later.slice(0, 6).includes(q.id)) return qu;
+        const page = q.sources[0]?.pageId;
+        if (!page) return qu;
+        const seen = new Set(qu.slice(0, pos + 1));
+        const sib = topicQs.find((x) => x.id !== q.id && x.sources[0]?.pageId === page && !seen.has(x.id) && !x.stats.lastResult);
+        if (!sib || later.slice(0, 6).includes(sib.id)) return qu;
         const at = Math.min(qu.length, pos + 4);
-        return [...qu.slice(0, at), q.id, ...qu.slice(at)];
+        return [...qu.slice(0, at), sib.id, ...qu.slice(at).filter((id) => id !== sib.id)];
       });
     }
     // Ready for Enter / → without scrolling the page.
