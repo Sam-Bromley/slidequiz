@@ -3,6 +3,8 @@ import { BigMoments } from "@/components/layout/big-moment";
 import { actions } from "@/store/actions";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { initAds } from "@/services/ads";
+import { useAccount } from "@/services/account";
+import { updateAllQuestions } from "@/services/ai/cloud";
 import { EssayPage, EssaysPage } from "@/pages/essays";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -133,6 +135,13 @@ export function App() {
   useEffect(() => actions.dropJunkCards(), [data.flashcards.length]);
   // And practice questions about the course itself (lecture recording, deadlines) rather than the subject.
   useEffect(() => actions.dropJunkQuestions(), [data.questions.length]);
+  // Older lectures: bring their questions up to the current standard, quietly in the background.
+  const signedIn = !!useAccount().user;
+  useEffect(() => {
+    if (!signedIn) return;
+    const t = setTimeout(() => void updateAllQuestions(), 4000);
+    return () => clearTimeout(t);
+  }, [signedIn, data.materials.length]);
   useEffect(() => initAds(), []);
   useGlobalShortcuts();
   useClickBounce();

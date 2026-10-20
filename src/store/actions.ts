@@ -160,8 +160,24 @@ export const actions = {
   /** Removes practice questions about the course rather than the subject (lecture recording, deadlines, the room). */
   dropJunkQuestions() {
     const s0 = getState();
-    if (!s0.questions.some((q) => q.pool && isJunkQuestion(q.prompt, q.answer ?? ""))) return;
-    setState((s) => ({ ...s, questions: s.questions.filter((q) => !(q.pool && isJunkQuestion(q.prompt, q.answer ?? ""))) }));
+    const badMcq = s0.questions.some((q) => q.pool && isJunkQuestion(q.prompt, q.answer ?? ""));
+    const badWritten = s0.materials.some((m) => (m.written ?? []).some((w) => isJunkQuestion(w.question, w.model)));
+    if (!badMcq && !badWritten) return;
+    setState((s) => ({
+      ...s,
+      questions: s.questions.filter((q) => !(q.pool && isJunkQuestion(q.prompt, q.answer ?? ""))),
+      materials: badWritten ? s.materials.map((m) => (m.written?.some((w) => isJunkQuestion(w.question, w.model)) ? { ...m, written: m.written.filter((w) => !isJunkQuestion(w.question, w.model)) } : m)) : s.materials,
+    }));
+  },
+  /** Removes questions (multiple choice and written) found not to be about the subject. */
+  removeOffTopic(materialId: ID, ids: ID[]) {
+    if (!ids.length) return;
+    const out = new Set(ids);
+    setState((s) => ({
+      ...s,
+      questions: s.questions.filter((q) => !(q.materialId === materialId && out.has(q.id))),
+      materials: s.materials.map((m) => (m.id === materialId && m.written?.some((w) => out.has(w.id)) ? { ...m, written: m.written.filter((w) => !out.has(w.id)) } : m)),
+    }));
   },
   /** Removes flashcard decks left empty by lectures deleted before decks were tidied up with them. */
   dropOrphanDecks() {

@@ -490,6 +490,66 @@ export async function fillQuestionGaps(id: ID): Promise<number> {
   return added;
 }
 
+/** Bump to check every lecture's questions again (when the standard for what counts as content changes). */
+const REVIEW_VERSION = "1";
+const reviewing = new Set<ID>();
+/**
+ * Brings an older lecture's questions up to the current standard: anything not about the subject itself
+ * (admin, the module, the lecturer, recordings, assessment) is removed. Fair use, once per lecture
+ * (again only if its questions change). Runs in the background.
+ */
+export async function reviewQuestions(id: ID): Promise<number> {
+  const m = getState().materials.find((x) => x.id === id);
+  if (!m || reviewing.has(id) || !isLoggedIn() || m.ai?.status !== "done" || !m.ai.questions) return 0;
+  const mcq = getState().questions.filter((q) => q.materialId === id && q.pool);
+  const written = m.written ?? [];
+  const sig = `${REVIEW_VERSION}:${mcq.length}:${written.length}`;
+  if (m.ai.reviewed === sig) return 0;
+  const all = [...mcq.map((q) => ({ id: q.id, q: q.prompt, a: q.answer ?? "" })), ...written.map((w) => ({ id: w.id, q: w.question, a: w.model.slice(0, 200) }))];
+  reviewing.add(id);
+  let removed = 0;
+  try {
+    const junk: ID[] = [];
+    for (let i = 0; i < all.length; i += 60) {
+      const part = all.slice(i, i + 60);
+      const r = await call<{ junk: string[] }>("reviewQuestions", { title: m.title, pages: [], questions: part });
+      const ids = new Set(part.map((x) => x.id));
+      junk.push(...(Array.isArray(r.junk) ? r.junk : []).filter((x) => ids.has(x)));
+    }
+    // Never strip a lecture bare on one check: if most were flagged, something went wrong, so leave them.
+    if (junk.length && junk.length < all.length * 0.5) {
+      actions.removeOffTopic(id, junk);
+      removed = junk.length;
+    }
+    const now = getState().materials.find((x) => x.id === id);
+    if (now?.ai) {
+      const left = getState().questions.filter((q) => q.materialId === id && q.pool).length;
+      actions.updateMaterial(id, { ai: { ...now.ai, reviewed: `${REVIEW_VERSION}:${left}:${(now.written ?? []).length}` } });
+    }
+  } catch {
+    /* tried again next time */
+  } finally {
+    reviewing.delete(id);
+  }
+  return removed;
+}
+
+let tidyingAll = false;
+/** Every lecture with questions: fill slides that have none, then remove anything not about the subject. One lecture at a time. */
+export async function updateAllQuestions() {
+  if (tidyingAll || !isLoggedIn()) return;
+  tidyingAll = true;
+  try {
+    for (const m of [...getState().materials]) {
+      if (m.ai?.status !== "done" || !m.ai.questions) continue;
+      await fillQuestionGaps(m.id).catch(() => 0);
+      await reviewQuestions(m.id).catch(() => 0);
+    }
+  } finally {
+    tidyingAll = false;
+  }
+}
+
 const explaining = new Map<string, Promise<"ok" | "admin">>();
 /**
  * The Summary tab: a key point and a simple, step-by-step explanation for each content slide (admin slides

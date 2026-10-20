@@ -247,6 +247,8 @@ export interface MaterialAI {
   error?: string;
   /** Older lectures: the slides (by `key`) already checked for slides with no questions, and filled in. */
   gaps?: string;
+  /** Questions checked for anything that isn't about the subject (version and how many there were). */
+  reviewed?: string;
   at: string;
 }
 

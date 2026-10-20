@@ -142,6 +142,26 @@ Reply with JSON only:
 // Questions for slides an older lecture has none on (same writer, fair use rather than credits).
 TASKS.gapQuestions = TASKS.questions;
 
+// Older lectures: finds questions that aren't about the subject itself, so they can be removed (fair use).
+TASKS.reviewQuestions = {
+  maxTokens: 2000,
+  system: `${STYLE}
+You check revision questions for a student's lecture.`,
+  prompt: (b: any) => {
+    const qs = (Array.isArray(b.questions) ? b.questions : [])
+      .slice(0, 80)
+      .map((q: any) => `[${String(q?.id ?? "").slice(0, 40)}] ${String(q?.q ?? "").slice(0, 400)} (answer: ${String(q?.a ?? "").slice(0, 200)})`)
+      .join("\n");
+    return `Lecture: "${String(b.title ?? "").slice(0, 200)}"
+Questions (each starts with [id]):
+${qs}
+
+List the ids of every question that is NOT about the subject content itself, i.e. one a student could never be asked in an exam on this subject. That includes questions about: the lecture, module or course itself (what it covers, its aims, learning outcomes, what comes next week), the lecturer or speaker, lecture recordings, the room or timetable, assessment, coursework, deadlines, reading lists, slide numbers or layout, "Any questions?", thank-you or title slides, university rules or support services.
+Keep every question that tests real subject knowledge, even if it is easy or oddly worded.
+Reply with JSON only: {"junk":["id", …]} (an empty list if all are fine).`;
+  },
+};
+
 /* ---------------------------------------------------------------- essays */
 
 const LEVEL: Record<string, string> = { gcse: "GCSE", alevel: "A-level", uni: "university" };
