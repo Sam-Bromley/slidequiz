@@ -1,5 +1,5 @@
 import { isJunkCard, isJunkQuestion } from "@/lib/junk-card";
-import { sameQuestion } from "@/lib/same-question";
+import { sameQuestion, slideCap } from "@/lib/same-question";
 import { emptyData } from "./defaults";
 import { levelInfo } from "@/lib/levels";
 import { showMoment } from "@/lib/moments";
@@ -194,6 +194,37 @@ export const actions = {
         else kept.push(q);
       }
     });
+    if (!drop.size) return;
+    setState((s) => ({ ...s, questions: s.questions.filter((q) => !drop.has(q.id)) }));
+  },
+  /**
+   * Keeps each slide's questions in proportion to what's on it (see slideCap). Keeps the ones already
+   * answered first (so no progress is lost), then the ones with different answers, then the oldest.
+   */
+  trimPerSlide() {
+    const s0 = getState();
+    const drop = new Set<ID>();
+    for (const m of s0.materials) {
+      const text = new Map(m.pages.map((p) => [p.id, `${p.title} ${p.text}`]));
+      const bySlide = new Map<ID, Question[]>();
+      for (const q of s0.questions) {
+        const page = q.sources[0]?.pageId;
+        if (q.materialId !== m.id || !q.pool || !page || !text.has(page)) continue;
+        bySlide.set(page, [...(bySlide.get(page) ?? []), q]);
+      }
+      bySlide.forEach((qs, page) => {
+        const cap = slideCap(text.get(page) ?? "");
+        if (qs.length <= cap) return;
+        const answer = (q: Question) => (q.options && q.correctIndex != null ? q.options[q.correctIndex] : q.answer).trim().toLowerCase();
+        const sorted = [...qs].sort((a, b) => b.stats.attempts - a.stats.attempts || a.createdAt.localeCompare(b.createdAt));
+        const keep: Question[] = [];
+        // First pass: one per different answer; second pass: fill up to the cap.
+        for (const q of sorted) if (keep.length < cap && !keep.some((k) => answer(k) === answer(q))) keep.push(q);
+        for (const q of sorted) if (keep.length < cap && !keep.includes(q)) keep.push(q);
+        // Never throw away a question that's been answered.
+        for (const q of qs) if (!keep.includes(q) && !q.stats.attempts) drop.add(q.id);
+      });
+    }
     if (!drop.size) return;
     setState((s) => ({ ...s, questions: s.questions.filter((q) => !drop.has(q.id)) }));
   },

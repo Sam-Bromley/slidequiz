@@ -36,3 +36,12 @@ export function sameQuestion(a: Q, b: Q) {
   if (!ans || ans !== words(answerOf(b)).join(" ")) return false;
   return overlap(a.prompt, b.prompt) >= 0.5;
 }
+
+/**
+ * How many questions a slide is worth, from how much is on it: a short slide 1 or 2, a full one up to 4.
+ * Keeps a lecture's questions in proportion (one per fact, not the same fact asked again and again).
+ */
+export function slideCap(text: string) {
+  const n = text.replace(/\s+/g, " ").trim().length;
+  return Math.max(1, Math.min(4, Math.round(n / 220) + 1));
+}

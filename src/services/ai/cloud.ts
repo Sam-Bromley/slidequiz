@@ -524,7 +524,7 @@ export async function addBasicQuestions(id: ID): Promise<number> {
 }
 
 /** Bump to check every lecture's questions again (when the standard for what counts as content changes). */
-const REVIEW_VERSION = "1";
+const REVIEW_VERSION = "2";
 const reviewing = new Set<ID>();
 /**
  * Brings an older lecture's questions up to the current standard: anything not about the subject itself

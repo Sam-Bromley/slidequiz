@@ -136,7 +136,10 @@ export function App() {
   // And practice questions about the course itself (lecture recording, deadlines) rather than the subject.
   useEffect(() => actions.dropJunkQuestions(), [data.questions.length]);
   // Never the same question twice in a lecture.
-  useEffect(() => actions.dropRepeatedQuestions(), [data.questions.length]);
+  useEffect(() => {
+    actions.dropRepeatedQuestions();
+    actions.trimPerSlide();
+  }, [data.questions.length]);
   // Older lectures: bring their questions up to the current standard, quietly in the background.
   const signedIn = !!useAccount().user;
   useEffect(() => {
