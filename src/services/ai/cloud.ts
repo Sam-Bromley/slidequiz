@@ -490,6 +490,39 @@ export async function fillQuestionGaps(id: ID): Promise<number> {
   return added;
 }
 
+const basicing = new Set<ID>();
+/** Older lectures: adds simple knowledge questions ("What is X?") for the key terms, once per lecture (fair use). */
+export async function addBasicQuestions(id: ID): Promise<number> {
+  const m = getState().materials.find((x) => x.id === id);
+  if (!m || basicing.has(id) || !isLoggedIn() || m.ai?.status !== "done" || !m.ai.questions || !aiReady(m)) return 0;
+  const key = aiKey(m);
+  if (m.ai.basics === key) return 0;
+  const pages = cloudPages(m).filter((p) => `${p.title} ${p.text}`.trim().length > 80 && !SKIP_TITLE.test(p.title.trim()));
+  basicing.add(id);
+  let added = 0;
+  try {
+    const topicOf = new Map(m.pages.map((p) => [p.id, p.topicId]));
+    const labelOf = new Map(m.pages.map((p) => [p.id, p.label]));
+    for (const c of chunks(pages)) {
+      const ids = new Set(c.map((p) => p.id));
+      const avoid = getState()
+        .questions.filter((q) => q.materialId === id && q.pool && q.sources.some((s2) => ids.has(s2.pageId)))
+        .map((q) => q.prompt)
+        .slice(-80);
+      const r = await call<{ questions: CloudQuestion[] }>("basicQuestions", { title: m.title, pages: c, avoid, basics: true });
+      const drafts = (r.questions ?? []).filter((q) => ids.has(q.pageId)).flatMap((q) => toDraft(q, m, topicOf, labelOf));
+      added += actions.addPracticeQuestions(id, drafts);
+    }
+    const now = getState().materials.find((x) => x.id === id);
+    if (now?.ai) actions.updateMaterial(id, { ai: { ...now.ai, basics: key } });
+  } catch {
+    /* tried again next time */
+  } finally {
+    basicing.delete(id);
+  }
+  return added;
+}
+
 /** Bump to check every lecture's questions again (when the standard for what counts as content changes). */
 const REVIEW_VERSION = "1";
 const reviewing = new Set<ID>();
@@ -543,6 +576,7 @@ export async function updateAllQuestions() {
     for (const m of [...getState().materials]) {
       if (m.ai?.status !== "done" || !m.ai.questions) continue;
       await fillQuestionGaps(m.id).catch(() => 0);
+      await addBasicQuestions(m.id).catch(() => 0);
       await reviewQuestions(m.id).catch(() => 0);
     }
   } finally {
