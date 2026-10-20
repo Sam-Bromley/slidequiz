@@ -34,6 +34,6 @@ export function freshStart() {
     return;
   }
   if (!fresh) return;
-  const m = location.hash.match(/^#\/(materials|flashcards|essays)\/[^/?#]+/);
+  const m = location.hash.match(/^#\/(materials|flashcards|essays|summary)\/[^/?#]+/);
   if (m) history.replaceState(null, "", `#/${m[1]}`);
 }

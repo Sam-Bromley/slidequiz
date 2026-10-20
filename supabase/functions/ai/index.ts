@@ -116,6 +116,27 @@ Reply with JSON only: {"answer":"…","pageIds":["ids of the slides you used"]}`
   },
 };
 
+// Simple, slide-by-slide explanations for the Summary tab (fair use rather than credits).
+TASKS.explain = {
+  maxTokens: 16000,
+  system: `${STYLE}
+You are a brilliant, friendly tutor who makes hard lecture content easy to follow for a student revising it.`,
+  prompt: (b: any, pages: string) => `Lecture: "${String(b.title ?? "").slice(0, 200)}"
+Slides (each starts with [id]):
+${pages}
+
+For EACH slide that teaches subject content, write a short, easy-to-follow explanation. Skip slides that are only admin or housekeeping (title slides, "Any questions?", thank-you slides, learning objectives, contents, reading lists, lecture recording, assessment, timetable) and slides with almost nothing on them: leave them out completely.
+For each slide:
+- "title": the slide's idea in a few words.
+- "keyPoint": the one thing to remember from it, one short sentence.
+- "steps": 2 to 5 numbered points that walk through the idea in order. Each has "point" (one short, plain sentence) and "details": 1 to 3 short bullets that explain it simply. Define every technical term the first time it appears as "Term = plain meaning" (e.g. "MHC Class I = a molecule that displays small pieces of proteins on the cell surface"). Use an everyday comparison where it genuinely helps (e.g. "Think of MHC I as a display board showing what is happening inside the cell").
+- "example": one or two sentences with a concrete example, starting "For example," (or "" if none fits).
+- "remember": 2 to 4 memory hooks, each {"term","role","note"}: the term, a 1 to 3 word everyday role for it (e.g. "Display board", "Detector", "Killer"), and a short note on what it does.
+Write for someone seeing this for the first time: short sentences, plain words, no waffle, accurate. Only explain what is on the slide (with the background needed to understand it).
+Reply with JSON only:
+{"slides":[{"pageId":"…","title":"…","keyPoint":"…","steps":[{"point":"…","details":["…"]}],"example":"…","remember":[{"term":"…","role":"…","note":"…"}]}]}`,
+};
+
 // Questions for slides an older lecture has none on (same writer, fair use rather than credits).
 TASKS.gapQuestions = TASKS.questions;
 

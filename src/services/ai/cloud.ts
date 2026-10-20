@@ -19,7 +19,7 @@ import { referencesText, type PageInfo } from "@/services/references";
 import { buildNotes, lineKey } from "@/services/notes";
 import { tidyLine, tidyTerm } from "@/lib/tidy";
 import { isJunkCard, isJunkQuestion } from "@/lib/junk-card";
-import type { NoteMark, WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
+import type { ExplainedSlide, NoteMark, WrittenMark, WrittenQuestion, AINoteSection, EssayDraft, EssayFeedback, ID, Material, SourceRef, Topic } from "@/types/models";
 import type { QuestionDraft } from "./types";
 import { aiKey, aiReady } from "./ai-key";
 export { aiKey, aiReady, aiQuestionsReady, usesBuiltIn } from "./ai-key";
@@ -488,6 +488,46 @@ export async function fillQuestionGaps(id: ID): Promise<number> {
     filling.delete(id);
   }
   return added;
+}
+
+const explaining = new Map<ID, Promise<void>>();
+/**
+ * The Summary tab: a key point and a simple, step-by-step explanation for each content slide (admin slides
+ * are left out). Written the first time the lecture is opened there, a piece at a time so it shows as it
+ * arrives, and kept until the slides change. Fair use rather than credits.
+ */
+export function explainMaterial(id: ID): Promise<void> {
+  const m = getState().materials.find((x) => x.id === id);
+  if (!m) return Promise.resolve();
+  const key = aiKey(m);
+  if (m.explained?.key === key && m.explained.slides.length) return Promise.resolve();
+  if (explaining.has(id)) return explaining.get(id)!;
+  const job = (async () => {
+    const pages = cloudPages(m).filter((p) => `${p.title} ${p.text}`.trim().length > 40 && !SKIP_TITLE.test(p.title.trim()));
+    const order = new Map(m.pages.map((p, i) => [p.id, i]));
+    let got: ExplainedSlide[] = [];
+    const save = () => actions.updateMaterial(id, { explained: { key, slides: [...got].sort((a, b) => (order.get(a.pageId) ?? 0) - (order.get(b.pageId) ?? 0)), at: nowISO() } });
+    await runLimited(chunks(pages), 4, async (c) => {
+      const r = await call<{ slides: ExplainedSlide[] }>("explain", { title: m.title, pages: c });
+      const ids = new Set(c.map((p) => p.id));
+      const clean = (r.slides ?? [])
+        .filter((x) => x && ids.has(x.pageId) && x.keyPoint?.trim() && Array.isArray(x.steps) && x.steps.length)
+        .filter((x) => !isJunkQuestion(x.title ?? "", x.keyPoint))
+        .map((x) => ({
+          pageId: x.pageId,
+          title: String(x.title ?? "").trim(),
+          keyPoint: String(x.keyPoint).trim(),
+          steps: x.steps.filter((st) => st?.point?.trim()).map((st) => ({ point: String(st.point).trim(), details: (Array.isArray(st.details) ? st.details : []).map((d) => String(d).trim()).filter(Boolean) })),
+          example: String(x.example ?? "").trim() || undefined,
+          remember: (Array.isArray(x.remember) ? x.remember : []).filter((r2) => r2?.term && r2?.role).map((r2) => ({ term: String(r2.term).trim(), role: String(r2.role).trim(), note: String(r2.note ?? "").trim() })),
+        }));
+      got = [...got.filter((g) => !ids.has(g.pageId)), ...clean];
+      save();
+    });
+    if (!got.length) throw new AIError("Nothing to explain came back. Try again.");
+  })().finally(() => explaining.delete(id));
+  explaining.set(id, job);
+  return job;
 }
 
 /** True when a question's options aren't all about the same length (matches the check on the server). */

@@ -32,6 +32,7 @@ import { MixedPracticePage } from "@/pages/practice";
 import { PrivacyPage } from "@/pages/privacy";
 import { PlusPage } from "@/pages/plus";
 import { StatsPage } from "@/pages/stats";
+import { SummaryLecturePage, SummaryPage } from "@/pages/summary";
 
 type Route = { pattern: string; render: (p: Record<string, string>) => React.ReactNode; bare?: boolean };
 
@@ -56,6 +57,8 @@ const ROUTES: Route[] = [
   { pattern: "/quiz/:id/results", render: (p) => <QuizResultsPage id={p.id} /> },
   { pattern: "/history", render: () => <HistoryPage /> },
   { pattern: "/stats", render: () => <StatsPage /> },
+  { pattern: "/summary", render: () => <SummaryPage /> },
+  { pattern: "/summary/:id", render: (p) => <SummaryLecturePage key={p.id} id={p.id} /> },
   { pattern: "/ask", render: () => <AskPage /> },
   { pattern: "/settings", render: () => <SettingsPage /> },
 ];
@@ -110,8 +113,9 @@ function pageTitle(path: string, query: URLSearchParams, data: ReturnType<typeof
   if (first === "materials" && id) return data.materials.find((m) => m.id === id)?.title ?? "Material";
   if (first === "materials") return data.folders.find((f) => f.id === query.get("f"))?.name ?? "Notes";
   if (first === "flashcards" && id) return (data.decks ?? []).find((d) => d.id === id)?.name ?? "Flashcards";
+  if (first === "summary" && id) return `${data.materials.find((m) => m.id === id)?.title ?? "Lecture"} summary`;
   if (first === "practice") return `Practise ${data.folders.find((f) => f.id === query.get("f"))?.name ?? ""}`.trim();
-  const names: Record<string, string> = { upload: "Add material", flashcards: "Flashcards", settings: "Settings", privacy: "Privacy policy", plus: "SlideQuiz Pro", pro: "SlideQuiz Pro", generate: "Make questions", history: "History", ask: "Ask" };
+  const names: Record<string, string> = { summary: "Summary", upload: "Add material", flashcards: "Flashcards", settings: "Settings", privacy: "Privacy policy", plus: "SlideQuiz Pro", pro: "SlideQuiz Pro", generate: "Make questions", history: "History", ask: "Ask" };
   return names[first] ?? "";
 }
 

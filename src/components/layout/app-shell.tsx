@@ -240,7 +240,7 @@ function viaList(list: string, target: string) {
 function useNavTo() {
   const data = useData();
   const { path } = useLocation();
-  const items = (key: "flashcards" | "notes" | "essays") => (key === "flashcards" ? data.decks ?? [] : key === "notes" ? data.materials : data.essayDrafts ?? []);
+  const items = (key: "flashcards" | "notes" | "essays" | "summary") => (key === "flashcards" ? data.decks ?? [] : key === "notes" || key === "summary" ? data.materials : data.essayDrafts ?? []);
   return (n: (typeof NAV)[number]) => navTarget(n, path, sessionGet<LastOpen>(LAST_OPEN) ?? undefined, items);
 }
 
@@ -249,7 +249,7 @@ function BottomNav() {
   const navTo = useNavTo();
   return (
     <nav data-no-bounce className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/70 backdrop-blur-xl lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }} aria-label="Primary">
-      <ul className="mx-auto grid h-16 max-w-lg grid-cols-5">
+      <ul className="mx-auto grid h-16 max-w-lg grid-cols-6">
         {MOBILE_TABS.map((n) => {
           const active = n.match(path);
           return (

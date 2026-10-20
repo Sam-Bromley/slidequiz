@@ -99,7 +99,7 @@ export interface Settings {
   /** Show a quote above the box on Home (on by default). */
   showQuote?: boolean;
   /** The flashcard deck, lecture and essay last opened: the Flashcards, Notes and Essays tabs open straight to them. */
-  lastOpen?: { flashcards?: string; notes?: string; essays?: string; at?: { flashcards?: string; notes?: string; essays?: string }; /** The exact page last on in each section (a lecture, or the list or a folder). */ place?: { flashcards?: string; notes?: string; essays?: string } };
+  lastOpen?: { flashcards?: string; notes?: string; essays?: string; summary?: string; at?: { flashcards?: string; notes?: string; essays?: string; summary?: string }; /** The exact page last on in each section (a lecture, or the list or a folder). */ place?: { flashcards?: string; notes?: string; essays?: string; summary?: string } };
   /** A soft chime for a right answer (on unless turned off). */
   soundEffects?: boolean;
 }
@@ -197,6 +197,8 @@ export interface Material {
   folderId?: ID | null;
   /** Colour key (see ITEM_COLOURS) for its card in My Materials (none = plain). */
   color?: string;
+  /** The Summary tab: a key point and a simple explanation for each content slide (made when first opened). */
+  explained?: Explained;
   /** Width in My Materials, in pixels (drag the right edge to change). */
   width?: number;
   /** Position in My Materials when sorted by "Your order" (drag to reorder). */
@@ -637,5 +639,22 @@ export interface WrittenQuestion {
   /** Latest attempt (and the best mark so far). */
   last?: WrittenMark;
   best?: number;
+  at: ISODate;
+}
+
+/** One slide explained simply, for the Summary tab. */
+export interface ExplainedSlide {
+  pageId: ID;
+  title: string;
+  keyPoint: string;
+  steps: { point: string; details: string[] }[];
+  example?: string;
+  remember?: { term: string; role: string; note: string }[];
+}
+
+export interface Explained {
+  /** The slides (and text) these were written from; if they change, they're written again. */
+  key: string;
+  slides: ExplainedSlide[];
   at: ISODate;
 }

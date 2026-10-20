@@ -1,4 +1,4 @@
-import { ChartPie, House, Layers, Library, ListChecks, PenLine, type LucideIcon } from "lucide-react";
+import { ChartPie, House, Layers, Library, Lightbulb, ListChecks, PenLine, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -10,6 +10,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { to: "/", label: "Home", icon: House, match: (p) => p === "/" },
   { to: "/materials", label: "Notes", icon: Library, match: (p) => p.startsWith("/materials") || p.startsWith("/upload") || p.startsWith("/generate") || p.startsWith("/ask") },
+  { to: "/summary", label: "Summary", icon: Lightbulb, match: (p) => p.startsWith("/summary") },
   { to: "/flashcards", label: "Flashcards", icon: Layers, match: (p) => p.startsWith("/flashcards") },
   { to: "/questions", label: "Questions", icon: ListChecks, match: (p) => p.startsWith("/questions") || p.startsWith("/practice") },
   { to: "/essays", label: "Essays", icon: PenLine, match: (p) => p.startsWith("/essays") },
@@ -20,10 +21,11 @@ const SECTIONS = [
   { to: "/flashcards", key: "flashcards", re: /^\/flashcards\/([^/?#]+)/ },
   { to: "/materials", key: "notes", re: /^\/materials\/([^/?#]+)/ },
   { to: "/essays", key: "essays", re: /^\/essays\/([^/?#]+)/ },
+  { to: "/summary", key: "summary", re: /^\/summary\/([^/?#]+)/ },
 ] as const;
 
-type Key = "flashcards" | "notes" | "essays";
-type LastOpen = { flashcards?: string; notes?: string; essays?: string; at?: Partial<Record<Key, string>>; place?: Partial<Record<Key, string>> };
+type Key = "flashcards" | "notes" | "essays" | "summary";
+type LastOpen = { flashcards?: string; notes?: string; essays?: string; summary?: string; at?: Partial<Record<Key, string>>; place?: Partial<Record<Key, string>> };
 
 /** Which section this page belongs to (its list, a folder, or one item), to come back to the same spot. */
 export function sectionOf(path: string): Key | null {
