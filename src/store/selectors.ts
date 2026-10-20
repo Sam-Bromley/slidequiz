@@ -1,3 +1,4 @@
+import { practiceSet } from "@/services/practice";
 import type { AppData } from "@/services/db/types";
 import type { ID, Material, Question } from "@/types/models";
 
@@ -14,7 +15,8 @@ export function materialCounts(d: AppData, m: Material) {
   return {
     pages: m.pages.length,
     included: m.pages.filter((p) => p.included).length,
-    questions: d.questions.filter((q) => q.materialId === m.id).length,
+    // The questions you can actually practise now (after repeats and off-topic ones are cleared out).
+    questions: practiceSet(d, m.id).length,
     flashcards: d.flashcards.filter((c) => c.materialId === m.id).length,
   };
 }
